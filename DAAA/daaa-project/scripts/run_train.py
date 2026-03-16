@@ -53,19 +53,31 @@ def main() -> None:
     asr_valid_ds = _build_dataset(cfg, cfg["datasets"]["asr_valid"], audio_cfg)
     tokenizer = CharCTCTokenizer()
 
+    exp_id = cfg["experiment"].get("id")
     benchmark_dir = Path(cfg["experiment"]["results_dir"]) / "benchmark_results"
-    partial_path = benchmark_dir / "train_audio_transformer_partial.json"
-    final_path = benchmark_dir / "train_audio_transformer_final.json"
+    filename_suffix = f"_{exp_id}" if exp_id else ""
+    partial_path = benchmark_dir / f"train_audio_transformer{filename_suffix}_partial.json"
+    final_path = benchmark_dir / f"train_audio_transformer{filename_suffix}_final.json"
+    pretrain_enabled = bool(cfg["training"]["pretrain"].get("enabled", True))
+
+    print(f"[TRAIN] Experiment id: {exp_id if exp_id else 'N/A'}")
+    print(f"[TRAIN] Pretraining enabled: {pretrain_enabled}")
+    adaptation_label = "MAE pretrain -> CTC fine-tune" if pretrain_enabled else "CTC fine-tune only (no MAE)"
 
     for seed in cfg["experiment"]["seeds"]:
         set_seed(int(seed))
         print(f"\n[TRAIN] Seed={seed} start")
-        pretrain_ckpt, pretrain_metrics = run_pretrain_seed(
-            cfg=cfg,
-            seed=int(seed),
-            dataset=pretrain_ds,
-            force_continue_completed=args.continue_completed,
-        )
+        pretrain_ckpt = None
+        pretrain_metrics = {}
+        if pretrain_enabled:
+            pretrain_ckpt, pretrain_metrics = run_pretrain_seed(
+                cfg=cfg,
+                seed=int(seed),
+                dataset=pretrain_ds,
+                force_continue_completed=args.continue_completed,
+            )
+        else:
+            print(f"[TRAIN] Seed={seed}: skipping MAE pretraining (CTC-only mode).")
         final_ckpt, finetune_metrics = run_finetune_seed(
             cfg=cfg,
             seed=int(seed),
@@ -86,9 +98,22 @@ def main() -> None:
             payload=run_payload,
             model_name=cfg["experiment"]["name"],
             architecture="Audio Transformer Encoder + CTC",
-            adaptation="MAE pretrain -> CTC fine-tune",
+            adaptation=adaptation_label,
         )
         print(f"[TRAIN] Seed={seed} done. Final checkpoint: {final_ckpt}")
+
+        if pretrain_enabled and bool(cfg["experiment"].get("cleanup_pretrain_checkpoints_after_finetune", False)):
+            pretrain_dir = Path(cfg["experiment"]["output_dir"]) / "checkpoints"
+            if exp_id:
+                pretrain_dir = pretrain_dir / str(exp_id)
+            pretrain_dir = pretrain_dir / "pretrain" / f"seed_{seed}"
+            if pretrain_dir.exists():
+                for ckpt_file in pretrain_dir.glob("checkpoint_*.pt"):
+                    ckpt_file.unlink(missing_ok=True)
+                latest_ptr = pretrain_dir / "latest.pt"
+                if latest_ptr.exists():
+                    latest_ptr.unlink()
+                print(f"[TRAIN] Low-storage cleanup applied for pretrain seed={seed}.")
 
     aggregate = aggregate_partial_to_final(partial_path=partial_path, final_path=final_path)
     print(f"[TRAIN] Aggregated metrics written to {final_path}")

@@ -46,6 +46,7 @@ def save_checkpoint(
     best_metric: Optional[float] = None,
     extra: Optional[Dict[str, Any]] = None,
     tag: str = "step",
+    keep_last_checkpoints: Optional[int] = None,
 ) -> Path:
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
     payload = {
@@ -64,6 +65,15 @@ def save_checkpoint(
     torch.save(payload, ckpt_path)
     # Update stable pointer for quick resume.
     torch.save(payload, checkpoint_dir / "latest.pt")
+    if keep_last_checkpoints is not None and keep_last_checkpoints > 0:
+        candidates = sorted(
+            checkpoint_dir.glob("checkpoint_*.pt"),
+            key=lambda p: p.stat().st_mtime,
+        )
+        to_remove = max(0, len(candidates) - int(keep_last_checkpoints))
+        for old_path in candidates[:to_remove]:
+            if old_path.exists():
+                old_path.unlink()
     return ckpt_path
 
 
@@ -95,4 +105,3 @@ def load_checkpoint(
     if payload.get("rng_state") is not None:
         _restore_rng_state(payload["rng_state"])
     return payload
-

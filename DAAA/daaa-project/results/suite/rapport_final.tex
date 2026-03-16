@@ -1,0 +1,278 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{lmodern}
+\usepackage{geometry}
+\usepackage{setspace}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\geometry{margin=2.4cm}
+\onehalfspacing
+
+\title{Rapport Scientifique Final --- Suite E00$\rightarrow$E11}
+\author{Equipe Projet DAAA}
+\date{\today}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+\section{Introduction}
+Ce rapport presente une etude experimentale progressive sur un encodeur Transformer audio pre-entraine par MAE puis adapte en ASR via CTC. 
+L'objectif scientifique est triple: (i) verifier l'apport du pre-entrainement MAE, (ii) identifier les compromis entre WER, temps d'inference et memoire GPU, (iii) produire un benchmark multi-variantes avec consolidation statistique finale.
+
+Contraintes de conception: environnement vdigpu, budget stockage limite (environ 15 Go), execution reproductible, et suivi frugal des ressources.
+
+\paragraph{Choix globaux assumes}
+\begin{itemize}
+\item Screening uniquement sur LibriSpeech pour tenir le budget disque/temps.
+\item VoxPopuli est exclu par defaut de cette suite (extension possible si marge).
+\item Le cache data est conserve entre experiences.
+\end{itemize}
+
+
+\section{Methodologie generale}
+\subsection{Pipeline}
+Le protocole suit les etapes \texttt{make data}, \texttt{make train}, \texttt{make test}. 
+Chaque experience est executee dans un namespace dedie, avec nettoyage des checkpoints intermediaires apres archivage des resultats, tout en conservant le cache de donnees.
+
+\subsection{Metriques}
+Les metriques principales sont:
+\begin{itemize}
+\item WER (Word Error Rate) pour la performance ASR.
+\item Temps d'inference et debit (samples/s) pour la frugalite temporelle.
+\item Memoire GPU pic pour la frugalite materielle.
+\item Taille modele (\#parametres) pour l'analyse capacite/cout.
+\end{itemize}
+
+\subsection{Regles statistiques}
+Le screening initial est realise en 1 seed par variante (E01--E08). 
+La consolidation finale est realisee sur 5 seeds pour les 3 meilleures variantes (E09--E11), avec reporting moyenne~$\pm$~ecart-type.
+
+
+\section{Experience E00 --- Smoke test pipeline}
+\subsection{Choix et justification}
+\textbf{Phase}: smoke\\
+\textbf{Seeds prevues}: 42
+
+Valider la chaine complete data/train/test avec un cout minimal avant toute analyse scientifique.
+
+\paragraph{Hypothese attendue}
+Aucune conclusion de performance; uniquement validation technique et reproductibilite.
+
+\subsection{Resultats}
+\textit{A completer apres execution des runs.}
+
+\subsection{Discussion des resultats}
+\textit{A completer apres analyse des resultats de cette experience.}
+
+
+\section{Experience E01 --- Baseline small MAE}
+\subsection{Choix et justification}
+\textbf{Phase}: screening\\
+\textbf{Seeds prevues}: 42
+
+Etablir un point de reference frugal, stable et compatible avec la contrainte 15 Go.
+
+\paragraph{Hypothese attendue}
+Servir de base comparative pour toutes les autres variantes.
+
+\subsection{Resultats}
+\textit{A completer apres execution des runs.}
+
+\subsection{Discussion des resultats}
+\textit{A completer apres analyse des resultats de cette experience.}
+
+
+\section{Experience E02 --- Small NoMAE}
+\subsection{Choix et justification}
+\textbf{Phase}: screening\\
+\textbf{Seeds prevues}: 42
+
+Isoler l'effet du pre-entrainement MAE en supprimant cette phase.
+
+\paragraph{Hypothese attendue}
+WER degrade vs E01 si MAE apporte une representation utile.
+
+\subsection{Resultats}
+\textit{A completer apres execution des runs.}
+
+\subsection{Discussion des resultats}
+\textit{A completer apres analyse des resultats de cette experience.}
+
+
+\section{Experience E03 --- Tiny MAE}
+\subsection{Choix et justification}
+\textbf{Phase}: screening\\
+\textbf{Seeds prevues}: 42
+
+Tester une architecture plus compacte pour maximiser la frugalite.
+
+\paragraph{Hypothese attendue}
+Moins de memoire/temps, possible degradation WER.
+
+\subsection{Resultats}
+\textit{A completer apres execution des runs.}
+
+\subsection{Discussion des resultats}
+\textit{A completer apres analyse des resultats de cette experience.}
+
+
+\section{Experience E04 --- Base MAE}
+\subsection{Choix et justification}
+\textbf{Phase}: screening\\
+\textbf{Seeds prevues}: 42
+
+Tester une capacite superieure pour evaluer le compromis performance/cout.
+
+\paragraph{Hypothese attendue}
+WER potentiellement meilleur, mais cout memoire/temps plus eleve.
+
+\subsection{Resultats}
+\textit{A completer apres execution des runs.}
+
+\subsection{Discussion des resultats}
+\textit{A completer apres analyse des resultats de cette experience.}
+
+
+\section{Experience E05 --- Small Learned Positional Embeddings}
+\subsection{Choix et justification}
+\textbf{Phase}: screening\\
+\textbf{Seeds prevues}: 42
+
+Comparer sinusoidal vs learned embeddings en gardant le reste fixe.
+
+\paragraph{Hypothese attendue}
+Impact sur la qualite de sequence modeling et le transfert ASR.
+
+\subsection{Resultats}
+\textit{A completer apres execution des runs.}
+
+\subsection{Discussion des resultats}
+\textit{A completer apres analyse des resultats de cette experience.}
+
+
+\section{Experience E06 --- Small Time-Frequency Patching}
+\subsection{Choix et justification}
+\textbf{Phase}: screening\\
+\textbf{Seeds prevues}: 42
+
+Tester un patching plus local en frequence pour enrichir la representation spectrale.
+
+\paragraph{Hypothese attendue}
+Qualite possiblement meilleure sur certains signaux, avec cout calcule plus eleve.
+
+\subsection{Resultats}
+\textit{A completer apres execution des runs.}
+
+\subsection{Discussion des resultats}
+\textit{A completer apres analyse des resultats de cette experience.}
+
+
+\section{Experience E07 --- Small MAE mask 0.40}
+\subsection{Choix et justification}
+\textbf{Phase}: screening\\
+\textbf{Seeds prevues}: 42
+
+Ablation du ratio de masquage vers un regime plus conservateur.
+
+\paragraph{Hypothese attendue}
+Reconstruction plus facile, transfert potentiellement moins robuste.
+
+\subsection{Resultats}
+\textit{A completer apres execution des runs.}
+
+\subsection{Discussion des resultats}
+\textit{A completer apres analyse des resultats de cette experience.}
+
+
+\section{Experience E08 --- Small MAE mask 0.75}
+\subsection{Choix et justification}
+\textbf{Phase}: screening\\
+\textbf{Seeds prevues}: 42
+
+Ablation du ratio de masquage vers un regime plus agressif.
+
+\paragraph{Hypothese attendue}
+Apprentissage plus difficile; possible gain de robustesse ou degradation selon capacite.
+
+\subsection{Resultats}
+\textit{A completer apres execution des runs.}
+
+\subsection{Discussion des resultats}
+\textit{A completer apres analyse des resultats de cette experience.}
+
+
+\section{Experience E09 --- Final Top-1}
+\subsection{Choix et justification}
+\textbf{Phase}: final\\
+\textbf{Seeds prevues}: 42, 123, 456, 789, 1024
+
+Consolidation statistique de la meilleure variante screening (5 seeds).
+
+\paragraph{Hypothese attendue}
+Resultat principal du rapport.
+
+\subsection{Resultats}
+\textit{A completer apres execution des runs.}
+
+\subsection{Discussion des resultats}
+\textit{A completer apres analyse des resultats de cette experience.}
+
+
+\section{Experience E10 --- Final Top-2}
+\subsection{Choix et justification}
+\textbf{Phase}: final\\
+\textbf{Seeds prevues}: 42, 123, 456, 789, 1024
+
+Consolidation statistique de la deuxieme meilleure variante screening.
+
+\paragraph{Hypothese attendue}
+Comparaison robuste contre Top-1.
+
+\subsection{Resultats}
+\textit{A completer apres execution des runs.}
+
+\subsection{Discussion des resultats}
+\textit{A completer apres analyse des resultats de cette experience.}
+
+
+\section{Experience E11 --- Final Top-3}
+\subsection{Choix et justification}
+\textbf{Phase}: final\\
+\textbf{Seeds prevues}: 42, 123, 456, 789, 1024
+
+Consolidation statistique de la troisieme meilleure variante screening.
+
+\paragraph{Hypothese attendue}
+Completer le benchmark multi-modeles final.
+
+\subsection{Resultats}
+\textit{A completer apres execution des runs.}
+
+\subsection{Discussion des resultats}
+\textit{A completer apres analyse des resultats de cette experience.}
+
+
+\section{Consolidation Top-3 (E09--E11)}
+\subsection{Tableau final principal}
+\textit{A completer: tableau mean $\pm$ std pour Top-1/Top-2/Top-3.}
+
+\subsection{Visualisations prevues}
+\begin{itemize}
+\item Courbe WER par experience (E01 $\rightarrow$ E11).
+\item Frontiere de Pareto WER vs runtime inference.
+\item Frontiere de Pareto WER vs memoire GPU.
+\end{itemize}
+\textit{Inserer ici les figures et l'interpretation scientifique associee.}
+
+
+\section{Limites et menaces a la validite}
+\textit{A completer: limites compute/stockage, risques de variance, biais de selection des variantes, validite externe.}
+
+\section{Conclusion}
+\textit{A completer: synthese finale, reponse aux hypotheses, recommandations pour extension VoxPopuli et/ou TTS.}
+
+\end{document}

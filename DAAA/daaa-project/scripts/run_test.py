@@ -18,7 +18,11 @@ def parse_args() -> argparse.Namespace:
 
 
 def _find_seed_checkpoint(cfg: Dict[str, Any], seed: int) -> Path:
-    root = Path(cfg["experiment"]["output_dir"]) / "checkpoints" / "finetune" / f"seed_{seed}"
+    root = Path(cfg["experiment"]["output_dir"]) / "checkpoints"
+    exp_id = cfg["experiment"].get("id")
+    if exp_id:
+        root = root / str(exp_id)
+    root = root / "finetune" / f"seed_{seed}"
     best = root / "ctc_best.pt"
     final = root / "ctc_final.pt"
     if best.exists():
@@ -87,10 +91,16 @@ def main() -> None:
         test_datasets[dataset_label] = _load_audio_dataset(cfg, spec, audio_cfg)
         print(f"[TEST] Loaded {dataset_label} with {len(test_datasets[dataset_label])} samples.")
 
+    exp_id = cfg["experiment"].get("id")
+    filename_suffix = f"_{exp_id}" if exp_id else ""
     benchmark_dir = Path(cfg["experiment"]["results_dir"]) / "benchmark_results"
-    partial_path = benchmark_dir / "asr_benchmark_partial.json"
-    final_path = benchmark_dir / "asr_benchmark_final.json"
-    dataset_breakdown_path = benchmark_dir / "asr_benchmark_by_dataset_final.json"
+    partial_path = benchmark_dir / f"asr_benchmark{filename_suffix}_partial.json"
+    final_path = benchmark_dir / f"asr_benchmark{filename_suffix}_final.json"
+    dataset_breakdown_path = benchmark_dir / f"asr_benchmark_by_dataset{filename_suffix}_final.json"
+
+    print(f"[TEST] Experiment id: {exp_id if exp_id else 'N/A'}")
+    pretrain_enabled = bool(cfg["training"]["pretrain"].get("enabled", True))
+    adaptation_label = "MAE pretrain -> CTC fine-tune" if pretrain_enabled else "CTC fine-tune only (no MAE)"
 
     dataset_runs: Dict[str, Dict[str, Dict[str, float]]] = {k: {} for k in test_datasets.keys()}
 
@@ -126,7 +136,7 @@ def main() -> None:
             payload=overall,
             model_name=cfg["experiment"]["name"],
             architecture="Audio Transformer Encoder + CTC",
-            adaptation="MAE pretrain -> CTC fine-tune",
+            adaptation=adaptation_label,
         )
 
     aggregate_partial_to_final(partial_path=partial_path, final_path=final_path)
@@ -137,12 +147,12 @@ def main() -> None:
     tables_dir = Path(cfg["experiment"]["results_dir"]) / "tables"
     write_final_table(
         final_json_path=final_path,
-        table_md_path=tables_dir / "asr_overall_table.md",
+        table_md_path=tables_dir / f"asr_overall_table{filename_suffix}.md",
         title="ASR Overall Benchmark (5 seeds)",
     )
     write_dataset_breakdown_table(
         dataset_final_json_path=dataset_breakdown_path,
-        table_md_path=tables_dir / "asr_dataset_breakdown.md",
+        table_md_path=tables_dir / f"asr_dataset_breakdown{filename_suffix}.md",
         title="ASR Dataset Breakdown (5 seeds)",
     )
     print(f"[TEST] Aggregated files: {final_path} and {dataset_breakdown_path}")

@@ -79,6 +79,15 @@ def _build_scheduler(optimizer: torch.optim.Optimizer, total_steps: int):
     return torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=total_steps)
 
 
+def _checkpoint_root(cfg: Dict[str, Any], stage: str, seed: int) -> Path:
+    exp = cfg["experiment"]
+    exp_id = exp.get("id")
+    base = Path(exp["output_dir"]) / "checkpoints"
+    if exp_id:
+        base = base / str(exp_id)
+    return base / stage / f"seed_{seed}"
+
+
 def run_pretrain_seed(
     cfg: Dict[str, Any],
     seed: int,
@@ -86,7 +95,7 @@ def run_pretrain_seed(
     force_continue_completed: bool = False,
 ) -> Tuple[Path, Dict[str, float]]:
     device = _device()
-    out_root = Path(cfg["experiment"]["output_dir"]) / "checkpoints" / "pretrain" / f"seed_{seed}"
+    out_root = _checkpoint_root(cfg, stage="pretrain", seed=seed)
     out_root.mkdir(parents=True, exist_ok=True)
     run_completed = out_root / "run_completed.txt"
     if run_completed.exists() and not force_continue_completed:
@@ -98,6 +107,7 @@ def run_pretrain_seed(
     training_cfg = cfg["training"]["pretrain"]
     global_cfg = cfg["training"]
     checkpoint_every = int(cfg["experiment"]["checkpoint_every_steps"])
+    keep_last = int(cfg["experiment"].get("keep_last_checkpoints", 2))
     amp_enabled = bool(global_cfg["amp"]) and torch.cuda.is_available()
 
     encoder = build_encoder(cfg)
@@ -199,6 +209,7 @@ def run_pretrain_seed(
                     global_step=global_step,
                     step_in_epoch=batch_idx + 1,
                     tag="step",
+                    keep_last_checkpoints=keep_last,
                 )
 
             if global_step >= int(training_cfg["max_steps"]):
@@ -215,6 +226,7 @@ def run_pretrain_seed(
             global_step=global_step,
             step_in_epoch=0,
             tag="epoch",
+            keep_last_checkpoints=keep_last,
         )
         if global_step >= int(training_cfg["max_steps"]):
             break
@@ -286,12 +298,12 @@ def run_finetune_seed(
     seed: int,
     train_dataset: torch.utils.data.Dataset,
     valid_dataset: torch.utils.data.Dataset,
-    pretrain_encoder_path: Path,
+    pretrain_encoder_path: Optional[Path],
     tokenizer: CharCTCTokenizer,
     force_continue_completed: bool = False,
 ) -> Tuple[Path, Dict[str, float]]:
     device = _device()
-    out_root = Path(cfg["experiment"]["output_dir"]) / "checkpoints" / "finetune" / f"seed_{seed}"
+    out_root = _checkpoint_root(cfg, stage="finetune", seed=seed)
     out_root.mkdir(parents=True, exist_ok=True)
     run_completed = out_root / "run_completed.txt"
     if run_completed.exists() and not force_continue_completed:
@@ -303,10 +315,12 @@ def run_finetune_seed(
     training_cfg = cfg["training"]["finetune"]
     global_cfg = cfg["training"]
     checkpoint_every = int(cfg["experiment"]["checkpoint_every_steps"])
+    keep_last = int(cfg["experiment"].get("keep_last_checkpoints", 2))
     amp_enabled = bool(global_cfg["amp"]) and torch.cuda.is_available()
 
     encoder = build_encoder(cfg)
-    _load_encoder_from_pretrain(encoder, pretrain_encoder_path, device)
+    if pretrain_encoder_path is not None:
+        _load_encoder_from_pretrain(encoder, pretrain_encoder_path, device)
     model = AudioTransformerCTC(encoder=encoder, vocab_size=tokenizer.vocab_size).to(device)
     optimizer = torch.optim.AdamW(
         model.parameters(),
@@ -397,6 +411,7 @@ def run_finetune_seed(
                     step_in_epoch=batch_idx + 1,
                     best_metric=best_wer,
                     tag="step",
+                    keep_last_checkpoints=keep_last,
                 )
 
             if global_step >= int(training_cfg["max_steps"]):
@@ -428,6 +443,7 @@ def run_finetune_seed(
             best_metric=best_wer,
             extra={"valid_wer": current_wer},
             tag="epoch",
+            keep_last_checkpoints=keep_last,
         )
         if global_step >= int(training_cfg["max_steps"]):
             break
@@ -473,6 +489,7 @@ def evaluate_seed_on_dataset(
     payload = torch.load(checkpoint_path, map_location=device)
     model.load_state_dict(payload["model_state_dict"])
     model.eval()
+    param_counts = count_parameters(model)
 
     batch_size = int(cfg["training"]["finetune"]["batch_size"])
     loader = _seeded_loader(
@@ -504,5 +521,6 @@ def evaluate_seed_on_dataset(
         "inference_runtime_sec": float(runtime),
         "inference_samples_per_sec": float(len(refs) / runtime),
         "inference_peak_gpu_mem_mb": peak_memory_mb(),
+        "model_total_params": float(param_counts["total"]),
+        "model_trainable_params": float(param_counts["trainable"]),
     }
-
