@@ -1,0 +1,87 @@
+experiment:
+  name: "audio_transformer_baseline"
+  output_dir: "outputs"
+  results_dir: "results"
+  cache_dir: "data/cache"
+  processed_dir: "data/processed"
+  checkpoint_every_steps: 200
+  keep_last_checkpoints: 2
+  cleanup_pretrain_checkpoints_after_finetune: false
+  seeds: [42, 123, 456, 789, 1024]
+
+audio:
+  sample_rate: 16000
+  max_duration_sec: 8.0
+  n_mels: 80
+  win_length: 400
+  hop_length: 160
+
+model:
+  dim: 256
+  depth: 6
+  num_heads: 8
+  mlp_ratio: 4.0
+  dropout: 0.1
+  patch_strategy: "time"
+  patch_time: 4
+  patch_freq: 80
+  max_len: 2048
+  pos_embed: "sinusoidal"
+  mae_decoder_dim: 128
+  mae_decoder_depth: 2
+  mae_decoder_heads: 4
+  mae_mask_ratio: 0.6
+
+training:
+  amp: true
+  grad_clip_norm: 1.0
+  pretrain:
+    enabled: true
+    epochs: 2
+    batch_size: 8
+    grad_accum_steps: 2
+    learning_rate: 0.0001
+    weight_decay: 0.01
+    max_steps: 1000
+  finetune:
+    epochs: 2
+    batch_size: 4
+    grad_accum_steps: 4
+    learning_rate: 0.00015
+    weight_decay: 0.01
+    max_steps: 1200
+
+data:
+  num_workers: 2
+  precompute_feature_cache: false
+
+datasets:
+  pretrain:
+    name: "Codec-SUPERB/fluent_speech_commands_synth"
+    config: null
+    split: "train"
+    max_samples: 2000
+    transcript_key: null
+  asr_train:
+    name: "openslr/librispeech_asr"
+    config: "clean"
+    split: "train.clean.100"
+    max_samples: 3000
+    transcript_key: "text"
+  asr_valid:
+    name: "openslr/librispeech_asr"
+    config: "clean"
+    split: "validation.clean"
+    max_samples: 500
+    transcript_key: "text"
+  asr_tests:
+    - name: "openslr/librispeech_asr"
+      config: "clean"
+      split: "test.clean"
+      max_samples: 500
+      transcript_key: "text"
+    - name: "facebook/voxpopuli"
+      config: "en"
+      split: "validation"
+      max_samples: 500
+      transcript_key: "raw_text"
