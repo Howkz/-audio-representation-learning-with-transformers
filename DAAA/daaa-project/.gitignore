@@ -1,0 +1,17 @@
+# Data and cache
+data/cache/
+data/processed/
+
+# Outputs
+outputs/checkpoints/
+outputs/logs/
+results/tmp/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+
+# Virtual env
+.venv/

@@ -1,0 +1,4 @@
+interface:
+  display_name: "DAAA Audio Transformer"
+  short_description: "Guide complet projet audio Transformer DAAA"
+  default_prompt: "Use $daaa-audio-transformer-project to implement and evaluate a modular audio Transformer pipeline with reproducible 5-seed ASR results under 6GB VRAM."
