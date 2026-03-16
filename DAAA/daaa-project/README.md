@@ -1,5 +1,10 @@
 # DAAA Audio Transformer Project
 
+Project docs are centralized in `docs/`.
+
+Quick teammate entrypoint:
+- `docs/README_COLLEGUES.md`
+
 Implementation skeleton aligned with TP constraints:
 - `make data`
 - `make train`
@@ -80,3 +85,6 @@ Key behavior:
 ## Notes
 - Do not include `outputs/checkpoints` or raw datasets in final submission zip.
 - Use `configs/baseline.yaml` to control datasets, seeds, and memory-sensitive hyperparameters.
+- Report/submission checklists are in:
+  - `docs/REPORT_CHECKLIST.md`
+  - `docs/SUBMISSION_CHECKLIST.md`

@@ -43,12 +43,11 @@ def main() -> None:
         project_root / "src",
         project_root / "scripts",
         project_root / "configs",
+        project_root / "docs",
         project_root / "results",
         project_root / "Makefile",
         project_root / "requirements.txt",
         project_root / "README.md",
-        project_root / "REPORT_CHECKLIST.md",
-        project_root / "SUBMISSION_CHECKLIST.md",
     ]
 
     with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:

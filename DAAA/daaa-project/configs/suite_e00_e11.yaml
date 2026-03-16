@@ -4,13 +4,22 @@ suite:
   report_output: "results/suite/rapport_final.tex"
   leaderboard_output: "results/suite/leaderboard_screening.csv"
   summary_output: "results/suite/suite_summary.csv"
+  report:
+    title: "Rapport d'Experimentations sur l'Apprentissage de la représentation audio via transformateurs"
+    subtitle: "Pré-entraînement MAE et adaptation CTC: étude expérimentale progressive E00→E11"
+    authors:
+      - "CLAIR Maël"
+      - "SABINE Hugo"
+      - "CHANTELOUP William"
+    program: "Master 2 Algorithmiques et Systèmes Intelligents"
+    course: "Projet DAAA"
   dataset_policy:
     screening: "librispeech_only"
     final: "librispeech_only"
   notes:
     - "Screening uniquement sur LibriSpeech pour tenir le budget disque/temps."
-    - "VoxPopuli est exclu par defaut de cette suite (extension possible si marge)."
-    - "Le cache data est conserve entre experiences."
+    - "VoxPopuli est exclu par défaut de cette suite (extension possible si marge)."
+    - "Le cache data est conservé entre expériences."
 
 experiments:
   - id: "E00"
@@ -19,8 +28,8 @@ experiments:
     base_config: "configs/smoke.yaml"
     seeds: [42]
     title: "Smoke test pipeline"
-    choice_justification: "Valider la chaine complete data/train/test avec un cout minimal avant toute analyse scientifique."
-    expected_effect: "Aucune conclusion de performance; uniquement validation technique et reproductibilite."
+    choice_justification: "Valider la chaîne complète data/train/test avec un coût minimal avant toute analyse scientifique."
+    expected_effect: "Aucune conclusion de performance; uniquement validation technique et reproductibilité."
     overrides: {}
 
   - id: "E01"
@@ -29,7 +38,7 @@ experiments:
     base_config: "configs/low_storage.yaml"
     seeds: [42]
     title: "Baseline small MAE"
-    choice_justification: "Etablir un point de reference frugal, stable et compatible avec la contrainte 15 Go."
+    choice_justification: "Établir un point de référence frugal, stable et compatible avec la contrainte 15 Go."
     expected_effect: "Servir de base comparative pour toutes les autres variantes."
     overrides: {}
 
@@ -39,8 +48,8 @@ experiments:
     base_config: "configs/low_storage.yaml"
     seeds: [42]
     title: "Small NoMAE"
-    choice_justification: "Isoler l'effet du pre-entrainement MAE en supprimant cette phase."
-    expected_effect: "WER degrade vs E01 si MAE apporte une representation utile."
+    choice_justification: "Isoler l'effet du pré-entraînement MAE en supprimant cette phase."
+    expected_effect: "WER dégradé vs E01 si MAE apporte une représentation utile."
     overrides:
       training:
         pretrain:
@@ -52,8 +61,8 @@ experiments:
     base_config: "configs/low_storage.yaml"
     seeds: [42]
     title: "Tiny MAE"
-    choice_justification: "Tester une architecture plus compacte pour maximiser la frugalite."
-    expected_effect: "Moins de memoire/temps, possible degradation WER."
+    choice_justification: "Tester une architecture plus compacte pour maximiser la frugalité."
+    expected_effect: "Moins de mémoire/temps, possible dégradation WER."
     overrides:
       model:
         dim: 128
@@ -70,8 +79,8 @@ experiments:
     base_config: "configs/low_storage.yaml"
     seeds: [42]
     title: "Base MAE"
-    choice_justification: "Tester une capacite superieure pour evaluer le compromis performance/cout."
-    expected_effect: "WER potentiellement meilleur, mais cout memoire/temps plus eleve."
+    choice_justification: "Tester une capacité supérieure pour évaluer le compromis performance/coût."
+    expected_effect: "WER potentiellement meilleur, mais coût mémoire/temps plus élevé."
     overrides:
       model:
         dim: 256
@@ -89,7 +98,7 @@ experiments:
     seeds: [42]
     title: "Small Learned Positional Embeddings"
     choice_justification: "Comparer sinusoidal vs learned embeddings en gardant le reste fixe."
-    expected_effect: "Impact sur la qualite de sequence modeling et le transfert ASR."
+    expected_effect: "Impact sur la qualité de sequence modeling et le transfert ASR."
     overrides:
       model:
         pos_embed: "learned"
@@ -100,8 +109,8 @@ experiments:
     base_config: "configs/low_storage.yaml"
     seeds: [42]
     title: "Small Time-Frequency Patching"
-    choice_justification: "Tester un patching plus local en frequence pour enrichir la representation spectrale."
-    expected_effect: "Qualite possiblement meilleure sur certains signaux, avec cout calcule plus eleve."
+    choice_justification: "Tester un patching plus local en fréquence pour enrichir la représentation spectrale."
+    expected_effect: "Qualité possiblement meilleure sur certains signaux, avec coût calculé plus élevé."
     overrides:
       model:
         patch_strategy: "timefreq"
@@ -113,7 +122,7 @@ experiments:
     base_config: "configs/low_storage.yaml"
     seeds: [42]
     title: "Small MAE mask 0.40"
-    choice_justification: "Ablation du ratio de masquage vers un regime plus conservateur."
+    choice_justification: "Ablation du ratio de masquage vers un régime plus conservateur."
     expected_effect: "Reconstruction plus facile, transfert potentiellement moins robuste."
     overrides:
       model:
@@ -125,8 +134,8 @@ experiments:
     base_config: "configs/low_storage.yaml"
     seeds: [42]
     title: "Small MAE mask 0.75"
-    choice_justification: "Ablation du ratio de masquage vers un regime plus agressif."
-    expected_effect: "Apprentissage plus difficile; possible gain de robustesse ou degradation selon capacite."
+    choice_justification: "Ablation du ratio de masquage vers un régime plus agressif."
+    expected_effect: "Apprentissage plus difficile; possible gain de robustesse ou dégradation selon capacité."
     overrides:
       model:
         mae_mask_ratio: 0.75
@@ -139,7 +148,7 @@ experiments:
     seeds: [42, 123, 456, 789, 1024]
     title: "Final Top-1"
     choice_justification: "Consolidation statistique de la meilleure variante screening (5 seeds)."
-    expected_effect: "Resultat principal du rapport."
+    expected_effect: "Résultat principal du rapport."
     overrides: {}
 
   - id: "E10"
@@ -149,7 +158,7 @@ experiments:
     base_config: "configs/low_storage.yaml"
     seeds: [42, 123, 456, 789, 1024]
     title: "Final Top-2"
-    choice_justification: "Consolidation statistique de la deuxieme meilleure variante screening."
+    choice_justification: "Consolidation statistique de la deuxième meilleure variante screening."
     expected_effect: "Comparaison robuste contre Top-1."
     overrides: {}
 
@@ -160,6 +169,6 @@ experiments:
     base_config: "configs/low_storage.yaml"
     seeds: [42, 123, 456, 789, 1024]
     title: "Final Top-3"
-    choice_justification: "Consolidation statistique de la troisieme meilleure variante screening."
-    expected_effect: "Completer le benchmark multi-modeles final."
+    choice_justification: "Consolidation statistique de la troisième meilleure variante screening."
+    expected_effect: "Compléter le benchmark multi-modèles final."
     overrides: {}
