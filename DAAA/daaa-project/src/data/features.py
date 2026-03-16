@@ -1,9 +1,65 @@
 from __future__ import annotations
-
 from typing import Any, Dict, Tuple
 
 import torch
-import torchaudio
+import torch.nn.functional as F
+
+
+def _hz_to_mel(freq_hz: torch.Tensor) -> torch.Tensor:
+    return 2595.0 * torch.log10(1.0 + (freq_hz / 700.0))
+
+
+def _mel_to_hz(freq_mel: torch.Tensor) -> torch.Tensor:
+    return 700.0 * (10.0 ** (freq_mel / 2595.0) - 1.0)
+
+
+def _build_mel_filterbank(
+    sample_rate: int,
+    n_fft: int,
+    n_mels: int,
+    f_min: float = 0.0,
+    f_max: float | None = None,
+) -> torch.Tensor:
+    if f_max is None:
+        f_max = float(sample_rate) / 2.0
+    num_freqs = (n_fft // 2) + 1
+    mel_min = _hz_to_mel(torch.tensor(f_min, dtype=torch.float32))
+    mel_max = _hz_to_mel(torch.tensor(f_max, dtype=torch.float32))
+    mel_points = torch.linspace(mel_min, mel_max, n_mels + 2, dtype=torch.float32)
+    hz_points = _mel_to_hz(mel_points)
+    bin_points = torch.floor((n_fft + 1) * hz_points / float(sample_rate)).to(torch.long)
+    bin_points = torch.clamp(bin_points, min=0, max=num_freqs - 1)
+
+    fb = torch.zeros((n_mels, num_freqs), dtype=torch.float32)
+    for m in range(1, n_mels + 1):
+        left = int(bin_points[m - 1].item())
+        center = int(bin_points[m].item())
+        right = int(bin_points[m + 1].item())
+
+        if center <= left:
+            center = min(left + 1, num_freqs - 1)
+        if right <= center:
+            right = min(center + 1, num_freqs - 1)
+        if right <= left:
+            continue
+
+        for k in range(left, center):
+            fb[m - 1, k] = float(k - left) / float(max(1, center - left))
+        for k in range(center, right):
+            fb[m - 1, k] = float(right - k) / float(max(1, right - center))
+    return fb
+
+
+def _resample_waveform_linear(waveform: torch.Tensor, orig_sr: int, target_sr: int) -> torch.Tensor:
+    if orig_sr == target_sr:
+        return waveform
+    if orig_sr <= 0 or target_sr <= 0:
+        raise ValueError("Sampling rates must be > 0.")
+    original_len = waveform.shape[-1]
+    target_len = max(1, int(round(original_len * float(target_sr) / float(orig_sr))))
+    x = waveform.unsqueeze(0)  # [1, 1, T]
+    y = F.interpolate(x, size=target_len, mode="linear", align_corners=False)
+    return y.squeeze(0)
 
 
 def decode_audio(audio_dict: Dict[str, Any], target_sr: int) -> Tuple[torch.Tensor, int]:
@@ -19,7 +75,7 @@ def decode_audio(audio_dict: Dict[str, Any], target_sr: int) -> Tuple[torch.Tens
         waveform = waveform.mean(dim=0, keepdim=True)
 
     if sr != target_sr:
-        waveform = torchaudio.functional.resample(waveform, sr, target_sr)
+        waveform = _resample_waveform_linear(waveform, sr, target_sr)
         sr = target_sr
     return waveform, sr
 
@@ -41,16 +97,29 @@ def extract_logmel(
     win_length: int,
     hop_length: int,
 ) -> torch.Tensor:
-    mel = torchaudio.transforms.MelSpectrogram(
-        sample_rate=sr,
-        n_fft=win_length,
-        win_length=win_length,
-        hop_length=hop_length,
-        n_mels=n_mels,
-        center=True,
-        power=2.0,
-    )(waveform)
-    log_mel = torch.log(torch.clamp(mel, min=1e-6))
-    # [1, M, T] -> [T, M]
-    return log_mel.squeeze(0).transpose(0, 1).contiguous()
+    if waveform.ndim != 2 or waveform.shape[0] != 1:
+        raise ValueError("waveform must be [1, T].")
+    if win_length <= 0 or hop_length <= 0:
+        raise ValueError("win_length and hop_length must be > 0.")
+    if n_mels <= 0:
+        raise ValueError("n_mels must be > 0.")
 
+    signal = waveform.squeeze(0)
+    window = torch.hann_window(win_length, dtype=signal.dtype, device=signal.device)
+    spec = torch.stft(
+        signal,
+        n_fft=win_length,
+        hop_length=hop_length,
+        win_length=win_length,
+        window=window,
+        center=True,
+        normalized=False,
+        onesided=True,
+        return_complex=True,
+    )  # [F, T]
+    power = spec.abs().pow(2.0)
+
+    fb = _build_mel_filterbank(sample_rate=sr, n_fft=win_length, n_mels=n_mels).to(power.device, power.dtype)
+    mel = torch.matmul(fb, power)  # [M, T]
+    log_mel = torch.log(torch.clamp(mel, min=1e-6))
+    return log_mel.transpose(0, 1).contiguous()  # [T, M]
