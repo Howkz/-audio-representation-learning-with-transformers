@@ -58,9 +58,9 @@ data:
 
 datasets:
   pretrain:
-    name: "Codec-SUPERB/fluent_speech_commands_synth"
-    config: null
-    split: "train"
+    name: "openslr/librispeech_asr"
+    config: "clean"
+    split: "validation.clean"
     max_samples: 120
     transcript_key: null
   asr_train:

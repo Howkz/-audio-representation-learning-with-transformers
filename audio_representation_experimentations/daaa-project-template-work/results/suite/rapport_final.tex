@@ -55,14 +55,14 @@
 Ce rapport présente une étude expérimentale progressive sur un encodeur Transformer audio pré-entraîné par MAE puis adapté en ASR via CTC.
 L'objectif scientifique est triple: (i) vérifier l'apport du pré-entraînement MAE, (ii) identifier les compromis entre WER, temps d'inférence et mémoire GPU, (iii) produire un benchmark multi-variantes avec consolidation statistique finale.
 
-Contraintes de conception: environnement vdigpu, budget stockage limité (environ 15 Go), exécution reproductible, et suivi frugal des ressources.
+Contraintes de conception: environnement vdigpu, budget de calcul borné (cible 24h GPU utile), exécution reproductible, et suivi frugal des ressources.
 
 \paragraph{Choix globaux assumés}
 \begin{itemize}
-\item Screening uniquement sur LibriSpeech en sous-echantillons pour tenir le budget disque/temps.
-\item Selection Top-5 executee en 2 seeds (42, 123) avant consolidation finale.
-\item Final Top-3 execute en 5 seeds sur mode full-data (max\_samples desactive).
-\item VoxPopuli est exclu par defaut de cette suite (extension possible si marge).
+\item Screening sur LibriSpeech en sous-echantillons fixes pour controler le temps total.
+\item Selection Top-5 executee en 2 seeds (42, 123) pour robustifier avant finale.
+\item Final Top-3 execute en 5 seeds sur un sous-echantillon elargi (pas de full-data, budget 24h).
+\item VoxPopuli est exclu du chemin principal pour rester compatible avec la contrainte temps.
 \item Le cache data est conserve entre experiences.
 \end{itemize}
 
@@ -101,8 +101,8 @@ Chaque expérience est exécutée dans un namespace dédié, avec nettoyage des 
 
 \subsection{Politique dataset et périmètre}
 \begin{itemize}
-\item \textbf{Screening}: subsampled\_librispeech\_only.
-\item \textbf{Consolidation finale}: full\_data\_librispeech\_only.
+\item \textbf{Screening}: subsampled\_librispeech\_fixed\_budget.
+\item \textbf{Consolidation finale}: expanded\_subsample\_librispeech\_fixed\_budget.
 \item VoxPopuli reste une extension possible, hors chemin critique de la présente étude (contraintes disque/temps).
 \end{itemize}
 
@@ -127,7 +127,7 @@ Les métriques principales sont:
 Le screening initial est réalisé en 1 seed par variante (E01--E08).
 Une phase de sélection intermédiaire est ensuite exécutée sur le Top-5 du screening avec 2 seeds (42, 123).
 La consolidation finale est réalisée sur 5 seeds pour les 3 meilleures variantes issues de la sélection (E09--E11), avec reporting moyenne~$\pm$~écart-type.
-Les résultats finaux rapportés sont produits en mode full-data (sans \texttt{max\_samples}) pour garantir la comparabilité.
+Les résultats finaux rapportés suivent la politique de consolidation finale déclarée dans la configuration de suite (sous-échantillon élargi sous contrainte temps).
 
 \subsection{Règle de décision Top-3}
 Le classement screening puis sélection est effectué par tri lexicographique sur:
@@ -195,7 +195,7 @@ Seed & WER $\downarrow$ & Runtime inf. (s) $\downarrow$ & Débit (samples/s) $\u
 
 
 \paragraph{Justification du plan}
-Etablir un point de reference frugal, stable et compatible avec la contrainte 15 Go.
+Etablir un point de reference frugal et stable compatible avec un budget <24h.
 
 \paragraph{Mécanisme scientifique visé}
 Une baseline contrôlée est nécessaire pour attribuer les écarts de performance aux seuls changements expérimentaux.
@@ -591,7 +591,12 @@ Une conclusion scientifique exige d'estimer la variabilité inter-seeds, pas seu
 
 \paragraph{Variables manipulées}
 \begin{itemize}
-\item \textit{Aucune surcharge explicite (configuration de base conservée).}
+\item \texttt{training.pretrain.max\_steps=260}
+\item \texttt{training.finetune.max\_steps=360}
+\item \texttt{datasets.pretrain.max\_samples=2000}
+\item \texttt{datasets.asr\_train.max\_samples=3000}
+\item \texttt{datasets.asr\_valid.max\_samples=None}
+\item \texttt{datasets.asr\_tests=[\{'name': 'openslr/librispeech\_asr', 'config': 'clean', 'split': 'test.clean', 'max\_samples': None, 'transcript\_key': 'text'\}]}
 \end{itemize}
 
 \subsection{Hypothèse causale et résultats attendus}
@@ -638,7 +643,12 @@ Un second candidat limite le risque de conclure sur une seule famille de réglag
 
 \paragraph{Variables manipulées}
 \begin{itemize}
-\item \textit{Aucune surcharge explicite (configuration de base conservée).}
+\item \texttt{training.pretrain.max\_steps=260}
+\item \texttt{training.finetune.max\_steps=360}
+\item \texttt{datasets.pretrain.max\_samples=2000}
+\item \texttt{datasets.asr\_train.max\_samples=3000}
+\item \texttt{datasets.asr\_valid.max\_samples=None}
+\item \texttt{datasets.asr\_tests=[\{'name': 'openslr/librispeech\_asr', 'config': 'clean', 'split': 'test.clean', 'max\_samples': None, 'transcript\_key': 'text'\}]}
 \end{itemize}
 
 \subsection{Hypothèse causale et résultats attendus}
@@ -685,7 +695,12 @@ Trois candidats finaux permettent une discussion Pareto plus crédible qu'un due
 
 \paragraph{Variables manipulées}
 \begin{itemize}
-\item \textit{Aucune surcharge explicite (configuration de base conservée).}
+\item \texttt{training.pretrain.max\_steps=260}
+\item \texttt{training.finetune.max\_steps=360}
+\item \texttt{datasets.pretrain.max\_samples=2000}
+\item \texttt{datasets.asr\_train.max\_samples=3000}
+\item \texttt{datasets.asr\_valid.max\_samples=None}
+\item \texttt{datasets.asr\_tests=[\{'name': 'openslr/librispeech\_asr', 'config': 'clean', 'split': 'test.clean', 'max\_samples': None, 'transcript\_key': 'text'\}]}
 \end{itemize}
 
 \subsection{Hypothèse causale et résultats attendus}

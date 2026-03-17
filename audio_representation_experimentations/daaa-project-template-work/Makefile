@@ -1,4 +1,4 @@
-PYTHON ?= python
+PYTHON ?= python3
 CONFIG ?= configs/baseline.yaml
 
 .PHONY: data train test package lint

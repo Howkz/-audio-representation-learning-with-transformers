@@ -48,10 +48,8 @@ Lancement:
 ./scripts/linux_experiments.sh smoke
 ./scripts/linux_experiments.sh suite
 ./scripts/linux_experiments.sh resume
-./scripts/linux_experiments.sh suite-18gb
-./scripts/linux_experiments.sh resume-18gb
 ./scripts/linux_experiments.sh suite --clean
-./scripts/linux_experiments.sh resume --cache-root /mnt/bigdisk/$USER --clean-hf
+./scripts/linux_experiments.sh resume --cache-root /path/with/space --clean-hf
 ```
 
 ## 4) Quand utiliser quoi
@@ -59,9 +57,8 @@ Lancement:
 - Vous voulez juste verifier la stack: `smoke`.
 - Vous demarrez la vraie experimentation: `suite`.
 - Session coupee/crash: `resume`.
-- Contrainte stricte 18 Go: `suite-18gb` puis `resume-18gb`.
 - Disque plein ou cache sale: `suite --clean`.
-- Cache HF/TMP sur disque plus grand: `--cache-root /mnt/bigdisk/$USER`.
+- Cache HF/TMP sur disque plus grand: `--cache-root /path/with/space`.
 - Cache HF/TMP a reinitialiser: `--clean-hf`.
 
 ## 5) Resultats a consulter
@@ -78,8 +75,15 @@ Lancement:
 - Expliquer le compromis:
   - screening sous-echantillonne,
   - selection top-5 en 2 seeds,
-  - final top-3 full-data en 5 seeds.
+  - final top-3 en 5 seeds sur sous-echantillon elargi (budget <24h).
 - Rapporter WER + runtime + memoire GPU.
 - Utiliser les checklists:
   - `docs/REPORT_CHECKLIST.md`
   - `docs/SUBMISSION_CHECKLIST.md`
+
+## 7) Runbook budget 24h
+
+- Objectif: finir E00->E11 en moins de 24h GPU utile.
+- Point de controle 1 (apres E04): si ETA > 24h, reduire `training.finetune.max_steps` d'environ 20% pour la suite.
+- Point de controle 2 (apres SEL05): si ETA > 24h, reduire seulement `training.pretrain.max_steps` des finales E09-E11.
+- Ne pas reduire le nombre de seeds des finales (5 seeds requis pour la consolidation statistique).

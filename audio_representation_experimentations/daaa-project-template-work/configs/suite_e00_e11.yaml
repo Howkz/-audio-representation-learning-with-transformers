@@ -1,5 +1,5 @@
-﻿suite:
-  name: "suite_e00_e11_low_storage"
+suite:
+  name: "suite_e00_e11_time24h"
   language: "fr"
   report_output: "results/suite/rapport_final.tex"
   leaderboard_output: "results/suite/leaderboard_screening.csv"
@@ -14,18 +14,18 @@
     program: "Master 2 Algorithmiques et Systemes Intelligents"
     course: "Projet DAAA"
   dataset_policy:
-    screening: "subsampled_librispeech_only"
-    final: "full_data_librispeech_only"
+    screening: "subsampled_librispeech_fixed_budget"
+    final: "expanded_subsample_librispeech_fixed_budget"
   selection:
     enabled: true
     top_k_from_screening: 5
     seeds: [42, 123]
     leaderboard_output: "results/suite/leaderboard_selection.csv"
   notes:
-    - "Screening uniquement sur LibriSpeech en sous-echantillons pour tenir le budget disque/temps."
-    - "Selection Top-5 executee en 2 seeds (42, 123) avant consolidation finale."
-    - "Final Top-3 execute en 5 seeds sur mode full-data (max_samples desactive)."
-    - "VoxPopuli est exclu par defaut de cette suite (extension possible si marge)."
+    - "Screening sur LibriSpeech en sous-echantillons fixes pour controler le temps total."
+    - "Selection Top-5 executee en 2 seeds (42, 123) pour robustifier avant finale."
+    - "Final Top-3 execute en 5 seeds sur un sous-echantillon elargi (pas de full-data, budget 24h)."
+    - "VoxPopuli est exclu du chemin principal pour rester compatible avec la contrainte temps."
     - "Le cache data est conserve entre experiences."
 
 experiments:
@@ -45,7 +45,7 @@ experiments:
     base_config: "configs/low_storage.yaml"
     seeds: [42]
     title: "Baseline small MAE"
-    choice_justification: "Etablir un point de reference frugal, stable et compatible avec la contrainte 15 Go."
+    choice_justification: "Etablir un point de reference frugal et stable compatible avec un budget <24h."
     expected_effect: "Servir de base comparative pour toutes les autres variantes."
     overrides: {}
 
@@ -152,33 +152,84 @@ experiments:
     phase: "final"
     auto_from_selection_rank: 1
     base_config: "configs/low_storage.yaml"
-    final_full_dataset: true
     seeds: [42, 123, 456, 789, 1024]
     title: "Final Top-1"
     choice_justification: "Consolidation statistique de la meilleure variante apres selection Top-5."
     expected_effect: "Resultat principal du rapport."
-    overrides: {}
+    overrides:
+      training:
+        pretrain:
+          max_steps: 260
+        finetune:
+          max_steps: 360
+      datasets:
+        pretrain:
+          max_samples: 2000
+        asr_train:
+          max_samples: 3000
+        asr_valid:
+          max_samples: null
+        asr_tests:
+          - name: "openslr/librispeech_asr"
+            config: "clean"
+            split: "test.clean"
+            max_samples: null
+            transcript_key: "text"
 
   - id: "E10"
     enabled: true
     phase: "final"
     auto_from_selection_rank: 2
     base_config: "configs/low_storage.yaml"
-    final_full_dataset: true
     seeds: [42, 123, 456, 789, 1024]
     title: "Final Top-2"
     choice_justification: "Consolidation statistique de la deuxieme meilleure variante apres selection Top-5."
     expected_effect: "Comparaison robuste contre Top-1."
-    overrides: {}
+    overrides:
+      training:
+        pretrain:
+          max_steps: 260
+        finetune:
+          max_steps: 360
+      datasets:
+        pretrain:
+          max_samples: 2000
+        asr_train:
+          max_samples: 3000
+        asr_valid:
+          max_samples: null
+        asr_tests:
+          - name: "openslr/librispeech_asr"
+            config: "clean"
+            split: "test.clean"
+            max_samples: null
+            transcript_key: "text"
 
   - id: "E11"
     enabled: true
     phase: "final"
     auto_from_selection_rank: 3
     base_config: "configs/low_storage.yaml"
-    final_full_dataset: true
     seeds: [42, 123, 456, 789, 1024]
     title: "Final Top-3"
     choice_justification: "Consolidation statistique de la troisieme meilleure variante apres selection Top-5."
     expected_effect: "Completer le benchmark multi-modeles final."
-    overrides: {}
+    overrides:
+      training:
+        pretrain:
+          max_steps: 260
+        finetune:
+          max_steps: 360
+      datasets:
+        pretrain:
+          max_samples: 2000
+        asr_train:
+          max_samples: 3000
+        asr_valid:
+          max_samples: null
+        asr_tests:
+          - name: "openslr/librispeech_asr"
+            config: "clean"
+            split: "test.clean"
+            max_samples: null
+            transcript_key: "text"

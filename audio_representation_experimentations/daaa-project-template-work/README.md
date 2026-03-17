@@ -29,10 +29,8 @@ Puis:
 ./scripts/linux_experiments.sh smoke
 ./scripts/linux_experiments.sh suite
 ./scripts/linux_experiments.sh resume
-./scripts/linux_experiments.sh suite-18gb
-./scripts/linux_experiments.sh resume-18gb
 ./scripts/linux_experiments.sh suite --clean
-./scripts/linux_experiments.sh resume --cache-root /mnt/bigdisk/$USER --clean-hf
+./scripts/linux_experiments.sh resume --cache-root /path/with/space --clean-hf
 ```
 
 ## Que fait chaque mode
@@ -40,8 +38,6 @@ Puis:
 - `smoke`: mini run technique rapide (pipeline complet) pour verifier que tout tourne.
 - `suite`: lance toute la campagne depuis le debut.
 - `resume`: reprend la campagne sans relancer ce qui est deja termine.
-- `suite-18gb`: suite complete avec profil strict stockage 18 Go.
-- `resume-18gb`: reprise de la suite 18 Go.
 - `--clean`: vide caches/artefacts projet avant le lancement.
 - `--cache-root <path>`: place les caches HF/TMP sur un disque plus grand.
 - `--clean-hf`: vide les caches HF/TMP.
@@ -55,21 +51,23 @@ La suite suit ce protocole:
 3. `SEL01..SEL05`: selection Top-5 en 2 seeds.
 4. `E09..E11`: final Top-3 en 5 seeds.
 
-Pour les finales, `final_full_dataset: true` force `max_samples: null` (mode full-data).
+Politique de donnees:
+- screening: sous-echantillon fixe (comparabilite interne forte, cout borne),
+- final: sous-echantillon elargi pour renforcer la validite sans depasser le budget temps 24h.
 
 ## Commandes manuelles (sans script Linux)
 
 ```bash
 export PYTHONPATH=.
-python scripts/run_data.py --config configs/low_storage.yaml
-python scripts/run_train.py --config configs/low_storage.yaml
-python scripts/run_test.py --config configs/low_storage.yaml
+python3 scripts/run_data.py --config configs/low_storage.yaml
+python3 scripts/run_train.py --config configs/low_storage.yaml
+python3 scripts/run_test.py --config configs/low_storage.yaml
 ```
 
 Suite complete:
 
 ```bash
-PYTHONPATH=. python scripts/run_experiment_suite.py \
+PYTHONPATH=. python3 scripts/run_experiment_suite.py \
   --suite-config configs/suite_e00_e11.yaml \
   --verbose \
   --disk-guard-gb 1.5
@@ -78,11 +76,24 @@ PYTHONPATH=. python scripts/run_experiment_suite.py \
 Reprise:
 
 ```bash
-PYTHONPATH=. python scripts/run_experiment_suite.py \
+PYTHONPATH=. python3 scripts/run_experiment_suite.py \
   --suite-config configs/suite_e00_e11.yaml \
   --resume \
   --verbose \
   --disk-guard-gb 1.5
+```
+
+## Ajustement si ETA > 24h
+
+Exemple de relance avec budget reduit (a partir de E05):
+
+```bash
+PYTHONPATH=. python3 scripts/run_experiment_suite.py \
+  --suite-config configs/suite_e00_e11.yaml \
+  --from-id E05 \
+  --resume \
+  --set training.finetune.max_steps=160 \
+  --verbose
 ```
 
 ## Ou lire les resultats
@@ -97,8 +108,8 @@ PYTHONPATH=. python scripts/run_experiment_suite.py \
 
 - Evitez de lancer `smoke` puis `suite` si vous voulez gagner du temps: `suite` contient deja `E00`.
 - Si un run est interrompu, utilisez `resume`.
-- Si le stockage sature, relancez avec `--clean` puis `resume` selon le besoin.
-- Si `/tmp` est petit, utilisez `--cache-root /mnt/bigdisk/$USER`.
+- Si le stockage sature, utilisez `--cache-root` vers un point de montage avec plus d'espace.
+- Si le cache HF est corrompu, relancez avec `--clean-hf`.
 - Checklists rapport/rendu:
   - `docs/REPORT_CHECKLIST.md`
   - `docs/SUBMISSION_CHECKLIST.md`

@@ -7,7 +7,7 @@
 - Pretraining objective and masking strategy.
 - Fine-tuning protocol and ASR evaluation (WER).
 - 5-seed mean/std result tables.
-- Explain 3-phase protocol: screening (1 seed), selection top-5 (2 seeds), final top-3 (5 seeds full-data).
+- Explain 3-phase protocol: screening (1 seed), selection top-5 (2 seeds), final top-3 (5 seeds on expanded subset under 24h budget).
 - Frugality analysis (train/inference time, effective batch, peak GPU memory).
 - Ablation study (at least one controlled comparison).
 - Limitations and next steps.
@@ -16,7 +16,7 @@
 - No code screenshots.
 - Keep focus on methodology, tradeoffs, and empirical evidence.
 - Include exact dataset splits and seed list.
-- Explicitly distinguish screening subset policy vs final full-data policy.
+- Explicitly distinguish screening subset policy vs final expanded-subset policy.
 - Explain resume/checkpoint strategy and crash tolerance.
 
 ## Evidence to reference

@@ -58,9 +58,9 @@
 3. Implementer `AudioPatchEmbedding`, `AudioTransformerEncoder`, `AudioMAEPretrain`, `AudioTransformerCTC`.
 4. Entrainer en 2 etapes (`make train`): MAE puis fine-tuning CTC.
 5. Evaluer (`make test`) sur ASR avec WER, 5 seeds, et mesures frugalite.
-6. Appliquer un protocole en trois phases: screening 1-seed sur sous-echantillons, selection Top-5 en 2 seeds, puis final Top-3 en 5 seeds sur mode full-data.
+6. Appliquer un protocole en trois phases: screening 1-seed sur sous-echantillons, selection Top-5 en 2 seeds, puis final Top-3 en 5 seeds sur sous-echantillon elargi compatible avec un budget de 24h.
 7. Produire artefacts de preuve: JSON partial/final, tableaux, logs memoire/temps.
-8. Rediger rapport final centre sur choix, compromis et ablation en explicitant la difference screening (subsample) vs final (full-data).
+8. Rediger rapport final centre sur choix, compromis et ablation en explicitant la difference screening (subsample) vs final (subsample elargi) et sa justification temporelle.
 
 ## 6. Resultats theoriquement attendus (sans promesse chiffrree)
 - Le pretraining MAE doit stabiliser le fine-tuning CTC par rapport a un encodeur non pre-entraine.
@@ -68,6 +68,21 @@
 - Une capacite encodeur plus grande peut ameliorer WER mais augmente cout memoire/temps.
 - Les optimisations frugales doivent reduire le cout (memoire/temps) avec compromis potentiel sur WER.
 - Les metriques 5 seeds doivent montrer une variance raisonnable et interpretable.
+
+## 6bis. Plan operationnel 24h (realiste vdigpu)
+- Budget cible: 24h GPU utile (interruptions incluses via resume).
+- Decoupage:
+  - E00 (smoke): <= 20 min.
+  - E01-E08 (screening 1 seed): objectif 6-8h cumule.
+  - SEL01-SEL05 (selection 2 seeds): objectif 7-9h cumule.
+  - E09-E11 (final 5 seeds, sous-echantillon elargi): objectif 7-9h cumule.
+- Regles de pilotage:
+  - Si ETA depasse 24h apres E04: reduire `max_steps` finetune de 15-20% pour E05-E11.
+  - Si ETA depasse 24h apres selection: conserver top-3 mais reduire uniquement `pretrain.max_steps` en finale (pas les seeds, pas les splits de test).
+  - Ne jamais changer les seeds en finale (contrainte statistique du TP).
+- Principe de validite:
+  - Comparabilite interne forte (meme pipeline, memes seeds par phase, memes regles de classement).
+  - Comparabilite externe explicitee comme limite (absence de full-data total).
 
 ## 7. Criteres d'acceptation et preuves attendues
 1. `make data`, `make train`, `make test` passent sans erreur.

@@ -8,11 +8,9 @@ set -euo pipefail
 #   bash scripts/linux_experiments.sh smoke
 #   bash scripts/linux_experiments.sh suite
 #   bash scripts/linux_experiments.sh resume
-#   bash scripts/linux_experiments.sh suite-18gb
-#   bash scripts/linux_experiments.sh resume-18gb
 #   bash scripts/linux_experiments.sh suite --clean
 #   bash scripts/linux_experiments.sh dry-run
-#   bash scripts/linux_experiments.sh resume --cache-root /mnt/bigdisk/$USER --clean-hf
+#   bash scripts/linux_experiments.sh resume --cache-root /path/with/space --clean-hf
 
 MODE="${1:-suite}"
 shift || true
@@ -48,6 +46,18 @@ done
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
+PYTHON_BIN=""
+if [[ -n "${VIRTUAL_ENV:-}" && -x "${VIRTUAL_ENV}/bin/python" ]]; then
+  PYTHON_BIN="${VIRTUAL_ENV}/bin/python"
+elif command -v python >/dev/null 2>&1; then
+  PYTHON_BIN="python"
+elif command -v python3 >/dev/null 2>&1; then
+  PYTHON_BIN="python3"
+else
+  echo "[ERROR] Python introuvable. Activez votre venv ou installez python3."
+  exit 2
+fi
+
 export HF_HOME="${HF_HOME:-${CACHE_ROOT}/hf_cache}"
 export HF_DATASETS_CACHE="${HF_DATASETS_CACHE:-${HF_HOME}/datasets}"
 export HF_HUB_CACHE="${HF_HUB_CACHE:-${HF_HOME}/hub}"
@@ -58,6 +68,7 @@ mkdir -p "${HF_HOME}" "${HF_DATASETS_CACHE}" "${HF_HUB_CACHE}" "${TMPDIR}"
 
 echo "[RUN] mode=${MODE} clean=${CLEAN} clean_hf=${CLEAN_HF}"
 echo "[RUN] cache_root=${CACHE_ROOT}"
+echo "[RUN] python=${PYTHON_BIN}"
 echo "[RUN] HF_HOME=${HF_HOME}"
 echo "[RUN] TMPDIR=${TMPDIR}"
 echo "[RUN] disk usage:"
@@ -86,38 +97,25 @@ fi
 
 case "$MODE" in
   smoke)
-    python scripts/run_data.py --config configs/smoke.yaml
-    python scripts/run_train.py --config configs/smoke.yaml
-    python scripts/run_test.py --config configs/smoke.yaml
+    "$PYTHON_BIN" scripts/run_data.py --config configs/smoke.yaml
+    "$PYTHON_BIN" scripts/run_train.py --config configs/smoke.yaml
+    "$PYTHON_BIN" scripts/run_test.py --config configs/smoke.yaml
     ;;
   suite)
-    python scripts/run_experiment_suite.py \
+    "$PYTHON_BIN" scripts/run_experiment_suite.py \
       --suite-config configs/suite_e00_e11.yaml \
-      --verbose \
-      --disk-guard-gb 1.5
-    ;;
-  suite-18gb)
-    python scripts/run_experiment_suite.py \
-      --suite-config configs/suite_e00_e11_18gb.yaml \
       --verbose \
       --disk-guard-gb 1.5
     ;;
   resume)
-    python scripts/run_experiment_suite.py \
+    "$PYTHON_BIN" scripts/run_experiment_suite.py \
       --suite-config configs/suite_e00_e11.yaml \
-      --resume \
-      --verbose \
-      --disk-guard-gb 1.5
-    ;;
-  resume-18gb)
-    python scripts/run_experiment_suite.py \
-      --suite-config configs/suite_e00_e11_18gb.yaml \
       --resume \
       --verbose \
       --disk-guard-gb 1.5
     ;;
   dry-run)
-    python scripts/run_experiment_suite.py \
+    "$PYTHON_BIN" scripts/run_experiment_suite.py \
       --suite-config configs/suite_e00_e11.yaml \
       --dry-run \
       --verbose \
@@ -127,7 +125,7 @@ case "$MODE" in
     echo "[DONE] Clean complete."
     ;;
   *)
-    echo "[ERROR] Unknown mode '${MODE}'. Use: smoke | suite | resume | suite-18gb | resume-18gb | dry-run | clean"
+    echo "[ERROR] Unknown mode '${MODE}'. Use: smoke | suite | resume | dry-run | clean"
     exit 2
     ;;
 esac

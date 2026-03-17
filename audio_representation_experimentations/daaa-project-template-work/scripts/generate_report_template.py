@@ -105,7 +105,7 @@ def _intro_text(suite_cfg: Dict[str, Any]) -> str:
 Ce rapport présente une étude expérimentale progressive sur un encodeur Transformer audio pré-entraîné par MAE puis adapté en ASR via CTC.
 L'objectif scientifique est triple: (i) vérifier l'apport du pré-entraînement MAE, (ii) identifier les compromis entre WER, temps d'inférence et mémoire GPU, (iii) produire un benchmark multi-variantes avec consolidation statistique finale.
 
-Contraintes de conception: environnement vdigpu, budget stockage limité (environ 15 Go), exécution reproductible, et suivi frugal des ressources.
+Contraintes de conception: environnement vdigpu, budget de calcul borné (cible 24h GPU utile), exécution reproductible, et suivi frugal des ressources.
 
 \paragraph{{Choix globaux assumés}}
 \begin{{itemize}}
@@ -182,7 +182,7 @@ Les métriques principales sont:
 Le screening initial est réalisé en 1 seed par variante (E01--E08).
 Une phase de sélection intermédiaire est ensuite exécutée sur le Top-5 du screening avec 2 seeds (42, 123).
 La consolidation finale est réalisée sur 5 seeds pour les 3 meilleures variantes issues de la sélection (E09--E11), avec reporting moyenne~$\pm$~écart-type.
-Les résultats finaux rapportés sont produits en mode full-data (sans \texttt{{max\_samples}}) pour garantir la comparabilité.
+Les résultats finaux rapportés suivent la politique de consolidation finale déclarée dans la configuration de suite (sous-échantillon élargi sous contrainte temps).
 
 \subsection{{Règle de décision Top-3}}
 Le classement screening puis sélection est effectué par tri lexicographique sur:
