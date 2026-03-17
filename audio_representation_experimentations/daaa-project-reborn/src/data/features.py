@@ -66,19 +66,35 @@ def _resample_waveform_linear(waveform: torch.Tensor, orig_sr: int, target_sr: i
 def _decode_audio_with_soundfile(audio_dict: Dict[str, Any]) -> Tuple[torch.Tensor, int]:
     try:
         import soundfile as sf
-    except ModuleNotFoundError as exc:
-        raise ModuleNotFoundError(
-            "Missing dependency 'soundfile' required for streamed audio decoding."
-        ) from exc
+    except ModuleNotFoundError:
+        sf = None  # type: ignore[assignment]
 
     audio_bytes = audio_dict.get("bytes")
     audio_path = audio_dict.get("path")
-    if audio_bytes is not None:
-        data, sr = sf.read(io.BytesIO(audio_bytes), dtype="float32")
-    elif audio_path:
-        data, sr = sf.read(audio_path, dtype="float32")
-    else:
-        raise ValueError("Audio dict must provide 'array' or ('bytes'/'path').")
+    data = None
+    sr = None
+
+    if sf is not None:
+        if audio_bytes is not None:
+            data, sr = sf.read(io.BytesIO(audio_bytes), dtype="float32")
+        elif audio_path:
+            data, sr = sf.read(audio_path, dtype="float32")
+
+    if data is None or sr is None:
+        try:
+            import torchaudio
+        except ModuleNotFoundError as exc:
+            raise ModuleNotFoundError(
+                "Streamed audio decoding requires either 'soundfile' or 'torchaudio'."
+            ) from exc
+
+        if audio_bytes is not None:
+            waveform, sr_loaded = torchaudio.load(io.BytesIO(audio_bytes))
+        elif audio_path:
+            waveform, sr_loaded = torchaudio.load(audio_path)
+        else:
+            raise ValueError("Audio dict must provide 'array' or ('bytes'/'path').")
+        return waveform.to(torch.float32), int(sr_loaded)
 
     waveform = torch.tensor(data, dtype=torch.float32)
     if waveform.ndim == 1:

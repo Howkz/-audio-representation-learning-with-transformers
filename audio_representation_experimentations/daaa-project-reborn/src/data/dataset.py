@@ -13,8 +13,10 @@ except ModuleNotFoundError:
 from .text import normalize_transcript
 
 try:
+    from datasets import Audio as HFAudioFeature
     from datasets import Dataset, load_dataset
 except ModuleNotFoundError:
+    HFAudioFeature = None  # type: ignore[assignment]
     Dataset = Any  # type: ignore[assignment]
     load_dataset = None  # type: ignore[assignment]
 
@@ -117,6 +119,15 @@ def load_hf_audio_dataset(
         return _load(split_value, use_streaming=True)
 
     def _materialize_streaming(stream_ds, limit: Optional[int]) -> InMemoryRowsDataset:
+        if HFAudioFeature is not None and hasattr(stream_ds, "cast_column"):
+            try:
+                stream_ds = stream_ds.cast_column("audio", HFAudioFeature(decode=False))
+            except Exception as exc:
+                print(
+                    f"[DATASET][WARN] Unable to disable audio decoding for streaming dataset "
+                    f"({dataset_name}, split={split}): {exc}"
+                )
+
         rows: List[Dict[str, Any]] = []
         if limit is None:
             for row in stream_ds:
