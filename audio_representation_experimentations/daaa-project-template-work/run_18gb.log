@@ -1,0 +1,10 @@
+[RUN] mode=suite-18gb clean=0 clean_hf=1
+[RUN] cache_root=/home/clair211/.cache/daaa_audio
+[RUN] HF_HOME=/home/clair211/.cache/daaa_audio/hf_cache
+[RUN] TMPDIR=/home/clair211/.cache/daaa_audio/hf_tmp
+[RUN] disk usage:
+Sys. de fichiers      Taille Utilisé Dispo Uti% Monté sur
+/dev/mapper/vg-lvroot   248G    196G   53G  79% /
+/dev/mapper/vg-lvroot   248G    196G   53G  79% /
+[CLEAN] Removing HF/TMP caches...
+[ERROR] Unknown mode 'suite-18gb'. Use: smoke | suite | resume | dry-run | clean
