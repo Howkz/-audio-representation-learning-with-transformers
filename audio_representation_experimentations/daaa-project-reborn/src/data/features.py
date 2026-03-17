@@ -1,7 +1,9 @@
 from __future__ import annotations
 import io
+import subprocess
 from typing import Any, Dict, Tuple
 
+import numpy as np
 import torch
 import torch.nn.functional as F
 
@@ -84,9 +86,7 @@ def _decode_audio_with_soundfile(audio_dict: Dict[str, Any]) -> Tuple[torch.Tens
         try:
             import torchaudio
         except ModuleNotFoundError as exc:
-            raise ModuleNotFoundError(
-                "Streamed audio decoding requires either 'soundfile' or 'torchaudio'."
-            ) from exc
+            raise ModuleNotFoundError from exc
 
         if audio_bytes is not None:
             waveform, sr_loaded = torchaudio.load(io.BytesIO(audio_bytes))
@@ -107,13 +107,91 @@ def _decode_audio_with_soundfile(audio_dict: Dict[str, Any]) -> Tuple[torch.Tens
     return waveform, int(sr)
 
 
+def _decode_audio_with_ffmpeg(audio_dict: Dict[str, Any], target_sr: int) -> Tuple[torch.Tensor, int]:
+    audio_bytes = audio_dict.get("bytes")
+    audio_path = audio_dict.get("path")
+
+    base_cmd = [
+        "ffmpeg",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+    ]
+    if audio_bytes is not None:
+        cmd = base_cmd + [
+            "-i",
+            "pipe:0",
+            "-f",
+            "f32le",
+            "-ac",
+            "1",
+            "-ar",
+            str(int(target_sr)),
+            "pipe:1",
+        ]
+        try:
+            proc = subprocess.run(
+                cmd,
+                input=audio_bytes,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+            )
+        except FileNotFoundError as exc:
+            raise ModuleNotFoundError(
+                "No audio decoder available. Install 'soundfile' (pip) or 'torchaudio', "
+                "or install ffmpeg in system PATH."
+            ) from exc
+    elif audio_path:
+        cmd = base_cmd + [
+            "-i",
+            str(audio_path),
+            "-f",
+            "f32le",
+            "-ac",
+            "1",
+            "-ar",
+            str(int(target_sr)),
+            "pipe:1",
+        ]
+        try:
+            proc = subprocess.run(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+            )
+        except FileNotFoundError as exc:
+            raise ModuleNotFoundError(
+                "No audio decoder available. Install 'soundfile' (pip) or 'torchaudio', "
+                "or install ffmpeg in system PATH."
+            ) from exc
+    else:
+        raise ValueError("Audio dict must provide 'array' or ('bytes'/'path').")
+
+    if proc.returncode != 0:
+        stderr = proc.stderr.decode("utf-8", errors="ignore").strip()
+        raise RuntimeError(
+            f"ffmpeg failed to decode audio (code={proc.returncode}). stderr={stderr}"
+        )
+
+    pcm = np.frombuffer(proc.stdout, dtype=np.float32)
+    if pcm.size == 0:
+        raise RuntimeError("ffmpeg produced empty audio output.")
+    waveform = torch.from_numpy(pcm).unsqueeze(0)
+    return waveform, int(target_sr)
+
+
 def decode_audio(audio_dict: Dict[str, Any], target_sr: int) -> Tuple[torch.Tensor, int]:
     if "array" in audio_dict and audio_dict["array"] is not None:
         array = audio_dict["array"]
         sr = int(audio_dict["sampling_rate"])
         waveform = torch.tensor(array, dtype=torch.float32)
     else:
-        waveform, sr = _decode_audio_with_soundfile(audio_dict)
+        try:
+            waveform, sr = _decode_audio_with_soundfile(audio_dict)
+        except ModuleNotFoundError:
+            waveform, sr = _decode_audio_with_ffmpeg(audio_dict, target_sr=target_sr)
 
     if waveform.ndim == 1:
         waveform = waveform.unsqueeze(0)

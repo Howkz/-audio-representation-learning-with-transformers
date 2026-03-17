@@ -53,7 +53,7 @@ training:
     max_steps: 200
 
 data:
-  num_workers: 1
+  num_workers: 0
   precompute_feature_cache: false
   streaming: true
 
