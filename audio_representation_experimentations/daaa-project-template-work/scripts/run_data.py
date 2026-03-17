@@ -43,6 +43,10 @@ def main() -> None:
         dataset_config = spec.get("config")
         split = spec["split"]
         max_samples = spec.get("max_samples")
+        print(
+            f"[DATA] Loading dataset={dataset_name} config={dataset_config} "
+            f"split={split} max_samples={max_samples}"
+        )
         ds = load_hf_audio_dataset(
             dataset_name=dataset_name,
             dataset_config=dataset_config,

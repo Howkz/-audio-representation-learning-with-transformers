@@ -4,6 +4,7 @@ import argparse
 import copy
 import csv
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -106,20 +107,26 @@ def _bytes_to_gb(num_bytes: int) -> float:
 def _storage_snapshot() -> Dict[str, float]:
     root = Path(".").resolve()
     usage = shutil.disk_usage(root)
+    hf_home = Path(os.environ.get("HF_HOME", "")).expanduser()
+    tmp_dir = Path(os.environ.get("TMPDIR", "")).expanduser()
     return {
         "free_gb": _bytes_to_gb(usage.free),
         "cache_gb": _bytes_to_gb(_dir_size_bytes(root / "data" / "cache")),
         "checkpoints_gb": _bytes_to_gb(_dir_size_bytes(root / "outputs" / "checkpoints")),
         "results_gb": _bytes_to_gb(_dir_size_bytes(root / "results" / "experiments")),
+        "hf_cache_gb": _bytes_to_gb(_dir_size_bytes(hf_home)) if str(hf_home) else 0.0,
+        "tmp_gb": _bytes_to_gb(_dir_size_bytes(tmp_dir)) if str(tmp_dir) else 0.0,
     }
 
 
-def _print_storage(tag: str) -> None:
+def _print_storage(tag: str, elapsed_sec: Optional[float] = None) -> None:
     snap = _storage_snapshot()
+    elapsed_msg = f" elapsed={elapsed_sec:.0f}s" if elapsed_sec is not None else ""
     print(
-        f"[STORAGE] {tag} | free={snap['free_gb']:.2f}GB "
+        f"[STORAGE] {tag}{elapsed_msg} | free={snap['free_gb']:.2f}GB "
         f"cache={snap['cache_gb']:.2f}GB checkpoints={snap['checkpoints_gb']:.2f}GB "
-        f"results={snap['results_gb']:.2f}GB"
+        f"results={snap['results_gb']:.2f}GB hf_cache={snap['hf_cache_gb']:.2f}GB "
+        f"tmp={snap['tmp_gb']:.2f}GB"
     )
 
 
@@ -131,9 +138,9 @@ def _guard_disk(min_free_gb: float) -> None:
         )
 
 
-def _monitor_storage(stop_event: threading.Event, interval_sec: int) -> None:
+def _monitor_storage(stop_event: threading.Event, interval_sec: int, started_at: float, phase_tag: str) -> None:
     while not stop_event.wait(timeout=max(5, interval_sec)):
-        _print_storage("runtime")
+        _print_storage(f"runtime:{phase_tag}", elapsed_sec=time.time() - started_at)
 
 
 def _run_command(
@@ -151,12 +158,13 @@ def _run_command(
         print(f"[SUITE] Dry-run: command skipped for {phase_tag}.")
         return
 
+    started_at = time.time()
     stop_event = threading.Event()
     monitor_thread = None
     if verbose:
         monitor_thread = threading.Thread(
             target=_monitor_storage,
-            args=(stop_event, storage_interval_sec),
+            args=(stop_event, storage_interval_sec, started_at, phase_tag),
             daemon=True,
         )
         monitor_thread.start()
@@ -179,7 +187,7 @@ def _run_command(
 
     if return_code != 0:
         raise RuntimeError(f"Command failed in phase {phase_tag} with exit code {return_code}.")
-    _print_storage(f"after {phase_tag}")
+    _print_storage(f"after {phase_tag}", elapsed_sec=time.time() - started_at)
 
 
 def _runtime_config_path(exp_id: str) -> Path:
