@@ -1,61 +1,66 @@
-# DAAA Audio Transformer Project
+# DAAA Audio Transformer - Guide Rapide
 
-Project docs are centralized in `docs/`.
+Ce projet implemente un pipeline audio conforme au TP:
+- pretrain MAE
+- finetune CTC
+- evaluation WER
+- campagnes experimentales reproductibles avec reprise
 
-Quick teammate entrypoint:
-- `docs/README_TEAM.md`
-- `docs/TEMPLATE_PROVENANCE.md`
+## Demarrage en 3 etapes
 
-Implementation skeleton aligned with TP constraints:
-- `make data`
-- `make train`
-- `make test`
-
-Core goals:
-- Hugging Face `datasets` only
-- MAE pretraining + CTC fine-tuning
-- 5-seed reproducible evaluation with WER mean/std
-- robust checkpointing and resume after crash
-- 6GB VRAM frugality tracking
-
-## Quickstart
 ```bash
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\\Scripts\\activate
+cd audio_representation_experimentations/daaa-project-template-work
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
-
-make data
-make train
-make test
 ```
 
-## Low-storage mode (vdigpu constrained disk)
-Use the dedicated profile:
+## Le plus simple sous Linux (vdigpu)
+
+Un script unique est disponible:
+
 ```bash
-make CONFIG=configs/low_storage.yaml data
-make CONFIG=configs/low_storage.yaml train
-make CONFIG=configs/low_storage.yaml test
+chmod +x scripts/linux_experiments.sh
 ```
 
-This profile reduces:
-- dataset sample caps
-- model size
-- saved checkpoint count (rotation)
-- retained pretrain checkpoints after each seed
+Puis:
 
-## Ultra quick smoke mode
 ```bash
-make CONFIG=configs/smoke.yaml data
-make CONFIG=configs/smoke.yaml train
-make CONFIG=configs/smoke.yaml test
+./scripts/linux_experiments.sh smoke
+./scripts/linux_experiments.sh suite
+./scripts/linux_experiments.sh resume
+./scripts/linux_experiments.sh suite --clean
 ```
 
-## Full E00->E11 suite runner
+## Que fait chaque mode
+
+- `smoke`: mini run technique rapide (pipeline complet) pour verifier que tout tourne.
+- `suite`: lance toute la campagne depuis le debut.
+- `resume`: reprend la campagne sans relancer ce qui est deja termine.
+- `--clean`: vide caches/artefacts projet avant le lancement.
+
+## Logique experimentale de la suite
+
+La suite suit ce protocole:
+
+1. `E00`: validation technique (smoke interne a la suite).
+2. `E01..E08`: screening en 1 seed.
+3. `SEL01..SEL05`: selection Top-5 en 2 seeds.
+4. `E09..E11`: final Top-3 en 5 seeds.
+
+Pour les finales, `final_full_dataset: true` force `max_samples: null` (mode full-data).
+
+## Commandes manuelles (sans script Linux)
+
 ```bash
-make suite
+export PYTHONPATH=.
+python scripts/run_data.py --config configs/low_storage.yaml
+python scripts/run_train.py --config configs/low_storage.yaml
+python scripts/run_test.py --config configs/low_storage.yaml
 ```
 
-Manual runner invocation:
+Suite complete:
+
 ```bash
 PYTHONPATH=. python scripts/run_experiment_suite.py \
   --suite-config configs/suite_e00_e11.yaml \
@@ -63,32 +68,29 @@ PYTHONPATH=. python scripts/run_experiment_suite.py \
   --disk-guard-gb 1.5
 ```
 
-Optional deterministic override (base + experiment overrides + CLI):
+Reprise:
+
 ```bash
 PYTHONPATH=. python scripts/run_experiment_suite.py \
   --suite-config configs/suite_e00_e11.yaml \
-  --set training.finetune.max_steps=120 \
-  --set model.mae_mask_ratio=0.55
+  --resume \
+  --verbose \
+  --disk-guard-gb 1.5
 ```
 
-Key behavior:
-- one global sequence `data -> train -> test -> archive -> cleanup` per experiment
-- 3-phase protocol: `screening (1 seed) -> selection top-5 (2 seeds) -> final top-3 (5 seeds)`
-- final top-3 can be forced to full-data (`max_samples=null`) via suite flag `final_full_dataset: true`
-- keep `data/cache` between experiments
-- clean only experiment checkpoints after archival
-- generate final LaTeX template at `results/suite/rapport_final.tex`
+## Ou lire les resultats
 
-## Outputs
-- `results/benchmark_results/*.json` : partial and final aggregated metrics
-- `outputs/checkpoints/*` : training checkpoints + run markers
-- `results/tables/*.md` : compact report-ready tables
-- `results/suite/leaderboard_screening.csv` : ranking after 1-seed screening
-- `results/suite/leaderboard_selection.csv` : ranking after top-5/2-seed selection
+- `results/suite/leaderboard_screening.csv`
+- `results/suite/leaderboard_selection.csv`
+- `results/suite/suite_summary.csv`
+- `results/experiments/*/benchmark_results/*.json`
+- `results/suite/rapport_final.tex`
 
-## Notes
-- Do not include `outputs/checkpoints` or raw datasets in final submission zip.
-- Use `configs/baseline.yaml` to control datasets, seeds, and memory-sensitive hyperparameters.
-- Report/submission checklists are in:
+## Notes pratiques vdigpu
+
+- Evitez de lancer `smoke` puis `suite` si vous voulez gagner du temps: `suite` contient deja `E00`.
+- Si un run est interrompu, utilisez `resume`.
+- Si le stockage sature, relancez avec `--clean` puis `resume` selon le besoin.
+- Checklists rapport/rendu:
   - `docs/REPORT_CHECKLIST.md`
   - `docs/SUBMISSION_CHECKLIST.md`

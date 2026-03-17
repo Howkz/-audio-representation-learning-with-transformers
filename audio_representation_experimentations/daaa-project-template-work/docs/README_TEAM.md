@@ -1,91 +1,79 @@
-# README Équipe
+# README Equipe - Fonctionnement Clair
 
-Ce document permet de reprendre rapidement le projet sans relire tout l'historique.
+Objectif de ce fichier: expliquer simplement comment lancer, reprendre, et lire la campagne.
 
-## 1) Ce qui a été fait et pourquoi
+## 1) Vue d'ensemble
 
-- Pipeline opérationnel: `data -> train -> test`.
-- Suite expérimentale E00→E11 implémentée pour raconter une progression scientifique:
-  - E00 validation technique.
-  - E01 baseline.
-  - E02 effet du pré-entraînement MAE (NoMAE).
-  - E03–E08 ablations architecture/hyperparamètres.
-  - E09–E11 consolidation Top-3 en 5 seeds.
-- Reprise après crash robuste:
-  - checkpoints périodiques + fin d'époque,
-  - état modèle/optim/scheduler/scaler/RNG,
-  - marqueurs de run terminé.
-- Contrainte stockage respectée:
-  - conservation de `data/cache` (évite re-téléchargement),
-  - nettoyage des checkpoints entre expériences,
-  - archivage des artefacts finaux.
-- Génération automatique du template LaTeX du rapport scientifique (sections résultats/discussion laissées vides).
+Pipeline technique:
 
-Objectif global: satisfaire les exigences du TP avec une méthodologie reproductible, comparée et défendable.
+1. `run_data.py`: prepare/valide les datasets HF.
+2. `run_train.py`: pretrain MAE puis finetune CTC.
+3. `run_test.py`: evalue ASR et agregation des metriques.
 
-## 2) Principe du script expérimental (et pourquoi)
+Campagne complete (`run_experiment_suite.py`):
 
-Script principal: `scripts/run_experiment_suite.py`
+1. `E00` (smoke de validation).
+2. `E01..E08` (screening 1 seed).
+3. `SEL01..SEL05` (selection Top-5 en 2 seeds).
+4. `E09..E11` (final Top-3 en 5 seeds).
 
-- Lit un manifest unique: `configs/suite_e00_e11.yaml`.
-- Exécute les expériences dans l'ordre avec isolement des sorties par ID (`E00`, `E01`, ...).
-- Classe automatiquement le screening (WER, puis runtime, puis mémoire) pour déterminer un Top-5.
-- Exécute ensuite une phase de sélection Top-5 en 2 seeds (42, 123).
-- Lance enfin E09/E10/E11 en 5 seeds à partir du classement de sélection.
-- Affiche l'état de progression et le stockage en temps réel.
-- Applique une garde d'espace disque (`--disk-guard-gb`) pour arrêt propre.
-- Génère à la fin:
-  - `results/suite/leaderboard_screening.csv`
-  - `results/suite/suite_summary.csv`
-  - `results/suite/rapport_final.tex`
+## 2) Ce qui est automatise
 
-Pourquoi ce design:
-- reproductibilité (manifest + seeds + reprise),
-- comparabilité (protocole identique),
-- robustesse opérationnelle (crash tolerance),
-- frugalité (cache conservé, checkpoints purgés).
+Le runner de suite fait automatiquement:
 
-## 3) Comment exécuter les scripts
+- generation des runtime configs par experience,
+- execution `data -> train -> test`,
+- classement screening (WER, runtime, memoire),
+- phase selection Top-5 en 2 seeds,
+- resolution des finales depuis la selection,
+- archivage des artefacts utiles,
+- nettoyage des checkpoints d'experience,
+- generation du template LaTeX final.
 
-## Windows (PowerShell)
+## 3) Commandes Linux recommandees
 
-```powershell
-cd audio_representation_experimentations/daaa-project-template-work
-$env:PYTHONPATH='.'
-
-# 1) Pipeline simple
-python scripts/run_data.py --config configs/low_storage.yaml
-python scripts/run_train.py --config configs/low_storage.yaml
-python scripts/run_test.py --config configs/low_storage.yaml
-
-# 2) Suite complète E00->E11
-python scripts/run_experiment_suite.py --suite-config configs/suite_e00_e11.yaml --verbose --disk-guard-gb 1.5
-
-# 3) Reprise après interruption
-python scripts/run_experiment_suite.py --suite-config configs/suite_e00_e11.yaml --resume --verbose --disk-guard-gb 1.5
-
-# 4) Générer uniquement le rapport LaTeX
-python scripts/generate_report_template.py --suite-config configs/suite_e00_e11.yaml --output results/suite/rapport_final.tex
-```
-
-## Linux/macOS
+Depuis la racine du projet:
 
 ```bash
 cd audio_representation_experimentations/daaa-project-template-work
-export PYTHONPATH=.
-
-make data CONFIG=configs/low_storage.yaml
-make train CONFIG=configs/low_storage.yaml
-make test CONFIG=configs/low_storage.yaml
-
-make suite
-make report-template
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+chmod +x scripts/linux_experiments.sh
 ```
 
-## 4) Cartographie docs
+Lancement:
 
-- `docs/TP_consignes.md`: sujet original.
-- `docs/PROJECT_CADRAGE_TP.md`: cadrage scientifique.
-- `docs/REPORT_CHECKLIST.md`: checklist du rapport.
-- `docs/SUBMISSION_CHECKLIST.md`: checklist de rendu.
-- `docs/TEMPLATE_PROVENANCE.md`: traçabilité template UE.
+```bash
+./scripts/linux_experiments.sh smoke
+./scripts/linux_experiments.sh suite
+./scripts/linux_experiments.sh resume
+./scripts/linux_experiments.sh suite --clean
+```
+
+## 4) Quand utiliser quoi
+
+- Vous voulez juste verifier la stack: `smoke`.
+- Vous demarrez la vraie experimentation: `suite`.
+- Session coupee/crash: `resume`.
+- Disque plein ou cache sale: `suite --clean`.
+
+## 5) Resultats a consulter
+
+- `results/suite/leaderboard_screening.csv`
+- `results/suite/leaderboard_selection.csv`
+- `results/suite/suite_summary.csv`
+- `results/experiments/<ID>/benchmark_results/*.json`
+- `results/suite/rapport_final.tex`
+
+## 6) Points importants pour le rapport
+
+- Expliquer la contrainte vdigpu (6 Go VRAM / budget disque).
+- Expliquer le compromis:
+  - screening sous-echantillonne,
+  - selection top-5 en 2 seeds,
+  - final top-3 full-data en 5 seeds.
+- Rapporter WER + runtime + memoire GPU.
+- Utiliser les checklists:
+  - `docs/REPORT_CHECKLIST.md`
+  - `docs/SUBMISSION_CHECKLIST.md`
