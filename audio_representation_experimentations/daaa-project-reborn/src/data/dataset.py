@@ -36,33 +36,67 @@ class AudioPreprocessConfig:
     hop_length: int
 
 
+class InMemoryRowsDataset(TorchDataset):
+    def __init__(self, rows: List[Dict[str, Any]], feature_keys: Optional[List[str]] = None) -> None:
+        self.rows = rows
+        keys = feature_keys if feature_keys is not None else (list(rows[0].keys()) if rows else [])
+        # Keep a dict-like object compatible with existing summary calls.
+        self.features = {k: None for k in keys}
+
+    def __len__(self) -> int:
+        return len(self.rows)
+
+    def __getitem__(self, index: int) -> Dict[str, Any]:
+        return self.rows[index]
+
+
 def load_hf_audio_dataset(
     dataset_name: str,
     dataset_config: Optional[str],
     split: str,
     cache_dir: str,
     max_samples: Optional[int],
+    streaming: bool = False,
 ) -> Dataset:
     if load_dataset is None:
         raise ModuleNotFoundError(
             "Missing dependency 'datasets'. Install requirements.txt before running data/train/test."
         )
-    def _load(split_value: str):
+    def _load(split_value: str, use_streaming: bool):
+        load_kwargs = {"split": split_value, "cache_dir": cache_dir, "streaming": bool(use_streaming)}
         if dataset_config in (None, "", "null"):
-            return load_dataset(dataset_name, split=split_value, cache_dir=cache_dir)
-        return load_dataset(dataset_name, dataset_config, split=split_value, cache_dir=cache_dir)
+            return load_dataset(dataset_name, **load_kwargs)
+        return load_dataset(dataset_name, dataset_config, **load_kwargs)
+
+    def _materialize_streaming(stream_ds, limit: Optional[int]) -> InMemoryRowsDataset:
+        rows: List[Dict[str, Any]] = []
+        if limit is None:
+            for row in stream_ds:
+                rows.append(row)
+        else:
+            max_count = max(0, int(limit))
+            for idx, row in enumerate(stream_ds):
+                if idx >= max_count:
+                    break
+                rows.append(row)
+        keys = list(rows[0].keys()) if rows else []
+        return InMemoryRowsDataset(rows=rows, feature_keys=keys)
+
+    if streaming:
+        stream_ds = _load(split, use_streaming=True)
+        return _materialize_streaming(stream_ds, max_samples)
 
     # Prefer split slicing to avoid downloading/loading full split for screening passes.
     if max_samples is not None:
         max_count = int(max_samples)
         split_sliced = f"{split}[:{max_count}]"
         try:
-            return _load(split_sliced)
+            return _load(split_sliced, use_streaming=False)
         except Exception:
-            ds = _load(split)
+            ds = _load(split, use_streaming=False)
             return ds.select(range(min(max_count, len(ds))))
 
-    return _load(split)
+    return _load(split, use_streaming=False)
 
 
 def resolve_transcript_key(sample: Dict[str, Any], preferred: Optional[str]) -> Optional[str]:
@@ -114,7 +148,8 @@ class AudioFeatureDataset(TorchDataset):
 
 
 def collect_dataset_summary(dataset: Dataset, dataset_label: str) -> Dict[str, Any]:
-    sample_keys = list(dataset.features.keys())
+    features = getattr(dataset, "features", {})
+    sample_keys = list(features.keys()) if hasattr(features, "keys") else []
     return {
         "dataset_label": dataset_label,
         "num_examples": int(len(dataset)),

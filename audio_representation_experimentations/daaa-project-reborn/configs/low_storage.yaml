@@ -55,6 +55,7 @@ training:
 data:
   num_workers: 1
   precompute_feature_cache: false
+  streaming: true
 
 datasets:
   pretrain:

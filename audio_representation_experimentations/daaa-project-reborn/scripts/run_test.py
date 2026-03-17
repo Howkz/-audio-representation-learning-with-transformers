@@ -102,12 +102,14 @@ def main() -> None:
     from src.training.results import aggregate_partial_to_final, write_run_partial
 
     def _load_audio_dataset(local_cfg: Dict[str, Any], spec: Dict[str, Any], local_audio_cfg):
+        default_streaming = bool(local_cfg.get("data", {}).get("streaming", False))
         ds = load_hf_audio_dataset(
             dataset_name=spec["name"],
             dataset_config=spec.get("config"),
             split=spec["split"],
             cache_dir=local_cfg["experiment"]["cache_dir"],
             max_samples=spec.get("max_samples"),
+            streaming=bool(spec.get("streaming", default_streaming)),
         )
         return AudioFeatureDataset(ds, audio_cfg=local_audio_cfg, transcript_key=spec.get("transcript_key"))
 

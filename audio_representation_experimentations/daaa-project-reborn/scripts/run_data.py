@@ -36,10 +36,15 @@ def main() -> None:
     processed_dir = Path(cfg["experiment"]["processed_dir"])
     processed_dir.mkdir(parents=True, exist_ok=True)
 
+    default_streaming = bool(cfg.get("data", {}).get("streaming", False))
+
     if args.dry_run:
         print("[DATA] Dry-run enabled. Planned datasets:")
         for spec in dataset_specs_for_data_step(cfg):
-            print(f"  - {spec['name']} | config={spec.get('config')} | split={spec['split']} | max={spec.get('max_samples')}")
+            print(
+                f"  - {spec['name']} | config={spec.get('config')} | split={spec['split']} "
+                f"| max={spec.get('max_samples')} | streaming={bool(spec.get('streaming', default_streaming))}"
+            )
         return
 
     summaries: List[Dict[str, Any]] = []
@@ -49,9 +54,10 @@ def main() -> None:
         dataset_config = spec.get("config")
         split = spec["split"]
         max_samples = spec.get("max_samples")
+        streaming = bool(spec.get("streaming", default_streaming))
         print(
             f"[DATA] Loading dataset={dataset_name} config={dataset_config} "
-            f"split={split} max_samples={max_samples}"
+            f"split={split} max_samples={max_samples} streaming={streaming}"
         )
         ds = load_hf_audio_dataset(
             dataset_name=dataset_name,
@@ -59,11 +65,13 @@ def main() -> None:
             split=split,
             cache_dir=cache_dir,
             max_samples=max_samples,
+            streaming=streaming,
         )
         dataset_label = f"{dataset_name}:{split}"
         summary = collect_dataset_summary(ds, dataset_label=dataset_label)
         summary["max_samples"] = max_samples
         summary["dataset_config"] = dataset_config
+        summary["streaming"] = streaming
         summaries.append(summary)
         print(f"[DATA] Prepared {dataset_label} with {len(ds)} samples.")
 
