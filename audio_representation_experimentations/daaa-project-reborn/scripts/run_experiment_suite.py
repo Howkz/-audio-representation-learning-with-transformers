@@ -16,6 +16,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import yaml
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the full E00->E11 experiment suite.")
@@ -169,10 +171,22 @@ def _run_command(
         )
         monitor_thread.start()
 
+    child_env = os.environ.copy()
+    existing_pythonpath = child_env.get("PYTHONPATH", "")
+    root_path = str(PROJECT_ROOT)
+    if existing_pythonpath:
+        parts = existing_pythonpath.split(os.pathsep)
+        if root_path not in parts:
+            child_env["PYTHONPATH"] = root_path + os.pathsep + existing_pythonpath
+    else:
+        child_env["PYTHONPATH"] = root_path
+
     process = subprocess.Popen(
         command,
+        cwd=str(PROJECT_ROOT),
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
+        env=child_env,
         text=True,
         bufsize=1,
     )
