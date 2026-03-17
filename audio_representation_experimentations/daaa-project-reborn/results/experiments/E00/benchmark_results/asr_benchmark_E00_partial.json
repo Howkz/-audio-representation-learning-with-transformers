@@ -1,0 +1,14 @@
+{
+  "model_name": "audio_transformer_smoke_E00",
+  "architecture": "Audio Transformer Encoder + CTC",
+  "adaptation_technique": "MAE pretrain -> CTC fine-tune",
+  "runs": {
+    "42": {
+      "seed": 42.0,
+      "wer": 1.0,
+      "inference_runtime_sec": 7.373423099517822,
+      "inference_samples_per_sec": 10.849777494150786,
+      "inference_peak_gpu_mem_mb": 13.13525390625
+    }
+  }
+}

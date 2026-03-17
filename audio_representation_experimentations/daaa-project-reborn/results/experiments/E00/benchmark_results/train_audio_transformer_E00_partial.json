@@ -1,0 +1,26 @@
+{
+  "model_name": "audio_transformer_smoke_E00",
+  "architecture": "Audio Transformer Encoder + CTC",
+  "adaptation_technique": "MAE pretrain -> CTC fine-tune",
+  "runs": {
+    "42": {
+      "pretrain_loss": 49.799599711100264,
+      "pretrain_runtime_sec": 15.053334712982178,
+      "pretrain_peak_gpu_mem_mb": 28.13232421875,
+      "pretrain_total_params": 373248.0,
+      "pretrain_trainable_params": 373248.0,
+      "train_loss": 2.4026934146881103,
+      "train_runtime_sec": 31.97487998008728,
+      "train_peak_gpu_mem_mb": 25.70654296875,
+      "eval_peak_gpu_mem_mb": 22.646484375,
+      "valid_peak_gpu_mem_mb": 22.646484375,
+      "valid_wer": 1.0,
+      "valid_runtime_sec": 8.507044315338135,
+      "valid_samples_per_sec": 9.403971230731763,
+      "best_valid_wer": 1.0,
+      "finetune_total_params": 301981.0,
+      "finetune_trainable_params": 301981.0,
+      "seed": 42.0
+    }
+  }
+}
