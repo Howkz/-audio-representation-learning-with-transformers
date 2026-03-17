@@ -48,6 +48,8 @@ Lancement:
 ./scripts/linux_experiments.sh smoke
 ./scripts/linux_experiments.sh suite
 ./scripts/linux_experiments.sh resume
+./scripts/linux_experiments.sh suite-18gb
+./scripts/linux_experiments.sh resume-18gb
 ./scripts/linux_experiments.sh suite --clean
 ./scripts/linux_experiments.sh resume --cache-root /mnt/bigdisk/$USER --clean-hf
 ```
@@ -57,6 +59,7 @@ Lancement:
 - Vous voulez juste verifier la stack: `smoke`.
 - Vous demarrez la vraie experimentation: `suite`.
 - Session coupee/crash: `resume`.
+- Contrainte stricte 18 Go: `suite-18gb` puis `resume-18gb`.
 - Disque plein ou cache sale: `suite --clean`.
 - Cache HF/TMP sur disque plus grand: `--cache-root /mnt/bigdisk/$USER`.
 - Cache HF/TMP a reinitialiser: `--clean-hf`.

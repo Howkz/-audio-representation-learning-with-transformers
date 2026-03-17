@@ -29,6 +29,8 @@ Puis:
 ./scripts/linux_experiments.sh smoke
 ./scripts/linux_experiments.sh suite
 ./scripts/linux_experiments.sh resume
+./scripts/linux_experiments.sh suite-18gb
+./scripts/linux_experiments.sh resume-18gb
 ./scripts/linux_experiments.sh suite --clean
 ./scripts/linux_experiments.sh resume --cache-root /mnt/bigdisk/$USER --clean-hf
 ```
@@ -38,6 +40,8 @@ Puis:
 - `smoke`: mini run technique rapide (pipeline complet) pour verifier que tout tourne.
 - `suite`: lance toute la campagne depuis le debut.
 - `resume`: reprend la campagne sans relancer ce qui est deja termine.
+- `suite-18gb`: suite complete avec profil strict stockage 18 Go.
+- `resume-18gb`: reprise de la suite 18 Go.
 - `--clean`: vide caches/artefacts projet avant le lancement.
 - `--cache-root <path>`: place les caches HF/TMP sur un disque plus grand.
 - `--clean-hf`: vide les caches HF/TMP.

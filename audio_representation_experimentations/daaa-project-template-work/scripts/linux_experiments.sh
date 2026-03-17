@@ -8,6 +8,8 @@ set -euo pipefail
 #   bash scripts/linux_experiments.sh smoke
 #   bash scripts/linux_experiments.sh suite
 #   bash scripts/linux_experiments.sh resume
+#   bash scripts/linux_experiments.sh suite-18gb
+#   bash scripts/linux_experiments.sh resume-18gb
 #   bash scripts/linux_experiments.sh suite --clean
 #   bash scripts/linux_experiments.sh dry-run
 #   bash scripts/linux_experiments.sh resume --cache-root /mnt/bigdisk/$USER --clean-hf
@@ -94,9 +96,22 @@ case "$MODE" in
       --verbose \
       --disk-guard-gb 1.5
     ;;
+  suite-18gb)
+    python scripts/run_experiment_suite.py \
+      --suite-config configs/suite_e00_e11_18gb.yaml \
+      --verbose \
+      --disk-guard-gb 1.5
+    ;;
   resume)
     python scripts/run_experiment_suite.py \
       --suite-config configs/suite_e00_e11.yaml \
+      --resume \
+      --verbose \
+      --disk-guard-gb 1.5
+    ;;
+  resume-18gb)
+    python scripts/run_experiment_suite.py \
+      --suite-config configs/suite_e00_e11_18gb.yaml \
       --resume \
       --verbose \
       --disk-guard-gb 1.5
@@ -112,7 +127,7 @@ case "$MODE" in
     echo "[DONE] Clean complete."
     ;;
   *)
-    echo "[ERROR] Unknown mode '${MODE}'. Use: smoke | suite | resume | dry-run | clean"
+    echo "[ERROR] Unknown mode '${MODE}'. Use: smoke | suite | resume | suite-18gb | resume-18gb | dry-run | clean"
     exit 2
     ;;
 esac

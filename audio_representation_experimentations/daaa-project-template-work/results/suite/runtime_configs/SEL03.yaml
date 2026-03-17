@@ -1,5 +1,5 @@
 experiment:
-  name: audio_transformer_low_storage_SEL03
+  name: audio_transformer_low_storage_18gb_SEL03
   output_dir: outputs
   results_dir: results/experiments/SEL03
   cache_dir: data/cache
@@ -43,39 +43,39 @@ training:
     grad_accum_steps: 2
     learning_rate: 0.0001
     weight_decay: 0.01
-    max_steps: 250
+    max_steps: 180
   finetune:
     epochs: 1
     batch_size: 2
     grad_accum_steps: 4
     learning_rate: 0.00015
     weight_decay: 0.01
-    max_steps: 300
+    max_steps: 220
 data:
   num_workers: 1
   precompute_feature_cache: false
 datasets:
   pretrain:
-    name: Codec-SUPERB/fluent_speech_commands_synth
-    config: null
-    split: train
-    max_samples: 500
+    name: openslr/librispeech_asr
+    config: clean
+    split: validation.clean
+    max_samples: 400
     transcript_key: null
   asr_train:
     name: openslr/librispeech_asr
     config: clean
-    split: train.clean.100
-    max_samples: 800
+    split: validation.clean
+    max_samples: 500
     transcript_key: text
   asr_valid:
     name: openslr/librispeech_asr
     config: clean
     split: validation.clean
-    max_samples: 150
+    max_samples: 120
     transcript_key: text
   asr_tests:
   - name: openslr/librispeech_asr
     config: clean
     split: test.clean
-    max_samples: 150
+    max_samples: 120
     transcript_key: text
