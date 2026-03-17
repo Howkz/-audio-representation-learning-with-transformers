@@ -30,6 +30,7 @@ Puis:
 ./scripts/linux_experiments.sh suite
 ./scripts/linux_experiments.sh resume
 ./scripts/linux_experiments.sh suite --clean
+./scripts/linux_experiments.sh resume --cache-root /mnt/bigdisk/$USER --clean-hf
 ```
 
 ## Que fait chaque mode
@@ -38,6 +39,8 @@ Puis:
 - `suite`: lance toute la campagne depuis le debut.
 - `resume`: reprend la campagne sans relancer ce qui est deja termine.
 - `--clean`: vide caches/artefacts projet avant le lancement.
+- `--cache-root <path>`: place les caches HF/TMP sur un disque plus grand.
+- `--clean-hf`: vide les caches HF/TMP.
 
 ## Logique experimentale de la suite
 
@@ -91,6 +94,7 @@ PYTHONPATH=. python scripts/run_experiment_suite.py \
 - Evitez de lancer `smoke` puis `suite` si vous voulez gagner du temps: `suite` contient deja `E00`.
 - Si un run est interrompu, utilisez `resume`.
 - Si le stockage sature, relancez avec `--clean` puis `resume` selon le besoin.
+- Si `/tmp` est petit, utilisez `--cache-root /mnt/bigdisk/$USER`.
 - Checklists rapport/rendu:
   - `docs/REPORT_CHECKLIST.md`
   - `docs/SUBMISSION_CHECKLIST.md`

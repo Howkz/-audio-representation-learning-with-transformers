@@ -49,6 +49,7 @@ Lancement:
 ./scripts/linux_experiments.sh suite
 ./scripts/linux_experiments.sh resume
 ./scripts/linux_experiments.sh suite --clean
+./scripts/linux_experiments.sh resume --cache-root /mnt/bigdisk/$USER --clean-hf
 ```
 
 ## 4) Quand utiliser quoi
@@ -57,6 +58,8 @@ Lancement:
 - Vous demarrez la vraie experimentation: `suite`.
 - Session coupee/crash: `resume`.
 - Disque plein ou cache sale: `suite --clean`.
+- Cache HF/TMP sur disque plus grand: `--cache-root /mnt/bigdisk/$USER`.
+- Cache HF/TMP a reinitialiser: `--clean-hf`.
 
 ## 5) Resultats a consulter
 

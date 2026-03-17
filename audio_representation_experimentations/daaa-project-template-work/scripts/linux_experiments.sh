@@ -10,16 +10,31 @@ set -euo pipefail
 #   bash scripts/linux_experiments.sh resume
 #   bash scripts/linux_experiments.sh suite --clean
 #   bash scripts/linux_experiments.sh dry-run
+#   bash scripts/linux_experiments.sh resume --cache-root /mnt/bigdisk/$USER --clean-hf
 
 MODE="${1:-suite}"
 shift || true
 
 CLEAN=0
+CLEAN_HF=0
+CACHE_ROOT="${EXPERIMENT_CACHE_ROOT:-${HOME}/.cache/daaa_audio}"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --clean)
       CLEAN=1
       shift
+      ;;
+    --clean-hf)
+      CLEAN_HF=1
+      shift
+      ;;
+    --cache-root)
+      if [[ $# -lt 2 ]]; then
+        echo "[ERROR] --cache-root requires a path argument."
+        exit 2
+      fi
+      CACHE_ROOT="$2"
+      shift 2
       ;;
     *)
       echo "[ERROR] Unknown argument: $1"
@@ -31,16 +46,20 @@ done
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
-mkdir -p "/tmp/${USER}/hf_cache" "/tmp/${USER}/hf_tmp"
-export HF_HOME="/tmp/${USER}/hf_cache"
-export HF_DATASETS_CACHE="/tmp/${USER}/hf_cache/datasets"
-export HF_HUB_CACHE="/tmp/${USER}/hf_cache/hub"
-export TMPDIR="/tmp/${USER}/hf_tmp"
+export HF_HOME="${HF_HOME:-${CACHE_ROOT}/hf_cache}"
+export HF_DATASETS_CACHE="${HF_DATASETS_CACHE:-${HF_HOME}/datasets}"
+export HF_HUB_CACHE="${HF_HUB_CACHE:-${HF_HOME}/hub}"
+export TMPDIR="${TMPDIR:-${CACHE_ROOT}/hf_tmp}"
 export PYTHONPATH="."
 
-echo "[RUN] mode=${MODE} clean=${CLEAN}"
+mkdir -p "${HF_HOME}" "${HF_DATASETS_CACHE}" "${HF_HUB_CACHE}" "${TMPDIR}"
+
+echo "[RUN] mode=${MODE} clean=${CLEAN} clean_hf=${CLEAN_HF}"
+echo "[RUN] cache_root=${CACHE_ROOT}"
 echo "[RUN] HF_HOME=${HF_HOME}"
 echo "[RUN] TMPDIR=${TMPDIR}"
+echo "[RUN] disk usage:"
+df -h "${HF_HOME}" "${TMPDIR}" 2>/dev/null || true
 
 if [[ "$CLEAN" == "1" ]]; then
   echo "[CLEAN] Removing project caches and checkpoints..."
@@ -51,6 +70,16 @@ if [[ "$CLEAN" == "1" ]]; then
   rm -f results/suite/suite_summary.csv
   rm -f results/suite/selection_manifest.json
   rm -f results/suite/runtime_configs/*.yaml
+fi
+
+if [[ "$CLEAN_HF" == "1" ]]; then
+  if [[ -z "${HF_HOME}" || "${HF_HOME}" == "/" || -z "${TMPDIR}" || "${TMPDIR}" == "/" ]]; then
+    echo "[ERROR] Refusing to clean HF/TMP because path is unsafe."
+    exit 2
+  fi
+  echo "[CLEAN] Removing HF/TMP caches..."
+  rm -rf "${HF_HOME}" "${TMPDIR}"
+  mkdir -p "${HF_HOME}" "${HF_DATASETS_CACHE}" "${HF_HUB_CACHE}" "${TMPDIR}"
 fi
 
 case "$MODE" in
