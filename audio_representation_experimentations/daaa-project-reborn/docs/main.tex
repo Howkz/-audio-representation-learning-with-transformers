@@ -1,0 +1,880 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{lmodern}
+\usepackage{geometry}
+\usepackage{setspace}
+\usepackage{booktabs}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{enumitem}
+\usepackage{float}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\geometry{margin=2.4cm}
+\onehalfspacing
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.35em}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!40!black,
+  urlcolor=blue!40!black,
+  citecolor=blue!40!black
+}
+
+\title{Rapport d'Experimentations sur l'Apprentissage de la représentation audio via transformateurs}
+\author{CLAIR Maël, SABINE Hugo, CHANTELOUP William}
+\date{\today}
+
+\begin{document}
+
+\begin{titlepage}
+\centering
+{\Large Master 2 Algorithmiques et Systèmes Intelligents\par}
+\vspace{0.35cm}
+{\large Projet DAAA\par}
+\vspace{1.3cm}
+{\LARGE\bfseries Rapport d'Experimentations sur l'Apprentissage de la représentation audio via transformateurs\par}
+\vspace{0.8cm}
+{\large Pré-entraînement MAE et adaptation CTC: étude expérimentale progressive E00→E11\par}
+\vfill
+\begin{tabular}{ll}
+\textbf{Étudiants} : & CLAIR Maël \\
+ & SABINE Hugo \\
+ & CHANTELOUP William \\
+\textbf{Date} : & \today \\
+\end{tabular}
+\vfill
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+\section{Introduction}
+Ce rapport présente une étude expérimentale progressive sur un encodeur Transformer audio pré-entraîné par MAE puis adapté en ASR via CTC.
+L'objectif scientifique est triple: (i) vérifier l'apport du pré-entraînement MAE, (ii) identifier les compromis entre WER, temps d'inférence et mémoire GPU, (iii) produire un benchmark multi-variantes avec consolidation statistique finale.
+
+Contraintes de conception: environnement vdigpu, execution reproductible, suivi frugal des ressources, contrainte dure de temps (24h), et budget stockage traite comme contrainte locale variable.
+
+\paragraph{Choix globaux assumés}
+\begin{itemize}
+\item Screening uniquement sur LibriSpeech pour tenir le budget disque/temps.
+\item VoxPopuli est exclu par défaut de cette suite (extension possible si marge).
+\item Le cache data est conservé entre expériences.
+\item Le budget local de stockage (par ex. 18 Go) pilote l'execution locale, mais n'est pas encode comme limite scientifique fixe.
+\end{itemize}
+
+
+\section{Questions de recherche et hypothèses globales}
+\subsection{Questions de recherche}
+\begin{enumerate}
+\item \textbf{RQ1}: Le pré-entraînement MAE améliore-t-il la performance ASR (WER) par rapport à un entraînement CTC sans pré-entraînement ?
+\item \textbf{RQ2}: Quel compromis est obtenu entre qualité (WER), coût temporel (runtime/débit) et coût matériel (mémoire GPU) selon la capacité du modèle ?
+\item \textbf{RQ3}: Quels choix d'architecture (positionnel, stratégie de patching) et d'hyperparamètres MAE (mask ratio) sont les plus robustes ?
+\item \textbf{RQ4}: Les conclusions restent-elles stables sous variabilité aléatoire (5 seeds sur les meilleures variantes) ?
+\end{enumerate}
+
+\subsection{Hypothèses globales justifiées}
+\begin{itemize}
+\item \textbf{H1 (apport MAE)}: une représentation auto-supervisée pré-entraînée améliore la généralisation ASR, car l'encodeur apprend des régularités acoustiques indépendantes de l'alignement texte.
+\item \textbf{H2 (capacité)}: augmenter la capacité du Transformer peut réduire le WER, mais au prix d'une hausse de runtime et de mémoire.
+\item \textbf{H3 (inductive bias)}: des choix de patching et d'encodage positionnel modifient le biais inductif; certains réglages peuvent mieux capturer la structure temps-fréquence.
+\item \textbf{H4 (mask ratio)}: le ratio de masquage MAE gouverne la difficulté de prétexte; trop faible sous-contraint l'apprentissage, trop fort peut dégrader l'optimisation.
+\end{itemize}
+
+
+\section{Méthodologie générale}
+\subsection{Définitions opératoires}
+\begin{itemize}
+\item \textbf{ASR (Automatic Speech Recognition)}: conversion d'un signal de parole en transcription texte.
+\item \textbf{CTC (Connectionist Temporal Classification)}: fonction de perte permettant d'apprendre sans alignement frame-à-frame explicite.
+\item \textbf{WER (Word Error Rate)}: métrique de transcription basée sur substitutions, insertions et suppressions.
+\item \textbf{MAE (Masked AutoEncoder)}: pré-entraînement auto-supervisé par reconstruction de portions masquées du signal.
+\item \textbf{TTS (Text-To-Speech)}: tâche inverse de l'ASR (texte vers audio), non incluse dans le cœur de cette suite.
+\end{itemize}
+
+\subsection{Pipeline}
+Le protocole suit les étapes \texttt{make data}, \texttt{make train}, \texttt{make test}.
+Chaque expérience est exécutée dans un namespace dédié, avec nettoyage des checkpoints intermédiaires après archivage des résultats, tout en conservant le cache de données.
+
+\subsection{Politique dataset et périmètre}
+\begin{itemize}
+\item \textbf{Screening}: librispeech\_only.
+\item \textbf{Consolidation finale}: librispeech\_only.
+\item VoxPopuli reste une extension possible, hors chemin critique de la présente étude (contraintes disque/temps).
+\end{itemize}
+
+\subsection{Politique dataset calibree par phase}
+Le respect du budget 24h est porte par des choix fixes de quotas et d'hyperparametres:
+\begin{itemize}
+\item Screening (E01--E08): \texttt{pretrain=900}, \texttt{asr\_train=1100}, \texttt{asr\_valid=300}, 1 seed.
+\item Selection (SEL01--SEL05): memes quotas, 2 seeds.
+\item Finale (E09--E11): sous-echantillon elargi fixe (\texttt{pretrain=2000}, \texttt{asr\_train=3000}), 5 seeds.
+\end{itemize}
+Ainsi, le protocole ne depend pas de variables globales de budget; il depend de configs experimentales explicites.
+
+\subsection{Contrôle expérimental}
+\begin{itemize}
+\item Même pipeline de preprocessing audio pour toutes les variantes.
+\item Même protocole d'évaluation et mêmes splits pour la comparabilité.
+\item Une seule variable manipulée à la fois durant le screening autant que possible.
+\item Checkpointing complet (modèle, optimiseur, scheduler, scaler AMP, état RNG) pour reprise fiable.
+\end{itemize}
+
+\subsection{Métriques}
+Les métriques principales sont:
+\begin{itemize}
+\item WER (Word Error Rate) pour la performance ASR.
+\item Temps d'inférence et débit (samples/s) pour la frugalité temporelle.
+\item Mémoire GPU pic pour la frugalité matérielle.
+\item Taille modèle (\#paramètres) pour l'analyse capacité/coût.
+\end{itemize}
+
+\subsection{Règles statistiques}
+Le screening initial est réalisé en 1 seed par variante (E01--E08).
+La phase de sélection intermédiaire est réalisée sur Top-5 en 2 seeds (SEL01--SEL05).
+La consolidation finale est réalisée sur 5 seeds pour les 3 meilleures variantes (E09--E11), avec reporting moyenne~$\pm$~écart-type.
+
+\subsection{Règle de décision Top-3}
+Le classement screening est effectué par tri lexicographique sur:
+\begin{enumerate}
+\item WER (ascendant),
+\item runtime d'inférence (ascendant),
+\item mémoire GPU pic (ascendant).
+\end{enumerate}
+
+\subsection{Plan de pilotage 24h et regles anti-derive}
+\begin{itemize}
+\item Decoupage cible: E00 (smoke), E01--E08 (screening), SEL01--SEL05 (selection), E09--E11 (final).
+\item Si ETA $>$ 24h apres E04: reduction de \texttt{finetune.max\_steps} de 15--20\% pour E05--E11.
+\item Si ETA $>$ 24h apres selection: reduction uniquement de \texttt{pretrain.max\_steps} en finale.
+\item Interdit en finale: changer les seeds finales ou les splits de test.
+\end{itemize}
+
+\subsection{Interface d'execution unique}
+La suite est pilotee par un script Linux unique expose avec les modes:
+\texttt{smoke | suite | resume | dry-run | clean}.
+
+Parametrage public:
+\texttt{EXPERIMENT\_CACHE\_ROOT}.
+Les contraintes de temps/stockage sont gerees par le design des configurations (steps, quotas, seeds), pas par variables globales de budget.
+
+Artefacts attendus:
+\texttt{leaderboard\_screening.csv},
+\texttt{leaderboard\_selection.csv},
+\texttt{suite\_summary.csv},
+configs runtime et resultats \texttt{partial/final}.
+
+\subsection{Matrice parametrique de reference (E01) et justification}
+Tous les choix non modifies explicitement dans une experience heritent de ce profil de reference.
+
+\paragraph{Parametres audio}
+\begin{itemize}
+\item \texttt{sample\_rate=16000}: standard ASR, compromis qualite/cout, compatible datasets cibles.
+\item \texttt{max\_duration\_sec=6.0}: borne la longueur sequence pour reduire OOM et variabilite de runtime.
+\item \texttt{n\_mels=80}: resolution frequencielle suffisante pour parole sans surcout excessif.
+\item \texttt{win\_length=400}, \texttt{hop\_length=160}: fenetrage 25ms/10ms, pratique standard robuste en ASR.
+\end{itemize}
+
+\paragraph{Parametres modele (baseline small MAE)}
+\begin{itemize}
+\item \texttt{dim=192}, \texttt{depth=4}, \texttt{num\_heads=6}, \texttt{mlp\_ratio=3.0}: capacite intermediaire pour tenir le budget 24h tout en restant competitive.
+\item \texttt{dropout=0.1}: regularisation moderee pour limiter sur-apprentissage sur sous-echantillons.
+\item \texttt{patch\_strategy=time}, \texttt{patch\_time=4}, \texttt{patch\_freq=80}: patching simple et frugal, reference pour comparer E06.
+\item \texttt{max\_len=1536}: limite memoire explicite, stabilite batch.
+\item \texttt{pos\_embed=sinusoidal}: base deterministe et stable, comparee a learned en E05.
+\item \texttt{mae\_mask\_ratio=0.6}: niveau de difficulte intermediaire, compare a 0.4 (E07) et 0.75 (E08).
+\item \texttt{mae\_decoder\_dim=96}, \texttt{mae\_decoder\_depth=1}, \texttt{mae\_decoder\_heads=4}: decodeur volontairement leger pour frugalite pretrain.
+\end{itemize}
+
+\paragraph{Parametres optimisation et entrainement}
+\begin{itemize}
+\item \texttt{amp=true}: reduction memoire + acceleration, contrainte vdigpu.
+\item \texttt{grad\_clip\_norm=1.0}: stabilisation des gradients sur runs longs.
+\item \texttt{pretrain}: \texttt{epochs=1}, \texttt{batch\_size=4}, \texttt{grad\_accum\_steps=2}, \texttt{lr=1e-4}, \texttt{weight\_decay=0.01}, \texttt{max\_steps=140}.
+\item \texttt{finetune}: \texttt{epochs=1}, \texttt{batch\_size=2}, \texttt{grad\_accum\_steps=4}, \texttt{lr=1.5e-4}, \texttt{weight\_decay=0.01}, \texttt{max\_steps=200}.
+\item Justification globale: optimiser le ratio signal/cout pour parcourir E00--E11 dans la contrainte 24h.
+\end{itemize}
+
+\paragraph{Parametres data et seeds par phase}
+\begin{itemize}
+\item Screening E01--E08: \texttt{pretrain=900}, \texttt{asr\_train=1100}, \texttt{asr\_valid=300}, \texttt{asr\_test=300}, seed \texttt{[42]}.
+\item Selection SEL01--SEL05: memes quotas, seeds \texttt{[42, 123]}.
+\item Finale E09--E11: \texttt{pretrain=2000}, \texttt{asr\_train=3000}, validation/test non tronques si budget disque effectif le permet, seeds \texttt{[42, 123, 456, 789, 1024]}.
+\end{itemize}
+
+\paragraph{Regles d'adaptation temporelle (sans changer le protocole statistique)}
+\begin{itemize}
+\item Si ETA $>$ 24h apres E04: reduire \texttt{finetune.max\_steps} de 15--20\% sur E05--E11.
+\item Si ETA $>$ 24h apres selection: reduire seulement \texttt{pretrain.max\_steps} en finale.
+\item Interdit: changer seeds finales ou split de test final.
+\end{itemize}
+
+
+\section{Expérience E00 --- Smoke test pipeline}
+\subsection{Objectif scientifique local}
+Vérifier la validité opérationnelle du pipeline complet (data, entraînement, évaluation) avant toute conclusion scientifique.
+
+\subsection{Choix méthodologiques et justification}
+\textbf{Phase}: smoke\\
+\textbf{Seeds prévues}: 42\\
+
+
+\paragraph{Justification du plan}
+Valider la chaîne complète data/train/test avec un coût minimal avant toute analyse scientifique.
+
+\paragraph{Mécanisme scientifique visé}
+Un smoke test réduit le risque méthodologique: il détecte tôt les erreurs de données, de configuration ou de sérialisation des checkpoints.
+
+\paragraph{Variables manipulées}
+\begin{itemize}
+\item \textit{Aucune surcharge explicite (configuration de base conservée).}
+\end{itemize}
+
+\subsection{Hypothèse causale et résultats attendus}
+\begin{itemize}[leftmargin=1.2cm]
+\item \textbf{Hypothèse}: Aucune conclusion de performance; uniquement validation technique et reproductibilité.
+\item \textbf{Mécanisme attendu}: Si le pipeline est sain, toutes les étapes se terminent et produisent les artefacts attendus avec une faible consommation.
+\item \textbf{Tendance attendue}: Succès d'exécution, cohérence des fichiers de sortie, absence de crash ou de corruption d'état.
+\item \textbf{Critère de décision}: Passage en screening uniquement si E00 est exécuté de bout en bout sans erreur bloquante.
+\end{itemize}
+
+\subsection{Résultats}
+\textit{Section volontairement laissée vide avant exécution.}
+
+\begin{table}[H]
+\centering
+\caption{Résultats quantitatifs --- Expérience E00 (à compléter)}
+\begin{tabular}{lcccc}
+\toprule
+Seed & WER $\downarrow$ & Runtime inf. (s) $\downarrow$ & Débit (samples/s) $\uparrow$ & Mémoire GPU (MB) $\downarrow$ \\
+\midrule
+\multicolumn{5}{c}{\textit{À compléter après exécution des runs.}} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Discussion des résultats}
+\textit{Section volontairement laissée vide avant interprétation finale.}
+
+
+\section{Expérience E01 --- Baseline small MAE}
+\subsection{Objectif scientifique local}
+Établir une ligne de base frugale servant de référence commune pour toutes les comparaisons ultérieures.
+
+\subsection{Choix méthodologiques et justification}
+\textbf{Phase}: screening\\
+\textbf{Seeds prévues}: 42\\
+
+
+\paragraph{Justification du plan}
+Établir un point de référence frugal, stable et compatible avec un profil de budget fixe conçu pour tenir 24h.
+
+\paragraph{Mécanisme scientifique visé}
+Une baseline contrôlée est nécessaire pour attribuer les écarts de performance aux seuls changements expérimentaux.
+
+\paragraph{Variables manipulées}
+\begin{itemize}
+\item \textit{Aucune surcharge explicite (configuration de base conservée).}
+\end{itemize}
+
+\subsection{Hypothèse causale et résultats attendus}
+\begin{itemize}[leftmargin=1.2cm]
+\item \textbf{Hypothèse}: Servir de base comparative pour toutes les autres variantes.
+\item \textbf{Mécanisme attendu}: Le couple MAE+CTC sur un modèle compact doit offrir un compromis initial stable entre WER, mémoire et temps.
+\item \textbf{Tendance attendue}: WER de référence et coût de calcul modéré, utilisables comme point de comparaison direct.
+\item \textbf{Critère de décision}: Toutes les variantes E02--E08 sont analysées relativement à E01.
+\end{itemize}
+
+\subsection{Résultats}
+\textit{Section volontairement laissée vide avant exécution.}
+
+\begin{table}[H]
+\centering
+\caption{Résultats quantitatifs --- Expérience E01 (à compléter)}
+\begin{tabular}{lcccc}
+\toprule
+Seed & WER $\downarrow$ & Runtime inf. (s) $\downarrow$ & Débit (samples/s) $\uparrow$ & Mémoire GPU (MB) $\downarrow$ \\
+\midrule
+\multicolumn{5}{c}{\textit{À compléter après exécution des runs.}} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Discussion des résultats}
+\textit{Section volontairement laissée vide avant interprétation finale.}
+
+
+\section{Expérience E02 --- Small NoMAE}
+\subsection{Objectif scientifique local}
+Mesurer explicitement l'effet causal du pré-entraînement MAE.
+
+\subsection{Choix méthodologiques et justification}
+\textbf{Phase}: screening\\
+\textbf{Seeds prévues}: 42\\
+
+
+\paragraph{Justification du plan}
+Isoler l'effet du pré-entraînement MAE en supprimant cette phase.
+
+\paragraph{Mécanisme scientifique visé}
+Comparer MAE vs NoMAE à architecture quasi identique isole l'effet représentationnel du prétexte auto-supervisé.
+
+\paragraph{Variables manipulées}
+\begin{itemize}
+\item \texttt{training.pretrain.enabled=False}
+\end{itemize}
+
+\subsection{Hypothèse causale et résultats attendus}
+\begin{itemize}[leftmargin=1.2cm]
+\item \textbf{Hypothèse}: WER dégradé vs E01 si MAE apporte une représentation utile.
+\item \textbf{Mécanisme attendu}: Sans MAE, l'encodeur apprend uniquement via CTC supervisé; la représentation initiale est moins structurée acoustiquement.
+\item \textbf{Tendance attendue}: Tendance attendue: WER plus élevé qu'E01, avec coût d'entraînement possiblement plus faible.
+\item \textbf{Critère de décision}: Confirmer H1 si E01 surpasse E02 sur WER à coût comparable.
+\end{itemize}
+
+\subsection{Résultats}
+\textit{Section volontairement laissée vide avant exécution.}
+
+\begin{table}[H]
+\centering
+\caption{Résultats quantitatifs --- Expérience E02 (à compléter)}
+\begin{tabular}{lcccc}
+\toprule
+Seed & WER $\downarrow$ & Runtime inf. (s) $\downarrow$ & Débit (samples/s) $\uparrow$ & Mémoire GPU (MB) $\downarrow$ \\
+\midrule
+\multicolumn{5}{c}{\textit{À compléter après exécution des runs.}} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Discussion des résultats}
+\textit{Section volontairement laissée vide avant interprétation finale.}
+
+
+\section{Expérience E03 --- Tiny MAE}
+\subsection{Objectif scientifique local}
+Évaluer l'impact d'une réduction forte de capacité (tiny) sur la frugalité et la qualité.
+
+\subsection{Choix méthodologiques et justification}
+\textbf{Phase}: screening\\
+\textbf{Seeds prévues}: 42\\
+
+
+\paragraph{Justification du plan}
+Tester une architecture plus compacte pour maximiser la frugalité.
+
+\paragraph{Mécanisme scientifique visé}
+La contrainte disque/compute impose d'explorer le bas du spectre capacité/coût.
+
+\paragraph{Variables manipulées}
+\begin{itemize}
+\item \texttt{model.dim=128}
+\item \texttt{model.depth=2}
+\item \texttt{model.num\_heads=4}
+\item \texttt{model.mlp\_ratio=2.0}
+\item \texttt{model.mae\_decoder\_dim=64}
+\item \texttt{model.mae\_decoder\_depth=1}
+\item \texttt{model.mae\_decoder\_heads=2}
+\end{itemize}
+
+\subsection{Hypothèse causale et résultats attendus}
+\begin{itemize}[leftmargin=1.2cm]
+\item \textbf{Hypothèse}: Moins de mémoire/temps, possible dégradation WER.
+\item \textbf{Mécanisme attendu}: Moins de dimensions/couches réduit la capacité d'approximation, mais diminue nettement mémoire et runtime.
+\item \textbf{Tendance attendue}: Mémoire et temps en baisse; possible hausse du WER (sous-capacité).
+\item \textbf{Critère de décision}: Conserver la variante si le gain de frugalité compense une dégradation WER limitée.
+\end{itemize}
+
+\subsection{Résultats}
+\textit{Section volontairement laissée vide avant exécution.}
+
+\begin{table}[H]
+\centering
+\caption{Résultats quantitatifs --- Expérience E03 (à compléter)}
+\begin{tabular}{lcccc}
+\toprule
+Seed & WER $\downarrow$ & Runtime inf. (s) $\downarrow$ & Débit (samples/s) $\uparrow$ & Mémoire GPU (MB) $\downarrow$ \\
+\midrule
+\multicolumn{5}{c}{\textit{À compléter après exécution des runs.}} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Discussion des résultats}
+\textit{Section volontairement laissée vide avant interprétation finale.}
+
+
+\section{Expérience E04 --- Base MAE}
+\subsection{Objectif scientifique local}
+Tester une capacité plus élevée pour sonder le plafond de performance du design.
+
+\subsection{Choix méthodologiques et justification}
+\textbf{Phase}: screening\\
+\textbf{Seeds prévues}: 42\\
+
+
+\paragraph{Justification du plan}
+Tester une capacité supérieure pour évaluer le compromis performance/coût.
+
+\paragraph{Mécanisme scientifique visé}
+L'augmentation de capacité peut mieux modéliser la variabilité acoustique, au prix d'un coût de calcul supérieur.
+
+\paragraph{Variables manipulées}
+\begin{itemize}
+\item \texttt{model.dim=256}
+\item \texttt{model.depth=6}
+\item \texttt{model.num\_heads=8}
+\item \texttt{model.mlp\_ratio=4.0}
+\item \texttt{model.mae\_decoder\_dim=128}
+\item \texttt{model.mae\_decoder\_depth=2}
+\item \texttt{model.mae\_decoder\_heads=4}
+\end{itemize}
+
+\subsection{Hypothèse causale et résultats attendus}
+\begin{itemize}[leftmargin=1.2cm]
+\item \textbf{Hypothèse}: WER potentiellement meilleur, mais coût mémoire/temps plus élevé.
+\item \textbf{Mécanisme attendu}: Plus de paramètres augmente l'expressivité, ce qui peut réduire le WER si la donnée est suffisante.
+\item \textbf{Tendance attendue}: WER potentiellement meilleur qu'E01; hausse attendue du runtime et de la mémoire.
+\item \textbf{Critère de décision}: Retenue si amélioration WER substantielle pour un surcoût acceptable dans le budget.
+\end{itemize}
+
+\subsection{Résultats}
+\textit{Section volontairement laissée vide avant exécution.}
+
+\begin{table}[H]
+\centering
+\caption{Résultats quantitatifs --- Expérience E04 (à compléter)}
+\begin{tabular}{lcccc}
+\toprule
+Seed & WER $\downarrow$ & Runtime inf. (s) $\downarrow$ & Débit (samples/s) $\uparrow$ & Mémoire GPU (MB) $\downarrow$ \\
+\midrule
+\multicolumn{5}{c}{\textit{À compléter après exécution des runs.}} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Discussion des résultats}
+\textit{Section volontairement laissée vide avant interprétation finale.}
+
+
+\section{Expérience E05 --- Small Learned Positional Embeddings}
+\subsection{Objectif scientifique local}
+Comparer embeddings positionnels appris vs sinusoïdaux à architecture constante.
+
+\subsection{Choix méthodologiques et justification}
+\textbf{Phase}: screening\\
+\textbf{Seeds prévues}: 42\\
+
+
+\paragraph{Justification du plan}
+Comparer sinusoidal vs learned embeddings en gardant le reste fixe.
+
+\paragraph{Mécanisme scientifique visé}
+Le codage positionnel influence la modélisation temporelle des séquences audio patchifiées.
+
+\paragraph{Variables manipulées}
+\begin{itemize}
+\item \texttt{model.pos\_embed=learned}
+\end{itemize}
+
+\subsection{Hypothèse causale et résultats attendus}
+\begin{itemize}[leftmargin=1.2cm]
+\item \textbf{Hypothèse}: Impact sur la qualité de sequence modeling et le transfert ASR.
+\item \textbf{Mécanisme attendu}: Un positionnel appris peut mieux s'adapter au domaine, mais peut sur-apprendre si données limitées.
+\item \textbf{Tendance attendue}: Variation modérée du WER; coût similaire à E01.
+\item \textbf{Critère de décision}: Choisir la variante la plus stable en WER sans pénalité de coût.
+\end{itemize}
+
+\subsection{Résultats}
+\textit{Section volontairement laissée vide avant exécution.}
+
+\begin{table}[H]
+\centering
+\caption{Résultats quantitatifs --- Expérience E05 (à compléter)}
+\begin{tabular}{lcccc}
+\toprule
+Seed & WER $\downarrow$ & Runtime inf. (s) $\downarrow$ & Débit (samples/s) $\uparrow$ & Mémoire GPU (MB) $\downarrow$ \\
+\midrule
+\multicolumn{5}{c}{\textit{À compléter après exécution des runs.}} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Discussion des résultats}
+\textit{Section volontairement laissée vide avant interprétation finale.}
+
+
+\section{Expérience E06 --- Small Time-Frequency Patching}
+\subsection{Objectif scientifique local}
+Tester un patching temps-fréquence pour modifier le biais inductif de l'encodeur.
+
+\subsection{Choix méthodologiques et justification}
+\textbf{Phase}: screening\\
+\textbf{Seeds prévues}: 42\\
+
+
+\paragraph{Justification du plan}
+Tester un patching plus local en fréquence pour enrichir la représentation spectrale.
+
+\paragraph{Mécanisme scientifique visé}
+La structure spectrale locale peut être mieux capturée par un découpage mixte temps/fréquence.
+
+\paragraph{Variables manipulées}
+\begin{itemize}
+\item \texttt{model.patch\_strategy=timefreq}
+\item \texttt{model.patch\_freq=20}
+\end{itemize}
+
+\subsection{Hypothèse causale et résultats attendus}
+\begin{itemize}[leftmargin=1.2cm]
+\item \textbf{Hypothèse}: Qualité possiblement meilleure sur certains signaux, avec coût calculé plus élevé.
+\item \textbf{Mécanisme attendu}: Un patching plus fin en fréquence peut enrichir la représentation, mais augmente la complexité de séquence.
+\item \textbf{Tendance attendue}: Possible gain WER sur signaux complexes; runtime/mémoire potentiellement en hausse.
+\item \textbf{Critère de décision}: Retenir si gain de qualité non dominé par un coût excessif.
+\end{itemize}
+
+\subsection{Résultats}
+\textit{Section volontairement laissée vide avant exécution.}
+
+\begin{table}[H]
+\centering
+\caption{Résultats quantitatifs --- Expérience E06 (à compléter)}
+\begin{tabular}{lcccc}
+\toprule
+Seed & WER $\downarrow$ & Runtime inf. (s) $\downarrow$ & Débit (samples/s) $\uparrow$ & Mémoire GPU (MB) $\downarrow$ \\
+\midrule
+\multicolumn{5}{c}{\textit{À compléter après exécution des runs.}} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Discussion des résultats}
+\textit{Section volontairement laissée vide avant interprétation finale.}
+
+
+\section{Expérience E07 --- Small MAE mask 0.40}
+\subsection{Objectif scientifique local}
+Ablation du mask ratio MAE vers une difficulté plus faible (0.40).
+
+\subsection{Choix méthodologiques et justification}
+\textbf{Phase}: screening\\
+\textbf{Seeds prévues}: 42\\
+
+
+\paragraph{Justification du plan}
+Ablation du ratio de masquage vers un régime plus conservateur.
+
+\paragraph{Mécanisme scientifique visé}
+Un prétexte trop simple peut limiter la richesse des représentations apprises.
+
+\paragraph{Variables manipulées}
+\begin{itemize}
+\item \texttt{model.mae\_mask\_ratio=0.4}
+\end{itemize}
+
+\subsection{Hypothèse causale et résultats attendus}
+\begin{itemize}[leftmargin=1.2cm]
+\item \textbf{Hypothèse}: Reconstruction plus facile, transfert potentiellement moins robuste.
+\item \textbf{Mécanisme attendu}: Moins de masquage facilite la reconstruction mais peut réduire la pression d'apprentissage contextuel.
+\item \textbf{Tendance attendue}: Entraînement plus stable/rapide; gain WER incertain, parfois inférieur à E01.
+\item \textbf{Critère de décision}: Valider uniquement si la baisse de coût s'accompagne d'une qualité proche ou meilleure.
+\end{itemize}
+
+\subsection{Résultats}
+\textit{Section volontairement laissée vide avant exécution.}
+
+\begin{table}[H]
+\centering
+\caption{Résultats quantitatifs --- Expérience E07 (à compléter)}
+\begin{tabular}{lcccc}
+\toprule
+Seed & WER $\downarrow$ & Runtime inf. (s) $\downarrow$ & Débit (samples/s) $\uparrow$ & Mémoire GPU (MB) $\downarrow$ \\
+\midrule
+\multicolumn{5}{c}{\textit{À compléter après exécution des runs.}} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Discussion des résultats}
+\textit{Section volontairement laissée vide avant interprétation finale.}
+
+
+\section{Expérience E08 --- Small MAE mask 0.75}
+\subsection{Objectif scientifique local}
+Ablation du mask ratio MAE vers une difficulté élevée (0.75).
+
+\subsection{Choix méthodologiques et justification}
+\textbf{Phase}: screening\\
+\textbf{Seeds prévues}: 42\\
+
+
+\paragraph{Justification du plan}
+Ablation du ratio de masquage vers un régime plus agressif.
+
+\paragraph{Mécanisme scientifique visé}
+Un masquage fort peut forcer des représentations globales plus robustes, mais rend l'optimisation plus dure.
+
+\paragraph{Variables manipulées}
+\begin{itemize}
+\item \texttt{model.mae\_mask\_ratio=0.75}
+\end{itemize}
+
+\subsection{Hypothèse causale et résultats attendus}
+\begin{itemize}[leftmargin=1.2cm]
+\item \textbf{Hypothèse}: Apprentissage plus difficile; possible gain de robustesse ou dégradation selon capacité.
+\item \textbf{Mécanisme attendu}: Le modèle doit inférer davantage de contexte latent, ce qui peut améliorer ou détériorer le transfert ASR.
+\item \textbf{Tendance attendue}: Résultat dépendant de la capacité: soit robustesse accrue, soit dégradation si sous-capacité.
+\item \textbf{Critère de décision}: Conserver si WER et stabilité restent compétitifs malgré la difficulté accrue.
+\end{itemize}
+
+\subsection{Résultats}
+\textit{Section volontairement laissée vide avant exécution.}
+
+\begin{table}[H]
+\centering
+\caption{Résultats quantitatifs --- Expérience E08 (à compléter)}
+\begin{tabular}{lcccc}
+\toprule
+Seed & WER $\downarrow$ & Runtime inf. (s) $\downarrow$ & Débit (samples/s) $\uparrow$ & Mémoire GPU (MB) $\downarrow$ \\
+\midrule
+\multicolumn{5}{c}{\textit{À compléter après exécution des runs.}} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Discussion des résultats}
+\textit{Section volontairement laissée vide avant interprétation finale.}
+
+
+\section{Phase SEL01--SEL05 --- Selection Top-5 (2 seeds)}
+\subsection{Objectif scientifique local}
+Retester les 5 meilleures variantes du screening avec deux seeds pour verifier la robustesse avant consolidation finale.
+
+\subsection{Choix methodologiques et justification}
+\textbf{Phase}: selection\\
+\textbf{Runs}: SEL01, SEL02, SEL03, SEL04, SEL05\\
+\textbf{Seeds prevues}: 42, 123\\
+\textbf{Source auto}: Top-5 du classement screening (WER, runtime inference, memoire GPU).
+
+\paragraph{Variables manipulees}
+\begin{itemize}
+\item Parametres modeles herites des variantes E01--E08 classees en Top-5.
+\item Quotas datasets identiques au screening (\texttt{pretrain=900}, \texttt{asr\_train=1100}, \texttt{asr\_valid=300}, \texttt{asr\_test=300}).
+\item Passage de 1 seed a 2 seeds pour mesurer la stabilite inter-run.
+\end{itemize}
+
+\paragraph{Justification parametrique}
+Cette phase evite de promouvoir en finale une variante uniquement chanceuse sur une seed unique.
+Les quotas restent identiques au screening pour isoler l'effet de la variance aleatoire sans introduire un changement de regime data.
+
+\paragraph{Critere de decision}
+Les 3 meilleures variantes de selection deviennent E09, E10 et E11.
+
+
+\section{Expérience E09 --- Final Top-1}
+\subsection{Objectif scientifique local}
+Consolider statistiquement la meilleure configuration issue de la phase de selection.
+
+\subsection{Choix méthodologiques et justification}
+\textbf{Phase}: final\\
+\textbf{Seeds prévues}: 42, 123, 456, 789, 1024\\
+\textbf{Source auto}: configuration héritée du rang selection 1.
+
+\paragraph{Justification du plan}
+Consolidation statistique de la meilleure variante issue de SEL01--SEL05 (5 seeds).
+
+\paragraph{Mécanisme scientifique visé}
+Une conclusion scientifique exige d'estimer la variabilité inter-seeds, pas seulement une seed favorable.
+
+\paragraph{Variables manipulées}
+\begin{itemize}
+\item Herite de la meilleure config selection (rang 1).
+\item \texttt{training.pretrain.max\_steps=260} et \texttt{training.finetune.max\_steps=360}.
+\item \texttt{datasets.pretrain.max\_samples=2000} et \texttt{datasets.asr\_train.max\_samples=3000}.
+\item \texttt{datasets.asr\_valid.max\_samples=null} et \texttt{test.clean.max\_samples=null} si le budget disque effectif le permet.
+\item Seeds finales fixes: \texttt{[42, 123, 456, 789, 1024]}.
+\end{itemize}
+
+\subsection{Hypothèse causale et résultats attendus}
+\begin{itemize}[leftmargin=1.2cm]
+\item \textbf{Hypothèse}: Résultat principal du rapport.
+\item \textbf{Mécanisme attendu}: Le réplica sur 5 seeds réduit le risque de sur-interprétation d'un résultat isolé.
+\item \textbf{Tendance attendue}: Moyenne WER la plus compétitive avec écart-type maîtrisé.
+\item \textbf{Critère de décision}: Candidate principale pour la conclusion finale du rapport.
+\end{itemize}
+
+\subsection{Résultats}
+\textit{Section volontairement laissée vide avant exécution.}
+
+\begin{table}[H]
+\centering
+\caption{Résultats quantitatifs --- Expérience E09 (à compléter)}
+\begin{tabular}{lcccc}
+\toprule
+Seed & WER $\downarrow$ & Runtime inf. (s) $\downarrow$ & Débit (samples/s) $\uparrow$ & Mémoire GPU (MB) $\downarrow$ \\
+\midrule
+\multicolumn{5}{c}{\textit{À compléter après exécution des runs.}} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Discussion des résultats}
+\textit{Section volontairement laissée vide avant interprétation finale.}
+
+
+\section{Expérience E10 --- Final Top-2}
+\subsection{Objectif scientifique local}
+Consolider la seconde meilleure configuration pour une comparaison robuste.
+
+\subsection{Choix méthodologiques et justification}
+\textbf{Phase}: final\\
+\textbf{Seeds prévues}: 42, 123, 456, 789, 1024\\
+\textbf{Source auto}: configuration héritée du rang selection 2.
+
+\paragraph{Justification du plan}
+Consolidation statistique de la deuxieme meilleure variante issue de SEL01--SEL05.
+
+\paragraph{Mécanisme scientifique visé}
+Un second candidat limite le risque de conclure sur une seule famille de réglages.
+
+\paragraph{Variables manipulées}
+\begin{itemize}
+\item Herite de la deuxieme config selection (rang 2).
+\item \texttt{training.pretrain.max\_steps=260} et \texttt{training.finetune.max\_steps=360}.
+\item \texttt{datasets.pretrain.max\_samples=2000} et \texttt{datasets.asr\_train.max\_samples=3000}.
+\item \texttt{datasets.asr\_valid.max\_samples=null} et \texttt{test.clean.max\_samples=null} si le budget disque effectif le permet.
+\item Seeds finales fixes: \texttt{[42, 123, 456, 789, 1024]}.
+\end{itemize}
+
+\subsection{Hypothèse causale et résultats attendus}
+\begin{itemize}[leftmargin=1.2cm]
+\item \textbf{Hypothèse}: Comparaison robuste contre Top-1.
+\item \textbf{Mécanisme attendu}: La hiérarchie observée en screening est vérifiée sous variance aléatoire.
+\item \textbf{Tendance attendue}: Performance proche de E09 avec profil coût éventuellement différent.
+\item \textbf{Critère de décision}: Comparer à E09 sur moyenne et dispersion pour qualifier le compromis.
+\end{itemize}
+
+\subsection{Résultats}
+\textit{Section volontairement laissée vide avant exécution.}
+
+\begin{table}[H]
+\centering
+\caption{Résultats quantitatifs --- Expérience E10 (à compléter)}
+\begin{tabular}{lcccc}
+\toprule
+Seed & WER $\downarrow$ & Runtime inf. (s) $\downarrow$ & Débit (samples/s) $\uparrow$ & Mémoire GPU (MB) $\downarrow$ \\
+\midrule
+\multicolumn{5}{c}{\textit{À compléter après exécution des runs.}} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Discussion des résultats}
+\textit{Section volontairement laissée vide avant interprétation finale.}
+
+
+\section{Expérience E11 --- Final Top-3}
+\subsection{Objectif scientifique local}
+Consolider la troisième meilleure configuration pour compléter le benchmark multi-modèles.
+
+\subsection{Choix méthodologiques et justification}
+\textbf{Phase}: final\\
+\textbf{Seeds prévues}: 42, 123, 456, 789, 1024\\
+\textbf{Source auto}: configuration héritée du rang selection 3.
+
+\paragraph{Justification du plan}
+Consolidation statistique de la troisieme meilleure variante issue de SEL01--SEL05.
+
+\paragraph{Mécanisme scientifique visé}
+Trois candidats finaux permettent une discussion Pareto plus crédible qu'un duel binaire.
+
+\paragraph{Variables manipulées}
+\begin{itemize}
+\item Herite de la troisieme config selection (rang 3).
+\item \texttt{training.pretrain.max\_steps=260} et \texttt{training.finetune.max\_steps=360}.
+\item \texttt{datasets.pretrain.max\_samples=2000} et \texttt{datasets.asr\_train.max\_samples=3000}.
+\item \texttt{datasets.asr\_valid.max\_samples=null} et \texttt{test.clean.max\_samples=null} si le budget disque effectif le permet.
+\item Seeds finales fixes: \texttt{[42, 123, 456, 789, 1024]}.
+\end{itemize}
+
+\subsection{Hypothèse causale et résultats attendus}
+\begin{itemize}[leftmargin=1.2cm]
+\item \textbf{Hypothèse}: Compléter le benchmark multi-modèles final.
+\item \textbf{Mécanisme attendu}: Analyse conjointe qualité/coût/stabilité sur trois points du front de compromis.
+\item \textbf{Tendance attendue}: Option potentiellement plus frugale avec qualité légèrement inférieure.
+\item \textbf{Critère de décision}: Retenir comme alternative si le compromis coût/performance est préférable selon les contraintes.
+\end{itemize}
+
+\subsection{Résultats}
+\textit{Section volontairement laissée vide avant exécution.}
+
+\begin{table}[H]
+\centering
+\caption{Résultats quantitatifs --- Expérience E11 (à compléter)}
+\begin{tabular}{lcccc}
+\toprule
+Seed & WER $\downarrow$ & Runtime inf. (s) $\downarrow$ & Débit (samples/s) $\uparrow$ & Mémoire GPU (MB) $\downarrow$ \\
+\midrule
+\multicolumn{5}{c}{\textit{À compléter après exécution des runs.}} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Discussion des résultats}
+\textit{Section volontairement laissée vide avant interprétation finale.}
+
+
+\section{Consolidation Top-3 (E09--E11)}
+\subsection{Tableau final principal (mean $\pm$ std, 5 seeds)}
+\textit{À compléter après exécution des consolidations.}
+
+\begin{table}[H]
+\centering
+\caption{Synthèse comparative Top-3}
+\begin{tabular}{lcccc}
+\toprule
+Modèle & WER $\downarrow$ & Runtime inf. (s) $\downarrow$ & Débit (samples/s) $\uparrow$ & Mémoire GPU (MB) $\downarrow$ \\
+\midrule
+Top-1 & --- & --- & --- & --- \\
+Top-2 & --- & --- & --- & --- \\
+Top-3 & --- & --- & --- & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Visualisations prévues}
+\begin{itemize}
+\item Courbe WER par expérience (E01 $\rightarrow$ E11).
+\item Frontière de Pareto WER vs runtime inférence.
+\item Frontière de Pareto WER vs mémoire GPU.
+\end{itemize}
+
+\begin{figure}[H]
+\centering
+\fbox{\parbox[c][4cm][c]{0.92\linewidth}{\centering Placeholder figure: WER par expérience}}
+\caption{Progression des performances WER (à compléter).}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\fbox{\parbox[c][4cm][c]{0.92\linewidth}{\centering Placeholder figure: Pareto WER vs runtime / mémoire}}
+\caption{Analyse de compromis performance-frugalité (à compléter).}
+\end{figure}
+
+
+\section{Limites et menaces à la validité}
+\subsection{Menaces internes}
+\textit{À compléter: sensibilité aux hyperparamètres, stabilité d'optimisation, risque d'effet seed.}
+
+\subsection{Menaces externes}
+\textit{À compléter: généralisation inter-domaines, absence de VoxPopuli/TTS dans le cœur de l'étude, validité hors LibriSpeech.}
+
+\subsection{Contraintes matérielles}
+\textit{À compléter: limites vdigpu, budget disque/temps et impacts potentiels sur l'ampleur des ablations.}
+
+\section{Conclusion}
+\textit{À compléter: synthèse finale, réponse explicite à RQ1--RQ4, recommandations opérationnelles (architecture retenue, compromis retenu, extensions futures).}
+
+\end{document}

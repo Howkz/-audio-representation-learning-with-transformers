@@ -1,2 +1,0 @@
-"""DAAA audio transformer package."""
-
