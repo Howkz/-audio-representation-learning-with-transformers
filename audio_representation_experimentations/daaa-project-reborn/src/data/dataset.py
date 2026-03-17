@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 from typing import Any, Dict, List, Optional
 
 try:
@@ -62,11 +63,58 @@ def load_hf_audio_dataset(
         raise ModuleNotFoundError(
             "Missing dependency 'datasets'. Install requirements.txt before running data/train/test."
         )
+    def _streaming_split_candidates(split_value: str) -> List[str]:
+        candidates: List[str] = [split_value]
+
+        # Generic normalization used by some streaming builders
+        # (e.g. librispeech clean/other -> base split names).
+        normalized = split_value.replace(".clean", "").replace(".other", "")
+        normalized = re.sub(r"\.\.+", ".", normalized).strip(".")
+        if normalized and normalized not in candidates:
+            candidates.append(normalized)
+
+        # Explicit fallback patterns for LibriSpeech-style naming.
+        m_train = re.match(r"^train\.(?:clean|other)\.(\d+)$", split_value)
+        if m_train:
+            alt = f"train.{m_train.group(1)}"
+            if alt not in candidates:
+                candidates.append(alt)
+        if re.match(r"^validation\.(?:clean|other)$", split_value):
+            if "validation" not in candidates:
+                candidates.append("validation")
+        if re.match(r"^test\.(?:clean|other)$", split_value):
+            if "test" not in candidates:
+                candidates.append("test")
+
+        return candidates
+
     def _load(split_value: str, use_streaming: bool):
         load_kwargs = {"split": split_value, "cache_dir": cache_dir, "streaming": bool(use_streaming)}
         if dataset_config in (None, "", "null"):
             return load_dataset(dataset_name, **load_kwargs)
         return load_dataset(dataset_name, dataset_config, **load_kwargs)
+
+    def _load_streaming_with_fallback(split_value: str):
+        candidates = _streaming_split_candidates(split_value)
+        last_exc: Optional[Exception] = None
+        for candidate in candidates:
+            try:
+                ds = _load(candidate, use_streaming=True)
+                if candidate != split_value:
+                    print(
+                        f"[DATASET] Streaming split fallback: requested='{split_value}' -> used='{candidate}' "
+                        f"for dataset='{dataset_name}' config='{dataset_config}'"
+                    )
+                return ds
+            except ValueError as exc:
+                # Keep trying for split-name mismatches.
+                if "Bad split" not in str(exc):
+                    raise
+                last_exc = exc
+                continue
+        if last_exc is not None:
+            raise last_exc
+        return _load(split_value, use_streaming=True)
 
     def _materialize_streaming(stream_ds, limit: Optional[int]) -> InMemoryRowsDataset:
         rows: List[Dict[str, Any]] = []
@@ -83,7 +131,7 @@ def load_hf_audio_dataset(
         return InMemoryRowsDataset(rows=rows, feature_keys=keys)
 
     if streaming:
-        stream_ds = _load(split, use_streaming=True)
+        stream_ds = _load_streaming_with_fallback(split)
         return _materialize_streaming(stream_ds, max_samples)
 
     # Prefer split slicing to avoid downloading/loading full split for screening passes.
