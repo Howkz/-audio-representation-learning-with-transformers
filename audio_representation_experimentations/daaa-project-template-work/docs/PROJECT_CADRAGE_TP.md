@@ -30,6 +30,7 @@
 
 ## 3. Enjeux et contraintes fortes
 - **Contrainte materielle**: 1 GPU avec VRAM limitee.
+- **Temps dispo (definition operationnelle)**: nombre d'heures GPU effectivement disponibles avant le rendu, en incluant interruptions et reprises de session.
 - **Contrainte methodologique**: reproductibilite stricte, comparabilite des protocoles.
 - **Contrainte eval**: WER + incertitude statistique (5 seeds), frugalite mesuree.
 - **Contrainte architecture**: code modulaire et reutilisable dans `src/`.
@@ -57,8 +58,9 @@
 3. Implementer `AudioPatchEmbedding`, `AudioTransformerEncoder`, `AudioMAEPretrain`, `AudioTransformerCTC`.
 4. Entrainer en 2 etapes (`make train`): MAE puis fine-tuning CTC.
 5. Evaluer (`make test`) sur ASR avec WER, 5 seeds, et mesures frugalite.
-6. Produire artefacts de preuve: JSON partial/final, tableaux, logs memoire/temps.
-7. Rediger rapport final centre sur choix, compromis et ablation.
+6. Appliquer un protocole en trois phases: screening 1-seed sur sous-echantillons, selection Top-5 en 2 seeds, puis final Top-3 en 5 seeds sur mode full-data.
+7. Produire artefacts de preuve: JSON partial/final, tableaux, logs memoire/temps.
+8. Rediger rapport final centre sur choix, compromis et ablation en explicitant la difference screening (subsample) vs final (full-data).
 
 ## 6. Resultats theoriquement attendus (sans promesse chiffrree)
 - Le pretraining MAE doit stabiliser le fine-tuning CTC par rapport a un encodeur non pre-entraine.

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 from pathlib import Path
 from typing import Any, Dict
@@ -15,6 +16,29 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--config", type=str, required=True)
     parser.add_argument("--dry-run", action="store_true", help="Validate evaluation plan without running inference.")
     return parser.parse_args()
+
+
+def _is_oom_error(exc: Exception) -> bool:
+    message = str(exc).lower()
+    return "out of memory" in message or "cuda error: out of memory" in message
+
+
+def _reduce_eval_batch(cfg: Dict[str, Any]) -> bool:
+    current_batch = int(cfg["training"]["finetune"]["batch_size"])
+    if current_batch <= 1:
+        return False
+    cfg["training"]["finetune"]["batch_size"] = max(1, current_batch // 2)
+    return True
+
+
+def _clear_cuda_cache() -> None:
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except Exception:
+        return
 
 
 def _find_seed_checkpoint(cfg: Dict[str, Any], seed: int) -> Path:
@@ -105,17 +129,31 @@ def main() -> None:
     dataset_runs: Dict[str, Dict[str, Dict[str, float]]] = {k: {} for k in test_datasets.keys()}
 
     for seed in cfg["experiment"]["seeds"]:
+        eval_cfg = copy.deepcopy(cfg)
         ckpt_path = _find_seed_checkpoint(cfg, int(seed))
         per_dataset_metrics = []
         for dataset_label, dataset in test_datasets.items():
-            metrics = evaluate_seed_on_dataset(
-                cfg=cfg,
-                seed=int(seed),
-                dataset=dataset,
-                tokenizer=tokenizer,
-                checkpoint_path=ckpt_path,
-                dataset_label=dataset_label,
-            )
+            for attempt in range(3):
+                try:
+                    metrics = evaluate_seed_on_dataset(
+                        cfg=eval_cfg,
+                        seed=int(seed),
+                        dataset=dataset,
+                        tokenizer=tokenizer,
+                        checkpoint_path=ckpt_path,
+                        dataset_label=dataset_label,
+                    )
+                    break
+                except RuntimeError as exc:
+                    if not _is_oom_error(exc):
+                        raise
+                    if not _reduce_eval_batch(eval_cfg):
+                        raise
+                    _clear_cuda_cache()
+                    print(
+                        f"[TEST][OOM] seed={seed} dataset={dataset_label} retry {attempt + 1}/2 "
+                        f"with eval_batch_size={eval_cfg['training']['finetune']['batch_size']}"
+                    )
             dataset_runs[dataset_label][str(seed)] = metrics
             per_dataset_metrics.append(metrics)
             print(

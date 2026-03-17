@@ -33,6 +33,29 @@ def _device() -> torch.device:
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
+def _progress_speed_line(
+    stage: str,
+    seed: int,
+    global_step: int,
+    total_steps: int,
+    start_ts: float,
+    effective_batch_size: int,
+) -> str:
+    elapsed = max(1e-9, time.time() - start_ts)
+    steps_per_sec = float(global_step / elapsed)
+    samples_per_sec = float(steps_per_sec * max(1, effective_batch_size))
+    if total_steps > 0 and steps_per_sec > 0.0:
+        remaining = max(total_steps - global_step, 0)
+        eta_min = float((remaining / steps_per_sec) / 60.0)
+        eta_text = f"{eta_min:.1f} min"
+    else:
+        eta_text = "N/A"
+    return (
+        f"[SPEED][{stage}] seed={seed} step={global_step}/{total_steps} "
+        f"steps/s={steps_per_sec:.2f} samples/s={samples_per_sec:.2f} eta={eta_text}"
+    )
+
+
 def _seeded_loader(
     dataset: torch.utils.data.Dataset,
     batch_size: int,
@@ -147,11 +170,19 @@ def run_pretrain_seed(
     grad_acc = int(training_cfg["grad_accum_steps"])
     grad_clip = float(cfg["training"]["grad_clip_norm"])
     mask_ratio = float(cfg["model"]["mae_mask_ratio"])
+    effective_batch_size = int(training_cfg["batch_size"]) * max(1, grad_acc)
+    log_every_steps = int(cfg["training"].get("log_every_steps", 25))
 
     total_loss = 0.0
     total_count = 0
     start_ts = time.time()
     reset_peak_memory()
+    pretrain_peak_gpu_mem_mb = 0.0
+    print(
+        f"[PRETRAIN] seed={seed} max_steps={int(training_cfg['max_steps'])} "
+        f"micro_batch={int(training_cfg['batch_size'])} grad_acc={grad_acc} "
+        f"effective_batch={effective_batch_size}"
+    )
 
     for epoch in range(start_epoch, int(training_cfg["epochs"])):
         loader = _seeded_loader(
@@ -189,6 +220,7 @@ def run_pretrain_seed(
             global_step += 1
             total_loss += float(loss.item())
             total_count += 1
+            pretrain_peak_gpu_mem_mb = max(pretrain_peak_gpu_mem_mb, peak_memory_mb())
 
             if global_step % grad_acc == 0:
                 scaler.unscale_(optimizer)
@@ -210,6 +242,18 @@ def run_pretrain_seed(
                     step_in_epoch=batch_idx + 1,
                     tag="step",
                     keep_last_checkpoints=keep_last,
+                )
+
+            if global_step % max(1, log_every_steps) == 0:
+                print(
+                    _progress_speed_line(
+                        stage="PRETRAIN",
+                        seed=seed,
+                        global_step=global_step,
+                        total_steps=int(training_cfg["max_steps"]),
+                        start_ts=start_ts,
+                        effective_batch_size=effective_batch_size,
+                    )
                 )
 
             if global_step >= int(training_cfg["max_steps"]):
@@ -239,7 +283,7 @@ def run_pretrain_seed(
     metrics = {
         "pretrain_loss": float(total_loss / max(1, total_count)),
         "pretrain_runtime_sec": float(time.time() - start_ts),
-        "pretrain_peak_gpu_mem_mb": peak_memory_mb(),
+        "pretrain_peak_gpu_mem_mb": float(max(pretrain_peak_gpu_mem_mb, peak_memory_mb())),
         **{f"pretrain_{k}_params": float(v) for k, v in count_parameters(mae).items()},
     }
     return final_encoder, metrics
@@ -352,10 +396,19 @@ def run_finetune_seed(
     num_workers = int(cfg["data"]["num_workers"])
     grad_acc = int(training_cfg["grad_accum_steps"])
     grad_clip = float(cfg["training"]["grad_clip_norm"])
+    effective_batch_size = int(training_cfg["batch_size"]) * max(1, grad_acc)
+    log_every_steps = int(cfg["training"].get("log_every_steps", 25))
     train_start_ts = time.time()
     reset_peak_memory()
     running_loss = 0.0
     running_count = 0
+    train_peak_gpu_mem_mb = 0.0
+    eval_peak_gpu_mem_mb = 0.0
+    print(
+        f"[FINETUNE] seed={seed} max_steps={int(training_cfg['max_steps'])} "
+        f"micro_batch={int(training_cfg['batch_size'])} grad_acc={grad_acc} "
+        f"effective_batch={effective_batch_size}"
+    )
 
     for epoch in range(start_epoch, int(training_cfg["epochs"])):
         loader = _seeded_loader(
@@ -390,6 +443,7 @@ def run_finetune_seed(
             global_step += 1
             running_loss += float(loss.item())
             running_count += 1
+            train_peak_gpu_mem_mb = max(train_peak_gpu_mem_mb, peak_memory_mb())
 
             if global_step % grad_acc == 0:
                 scaler.unscale_(optimizer)
@@ -414,11 +468,24 @@ def run_finetune_seed(
                     keep_last_checkpoints=keep_last,
                 )
 
+            if global_step % max(1, log_every_steps) == 0:
+                print(
+                    _progress_speed_line(
+                        stage="FINETUNE",
+                        seed=seed,
+                        global_step=global_step,
+                        total_steps=int(training_cfg["max_steps"]),
+                        start_ts=train_start_ts,
+                        effective_batch_size=effective_batch_size,
+                    )
+                )
+
             if global_step >= int(training_cfg["max_steps"]):
                 break
 
         start_step_in_epoch = 0
         eval_metrics = evaluate_ctc(model, valid_dataset, tokenizer, cfg, seed=seed, epoch=epoch)
+        eval_peak_gpu_mem_mb = max(eval_peak_gpu_mem_mb, float(eval_metrics["eval_peak_gpu_mem_mb"]))
         current_wer = float(eval_metrics["wer"])
         if best_wer is None or current_wer < best_wer:
             best_wer = current_wer
@@ -461,10 +528,13 @@ def run_finetune_seed(
         handle.write("done\n")
 
     final_valid = evaluate_ctc(model, valid_dataset, tokenizer, cfg, seed=seed, epoch=99_999)
+    eval_peak_gpu_mem_mb = max(eval_peak_gpu_mem_mb, float(final_valid["eval_peak_gpu_mem_mb"]))
     metrics = {
         "train_loss": float(running_loss / max(1, running_count)),
         "train_runtime_sec": float(time.time() - train_start_ts),
-        "train_peak_gpu_mem_mb": peak_memory_mb(),
+        "train_peak_gpu_mem_mb": float(train_peak_gpu_mem_mb),
+        "eval_peak_gpu_mem_mb": float(eval_peak_gpu_mem_mb),
+        "valid_peak_gpu_mem_mb": float(eval_peak_gpu_mem_mb),
         "valid_wer": float(final_valid["wer"]),
         "valid_runtime_sec": float(final_valid["eval_runtime_sec"]),
         "valid_samples_per_sec": float(final_valid["eval_samples_per_sec"]),

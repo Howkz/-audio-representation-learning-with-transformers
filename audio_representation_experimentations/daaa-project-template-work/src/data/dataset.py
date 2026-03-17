@@ -47,13 +47,22 @@ def load_hf_audio_dataset(
         raise ModuleNotFoundError(
             "Missing dependency 'datasets'. Install requirements.txt before running data/train/test."
         )
-    if dataset_config in (None, "", "null"):
-        ds = load_dataset(dataset_name, split=split, cache_dir=cache_dir)
-    else:
-        ds = load_dataset(dataset_name, dataset_config, split=split, cache_dir=cache_dir)
+    def _load(split_value: str):
+        if dataset_config in (None, "", "null"):
+            return load_dataset(dataset_name, split=split_value, cache_dir=cache_dir)
+        return load_dataset(dataset_name, dataset_config, split=split_value, cache_dir=cache_dir)
+
+    # Prefer split slicing to avoid downloading/loading full split for screening passes.
     if max_samples is not None:
-        ds = ds.select(range(min(int(max_samples), len(ds))))
-    return ds
+        max_count = int(max_samples)
+        split_sliced = f"{split}[:{max_count}]"
+        try:
+            return _load(split_sliced)
+        except Exception:
+            ds = _load(split)
+            return ds.select(range(min(max_count, len(ds))))
+
+    return _load(split)
 
 
 def resolve_transcript_key(sample: Dict[str, Any], preferred: Optional[str]) -> Optional[str]:

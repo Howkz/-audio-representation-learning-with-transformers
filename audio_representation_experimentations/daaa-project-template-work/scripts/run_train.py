@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 from pathlib import Path
 
 from src.config import ensure_project_dirs, load_config
@@ -12,6 +13,32 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--continue-completed", action="store_true")
     parser.add_argument("--dry-run", action="store_true", help="Validate pipeline without launching training.")
     return parser.parse_args()
+
+
+def _is_oom_error(exc: Exception) -> bool:
+    message = str(exc).lower()
+    return "out of memory" in message or "cuda error: out of memory" in message
+
+
+def _reduce_stage_batch(cfg, stage: str) -> bool:
+    stage_cfg = cfg["training"][stage]
+    current_batch = int(stage_cfg["batch_size"])
+    if current_batch <= 1:
+        return False
+    next_batch = max(1, current_batch // 2)
+    stage_cfg["batch_size"] = next_batch
+    stage_cfg["grad_accum_steps"] = int(stage_cfg.get("grad_accum_steps", 1)) * 2
+    return True
+
+
+def _clear_cuda_cache() -> None:
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except Exception:
+        return
 
 
 def main() -> None:
@@ -70,23 +97,53 @@ def main() -> None:
         pretrain_ckpt = None
         pretrain_metrics = {}
         if pretrain_enabled:
-            pretrain_ckpt, pretrain_metrics = run_pretrain_seed(
-                cfg=cfg,
-                seed=int(seed),
-                dataset=pretrain_ds,
-                force_continue_completed=args.continue_completed,
-            )
+            pretrain_cfg = copy.deepcopy(cfg)
+            for attempt in range(3):
+                try:
+                    pretrain_ckpt, pretrain_metrics = run_pretrain_seed(
+                        cfg=pretrain_cfg,
+                        seed=int(seed),
+                        dataset=pretrain_ds,
+                        force_continue_completed=args.continue_completed,
+                    )
+                    break
+                except RuntimeError as exc:
+                    if not _is_oom_error(exc):
+                        raise
+                    if not _reduce_stage_batch(pretrain_cfg, stage="pretrain"):
+                        raise
+                    _clear_cuda_cache()
+                    stage_cfg = pretrain_cfg["training"]["pretrain"]
+                    print(
+                        f"[TRAIN][OOM] Seed={seed} pretrain retry {attempt + 1}/2 "
+                        f"with batch_size={stage_cfg['batch_size']} grad_acc={stage_cfg['grad_accum_steps']}"
+                    )
         else:
             print(f"[TRAIN] Seed={seed}: skipping MAE pretraining (CTC-only mode).")
-        final_ckpt, finetune_metrics = run_finetune_seed(
-            cfg=cfg,
-            seed=int(seed),
-            train_dataset=asr_train_ds,
-            valid_dataset=asr_valid_ds,
-            pretrain_encoder_path=pretrain_ckpt,
-            tokenizer=tokenizer,
-            force_continue_completed=args.continue_completed,
-        )
+        finetune_cfg = copy.deepcopy(cfg)
+        for attempt in range(3):
+            try:
+                final_ckpt, finetune_metrics = run_finetune_seed(
+                    cfg=finetune_cfg,
+                    seed=int(seed),
+                    train_dataset=asr_train_ds,
+                    valid_dataset=asr_valid_ds,
+                    pretrain_encoder_path=pretrain_ckpt,
+                    tokenizer=tokenizer,
+                    force_continue_completed=args.continue_completed,
+                )
+                break
+            except RuntimeError as exc:
+                if not _is_oom_error(exc):
+                    raise
+                if not _reduce_stage_batch(finetune_cfg, stage="finetune"):
+                    raise
+                _clear_cuda_cache()
+                stage_cfg = finetune_cfg["training"]["finetune"]
+                print(
+                    f"[TRAIN][OOM] Seed={seed} finetune retry {attempt + 1}/2 "
+                    f"with batch_size={stage_cfg['batch_size']} grad_acc={stage_cfg['grad_accum_steps']}"
+                )
         run_payload = {
             **pretrain_metrics,
             **finetune_metrics,

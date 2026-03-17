@@ -225,10 +225,25 @@ def _build_cli_override_mapping(items: List[str]) -> Dict[str, Any]:
 
 def _normalize_experiment_name(name: str, exp_id: str) -> str:
     parts = str(name).split("_")
-    while parts and re.fullmatch(r"E\d{2}", parts[-1]):
+    while parts and re.fullmatch(r"(E|SEL)\d{2}", parts[-1]):
         parts.pop()
     base = "_".join(parts) if parts else str(name)
     return f"{base}_{exp_id}"
+
+
+def _apply_final_full_dataset(cfg: Dict[str, Any]) -> None:
+    datasets = cfg.get("datasets", {})
+    if isinstance(datasets.get("pretrain"), dict):
+        datasets["pretrain"]["max_samples"] = None
+    if isinstance(datasets.get("asr_train"), dict):
+        datasets["asr_train"]["max_samples"] = None
+    if isinstance(datasets.get("asr_valid"), dict):
+        datasets["asr_valid"]["max_samples"] = None
+    asr_tests = datasets.get("asr_tests", [])
+    if isinstance(asr_tests, list):
+        for spec in asr_tests:
+            if isinstance(spec, dict):
+                spec["max_samples"] = None
 
 
 def _resolved_config(
@@ -255,6 +270,8 @@ def _resolved_config(
     cfg["experiment"]["output_dir"] = "outputs"
     cfg["experiment"]["cache_dir"] = "data/cache"
     cfg["experiment"]["processed_dir"] = "data/processed"
+    if bool(experiment.get("final_full_dataset", False)):
+        _apply_final_full_dataset(cfg)
     return cfg
 
 
@@ -309,6 +326,98 @@ def _screening_rows(suite_cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
     return rows
 
 
+def _selection_config(suite_cfg: Dict[str, Any]) -> Dict[str, Any]:
+    selection = suite_cfg.get("suite", {}).get("selection", {})
+    if not isinstance(selection, dict):
+        return {}
+    return selection
+
+
+def _selection_manifest_path() -> Path:
+    return Path("results") / "suite" / "selection_manifest.json"
+
+
+def _selection_id(rank: int) -> str:
+    return f"SEL{rank:02d}"
+
+
+def _build_selection_manifest(
+    suite_cfg: Dict[str, Any],
+    allow_fallback_order: bool,
+) -> Dict[str, Any]:
+    selection_cfg = _selection_config(suite_cfg)
+    top_k = int(selection_cfg.get("top_k_from_screening", 5))
+    selection_seeds = list(selection_cfg.get("seeds", [42, 123]))
+    screening_rows = _screening_rows(suite_cfg)
+
+    if len(screening_rows) < top_k:
+        if not allow_fallback_order:
+            raise RuntimeError(
+                f"Selection phase requires top-{top_k} screening runs, found {len(screening_rows)}."
+            )
+        screening_ids = [
+            str(e["id"])
+            for e in _enabled_experiments(suite_cfg)
+            if str(e.get("phase")) == "screening"
+        ]
+        if len(screening_ids) < top_k:
+            raise RuntimeError(
+                f"Cannot build fallback selection manifest: need {top_k} screening experiments, found {len(screening_ids)}."
+            )
+        picked = screening_ids[:top_k]
+        return {
+            "top_k": top_k,
+            "seeds": selection_seeds,
+            "runs": [
+                {
+                    "selection_id": _selection_id(rank),
+                    "source_screening_id": exp_id,
+                    "screening_rank": rank,
+                }
+                for rank, exp_id in enumerate(picked, start=1)
+            ],
+        }
+
+    picked_rows = screening_rows[:top_k]
+    return {
+        "top_k": top_k,
+        "seeds": selection_seeds,
+        "runs": [
+            {
+                "selection_id": _selection_id(rank),
+                "source_screening_id": str(row["id"]),
+                "screening_rank": rank,
+            }
+            for rank, row in enumerate(picked_rows, start=1)
+        ],
+    }
+
+
+def _selection_rows_from_manifest(manifest: Dict[str, Any]) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+    for run in manifest.get("runs", []):
+        selection_id = str(run["selection_id"])
+        final_path = _test_final_path(selection_id)
+        wer = _parse_metric_mean(final_path, "wer")
+        runtime = _parse_metric_mean(final_path, "inference_runtime_sec")
+        mem = _parse_metric_mean(final_path, "inference_peak_gpu_mem_mb")
+        if wer is None or runtime is None or mem is None:
+            continue
+        rows.append(
+            {
+                "id": selection_id,
+                "source_screening_id": str(run["source_screening_id"]),
+                "wer": wer,
+                "inference_runtime_sec": runtime,
+                "inference_peak_gpu_mem_mb": mem,
+            }
+        )
+    rows.sort(key=lambda r: (r["wer"], r["inference_runtime_sec"], r["inference_peak_gpu_mem_mb"]))
+    for idx, row in enumerate(rows, start=1):
+        row["rank"] = idx
+    return rows
+
+
 def _write_csv(path: Path, rows: List[Dict[str, Any]], fieldnames: List[str]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8", newline="") as handle:
@@ -350,51 +459,37 @@ def _archive_experiment_artifacts(exp_id: str, dry_run: bool) -> None:
         shutil.copy2(file_path, archive_root / file_path.name)
 
 
-def _resolve_auto_experiment(
+def _resolve_ranked_experiment(
     suite_cfg: Dict[str, Any],
     experiment: Dict[str, Any],
     resolved_cfg_cache: Dict[str, Dict[str, Any]],
+    ranking_rows: List[Dict[str, Any]],
+    rank_key: str,
+    fallback_ids: List[str],
+    label: str,
     cli_overrides: Optional[Dict[str, Any]] = None,
     allow_fallback_order: bool = False,
 ) -> Tuple[Dict[str, Any], str]:
-    rank = int(experiment["auto_from_screening_rank"])
-    ranking = _screening_rows(suite_cfg)
-    if len(ranking) < rank:
-        if allow_fallback_order:
-            fallback_ids = [
-                str(e["id"])
-                for e in _enabled_experiments(suite_cfg)
-                if str(e.get("phase")) == "screening"
-            ]
-            if len(fallback_ids) < rank:
-                raise RuntimeError(
-                    f"Cannot resolve {experiment['id']}: not enough screening experiments for rank {rank}."
-                )
-            source_id = fallback_ids[rank - 1]
-            if source_id in resolved_cfg_cache:
-                source_cfg = resolved_cfg_cache[source_id]
-            else:
-                source_cfg_path = _runtime_config_path(source_id)
-                if not source_cfg_path.exists():
-                    raise RuntimeError(f"Missing runtime config for fallback source {source_id}: {source_cfg_path}")
-                source_cfg = _load_yaml(source_cfg_path)
-            cfg = _resolved_config(
-                suite_cfg,
-                experiment,
-                source_cfg=source_cfg,
-                cli_overrides=cli_overrides,
+    rank = int(experiment[rank_key])
+    if len(ranking_rows) < rank:
+        if not allow_fallback_order:
+            raise RuntimeError(
+                f"Cannot resolve {experiment['id']}: {label} ranking has only {len(ranking_rows)} completed runs."
             )
-            return cfg, source_id
-        raise RuntimeError(
-            f"Cannot resolve {experiment['id']}: ranking has only {len(ranking)} completed screening runs."
-        )
-    source_id = ranking[rank - 1]["id"]
+        if len(fallback_ids) < rank:
+            raise RuntimeError(
+                f"Cannot resolve {experiment['id']}: not enough fallback ids for rank {rank} ({label})."
+            )
+        source_id = str(fallback_ids[rank - 1])
+    else:
+        source_id = str(ranking_rows[rank - 1]["id"])
+
     if source_id in resolved_cfg_cache:
         source_cfg = resolved_cfg_cache[source_id]
     else:
         source_cfg_path = _runtime_config_path(source_id)
         if not source_cfg_path.exists():
-            raise RuntimeError(f"Missing runtime config for ranked source {source_id}: {source_cfg_path}")
+            raise RuntimeError(f"Missing runtime config for source {source_id}: {source_cfg_path}")
         source_cfg = _load_yaml(source_cfg_path)
     cfg = _resolved_config(
         suite_cfg,
@@ -500,6 +595,70 @@ def _generate_report_template(
     )
 
 
+def _extract_summary_row(exp_id: str, phase: str, title: str, source_id: Optional[str]) -> Optional[Dict[str, Any]]:
+    final_path = _test_final_path(exp_id)
+    wer = _parse_metric_mean(final_path, "wer")
+    runtime = _parse_metric_mean(final_path, "inference_runtime_sec")
+    mem = _parse_metric_mean(final_path, "inference_peak_gpu_mem_mb")
+    if wer is None or runtime is None or mem is None:
+        return None
+    return {
+        "id": exp_id,
+        "phase": phase,
+        "title": title,
+        "wer": wer,
+        "inference_runtime_sec": runtime,
+        "inference_peak_gpu_mem_mb": mem,
+        "source_id": source_id or "",
+    }
+
+
+def _execute_experiment(
+    python_exec: str,
+    suite_cfg: Dict[str, Any],
+    exp: Dict[str, Any],
+    cfg: Dict[str, Any],
+    source_id: Optional[str],
+    resume: bool,
+    dry_run: bool,
+    verbose: bool,
+    storage_interval_sec: int,
+    min_free_gb: float,
+) -> Optional[Dict[str, Any]]:
+    exp_id = str(exp["id"])
+    done_marker = _done_marker_path(exp_id)
+    if resume and done_marker.exists():
+        print(f"[SUITE] Resume: skipping already completed experiment {exp_id}.")
+        return None
+
+    runtime_cfg_path = _runtime_config_path(exp_id)
+    _save_yaml(runtime_cfg_path, cfg)
+    print(f"[SUITE] Runtime config written: {runtime_cfg_path}")
+
+    _run_train_test_for_experiment(
+        python_exec=python_exec,
+        exp_id=exp_id,
+        runtime_config_path=runtime_cfg_path,
+        resume=resume,
+        dry_run=dry_run,
+        verbose=verbose,
+        storage_interval_sec=storage_interval_sec,
+        min_free_gb=min_free_gb,
+    )
+
+    _write_done_marker(exp_id, source_id, runtime_cfg_path, dry_run=dry_run)
+    _archive_experiment_artifacts(exp_id, dry_run=dry_run)
+    _cleanup_checkpoints_for_experiment(exp_id, dry_run=dry_run)
+    _print_storage(f"post-cleanup {exp_id}")
+
+    return _extract_summary_row(
+        exp_id=exp_id,
+        phase=str(exp.get("phase", "")),
+        title=str(exp.get("title", exp_id)),
+        source_id=source_id,
+    )
+
+
 def main() -> None:
     args = parse_args()
     cli_override_mapping = _build_cli_override_mapping(args.cli_overrides)
@@ -519,19 +678,15 @@ def main() -> None:
     print(f"[SUITE] Python executable: {python_exec}")
     _print_storage("suite start")
 
-    # Resolve and run data once from first selected experiment (or its ranked source).
-    first_exp = selected_experiments[0]
-    if "auto_from_screening_rank" in first_exp:
-        first_cfg, first_source = _resolve_auto_experiment(
-            suite_cfg,
-            first_exp,
-            {},
-            cli_overrides=cli_override_mapping,
-            allow_fallback_order=args.dry_run,
-        )
-        print(f"[SUITE] First experiment {first_exp['id']} resolved from ranked source {first_source}.")
-    else:
-        first_cfg = _resolved_config(suite_cfg, first_exp, cli_overrides=cli_override_mapping)
+    first_exp = next(
+        (
+            exp
+            for exp in selected_experiments
+            if "auto_from_screening_rank" not in exp and "auto_from_selection_rank" not in exp
+        ),
+        selected_experiments[0],
+    )
+    first_cfg = _resolved_config(suite_cfg, first_exp, cli_overrides=cli_override_mapping)
     first_cfg_path = _runtime_config_path(str(first_exp["id"]))
     _save_yaml(first_cfg_path, first_cfg)
     _run_data_once(
@@ -545,20 +700,31 @@ def main() -> None:
 
     resolved_cfg_cache: Dict[str, Dict[str, Any]] = {str(first_exp["id"]): first_cfg}
     summary_rows: List[Dict[str, Any]] = []
+    deferred_selection_finals: List[Dict[str, Any]] = []
 
     for exp in selected_experiments:
-        exp_id = str(exp["id"])
-        done_marker = _done_marker_path(exp_id)
-        if args.resume and done_marker.exists():
-            print(f"[SUITE] Resume: skipping already completed experiment {exp_id}.")
+        if "auto_from_selection_rank" in exp:
+            deferred_selection_finals.append(exp)
             continue
+
+        exp_id = str(exp["id"])
 
         source_id: Optional[str] = None
         if "auto_from_screening_rank" in exp:
-            cfg, source_id = _resolve_auto_experiment(
+            screening_rows = _screening_rows(suite_cfg)
+            fallback_ids = [
+                str(e["id"])
+                for e in _enabled_experiments(suite_cfg)
+                if str(e.get("phase")) == "screening"
+            ]
+            cfg, source_id = _resolve_ranked_experiment(
                 suite_cfg,
                 exp,
                 resolved_cfg_cache,
+                ranking_rows=screening_rows,
+                rank_key="auto_from_screening_rank",
+                fallback_ids=fallback_ids,
+                label="screening",
                 cli_overrides=cli_override_mapping,
                 allow_fallback_order=args.dry_run,
             )
@@ -567,46 +733,20 @@ def main() -> None:
             cfg = _resolved_config(suite_cfg, exp, cli_overrides=cli_override_mapping)
         resolved_cfg_cache[exp_id] = cfg
 
-        runtime_cfg_path = _runtime_config_path(exp_id)
-        _save_yaml(runtime_cfg_path, cfg)
-        print(f"[SUITE] Runtime config written: {runtime_cfg_path}")
-
-        _run_train_test_for_experiment(
+        row = _execute_experiment(
             python_exec=python_exec,
-            exp_id=exp_id,
-            runtime_config_path=runtime_cfg_path,
+            suite_cfg=suite_cfg,
+            exp=exp,
+            cfg=cfg,
+            source_id=source_id,
             resume=args.resume,
             dry_run=args.dry_run,
             verbose=args.verbose,
             storage_interval_sec=args.storage_interval_sec,
             min_free_gb=args.disk_guard_gb,
         )
-
-        _write_done_marker(exp_id, source_id, runtime_cfg_path, dry_run=args.dry_run)
-
-        # Pull summary metrics when available.
-        final_path = _test_final_path(exp_id)
-        wer = _parse_metric_mean(final_path, "wer")
-        runtime = _parse_metric_mean(final_path, "inference_runtime_sec")
-        mem = _parse_metric_mean(final_path, "inference_peak_gpu_mem_mb")
-        if wer is not None and runtime is not None and mem is not None:
-            summary_rows.append(
-                {
-                    "id": exp_id,
-                    "phase": str(exp.get("phase", "")),
-                    "title": str(exp.get("title", exp_id)),
-                    "wer": wer,
-                    "inference_runtime_sec": runtime,
-                    "inference_peak_gpu_mem_mb": mem,
-                    "source_id": source_id or "",
-                }
-            )
-
-        _archive_experiment_artifacts(exp_id, dry_run=args.dry_run)
-
-        # Keep data/cache intact; clean only checkpoints per completed experiment.
-        _cleanup_checkpoints_for_experiment(exp_id, dry_run=args.dry_run)
-        _print_storage(f"post-cleanup {exp_id}")
+        if row is not None:
+            summary_rows.append(row)
 
     # Write screening leaderboard.
     screening_rows = _screening_rows(suite_cfg)
@@ -617,6 +757,102 @@ def main() -> None:
         fieldnames=["rank", "id", "title", "wer", "inference_runtime_sec", "inference_peak_gpu_mem_mb"],
     )
     print(f"[SUITE] Screening leaderboard: {leaderboard_path}")
+
+    if deferred_selection_finals:
+        selection_cfg = _selection_config(suite_cfg)
+        if not bool(selection_cfg.get("enabled", True)):
+            raise RuntimeError("Selection phase is disabled but final experiments require auto_from_selection_rank.")
+
+        selection_manifest = _build_selection_manifest(
+            suite_cfg=suite_cfg,
+            allow_fallback_order=args.dry_run,
+        )
+        selection_manifest_path = _selection_manifest_path()
+        if args.dry_run:
+            print(f"[SUITE] Dry-run selection manifest: {selection_manifest}")
+        else:
+            selection_manifest_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(selection_manifest_path, "w", encoding="utf-8") as handle:
+                json.dump(selection_manifest, handle, indent=2)
+            print(f"[SUITE] Selection manifest written: {selection_manifest_path}")
+
+        selection_seeds = list(selection_manifest.get("seeds", [42, 123]))
+        for run in selection_manifest.get("runs", []):
+            selection_id = str(run["selection_id"])
+            source_screening_id = str(run["source_screening_id"])
+            if source_screening_id in resolved_cfg_cache:
+                source_cfg = resolved_cfg_cache[source_screening_id]
+            else:
+                source_cfg = _load_yaml(_runtime_config_path(source_screening_id))
+            selection_exp = {
+                "id": selection_id,
+                "phase": "selection",
+                "title": f"Selection from {source_screening_id}",
+                "seeds": selection_seeds,
+            }
+            cfg = _resolved_config(
+                suite_cfg=suite_cfg,
+                experiment=selection_exp,
+                source_cfg=source_cfg,
+                cli_overrides=cli_override_mapping,
+            )
+            resolved_cfg_cache[selection_id] = cfg
+            row = _execute_experiment(
+                python_exec=python_exec,
+                suite_cfg=suite_cfg,
+                exp=selection_exp,
+                cfg=cfg,
+                source_id=source_screening_id,
+                resume=args.resume,
+                dry_run=args.dry_run,
+                verbose=args.verbose,
+                storage_interval_sec=args.storage_interval_sec,
+                min_free_gb=args.disk_guard_gb,
+            )
+            if row is not None:
+                summary_rows.append(row)
+
+        selection_rows = _selection_rows_from_manifest(selection_manifest)
+        selection_leaderboard_path = Path(
+            str(selection_cfg.get("leaderboard_output", "results/suite/leaderboard_selection.csv"))
+        )
+        _write_csv(
+            path=selection_leaderboard_path,
+            rows=selection_rows,
+            fieldnames=["rank", "id", "source_screening_id", "wer", "inference_runtime_sec", "inference_peak_gpu_mem_mb"],
+        )
+        print(f"[SUITE] Selection leaderboard: {selection_leaderboard_path}")
+
+        selection_fallback_ids = [str(run["selection_id"]) for run in selection_manifest.get("runs", [])]
+        for exp in deferred_selection_finals:
+            exp_id = str(exp["id"])
+            cfg, source_id = _resolve_ranked_experiment(
+                suite_cfg=suite_cfg,
+                experiment=exp,
+                resolved_cfg_cache=resolved_cfg_cache,
+                ranking_rows=selection_rows,
+                rank_key="auto_from_selection_rank",
+                fallback_ids=selection_fallback_ids,
+                label="selection",
+                cli_overrides=cli_override_mapping,
+                allow_fallback_order=args.dry_run,
+            )
+            print(f"[SUITE] {exp_id} resolved from selection rank source {source_id}.")
+            resolved_cfg_cache[exp_id] = cfg
+            row = _execute_experiment(
+                python_exec=python_exec,
+                suite_cfg=suite_cfg,
+                exp=exp,
+                cfg=cfg,
+                source_id=source_id,
+                resume=args.resume,
+                dry_run=args.dry_run,
+                verbose=args.verbose,
+                storage_interval_sec=args.storage_interval_sec,
+                min_free_gb=args.disk_guard_gb,
+            )
+            if row is not None:
+                summary_rows.append(row)
 
     # Write global suite summary for selected experiments.
     summary_path = Path(str(suite_cfg["suite"]["summary_output"]))

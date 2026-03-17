@@ -34,6 +34,7 @@ model:
 training:
   amp: true
   grad_clip_norm: 1.0
+  log_every_steps: 25
   pretrain:
     enabled: true
     epochs: 1

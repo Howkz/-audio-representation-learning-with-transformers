@@ -57,7 +57,7 @@ make suite
 
 Manual runner invocation:
 ```bash
-python scripts/run_experiment_suite.py \
+PYTHONPATH=. python scripts/run_experiment_suite.py \
   --suite-config configs/suite_e00_e11.yaml \
   --verbose \
   --disk-guard-gb 1.5
@@ -65,7 +65,7 @@ python scripts/run_experiment_suite.py \
 
 Optional deterministic override (base + experiment overrides + CLI):
 ```bash
-python scripts/run_experiment_suite.py \
+PYTHONPATH=. python scripts/run_experiment_suite.py \
   --suite-config configs/suite_e00_e11.yaml \
   --set training.finetune.max_steps=120 \
   --set model.mae_mask_ratio=0.55
@@ -73,7 +73,8 @@ python scripts/run_experiment_suite.py \
 
 Key behavior:
 - one global sequence `data -> train -> test -> archive -> cleanup` per experiment
-- automatic top-3 selection after screening
+- 3-phase protocol: `screening (1 seed) -> selection top-5 (2 seeds) -> final top-3 (5 seeds)`
+- final top-3 can be forced to full-data (`max_samples=null`) via suite flag `final_full_dataset: true`
 - keep `data/cache` between experiments
 - clean only experiment checkpoints after archival
 - generate final LaTeX template at `results/suite/rapport_final.tex`
@@ -82,6 +83,8 @@ Key behavior:
 - `results/benchmark_results/*.json` : partial and final aggregated metrics
 - `outputs/checkpoints/*` : training checkpoints + run markers
 - `results/tables/*.md` : compact report-ready tables
+- `results/suite/leaderboard_screening.csv` : ranking after 1-seed screening
+- `results/suite/leaderboard_selection.csv` : ranking after top-5/2-seed selection
 
 ## Notes
 - Do not include `outputs/checkpoints` or raw datasets in final submission zip.

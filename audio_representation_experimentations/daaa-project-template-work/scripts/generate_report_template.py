@@ -180,10 +180,12 @@ Les métriques principales sont:
 
 \subsection{{Règles statistiques}}
 Le screening initial est réalisé en 1 seed par variante (E01--E08).
-La consolidation finale est réalisée sur 5 seeds pour les 3 meilleures variantes (E09--E11), avec reporting moyenne~$\pm$~écart-type.
+Une phase de sélection intermédiaire est ensuite exécutée sur le Top-5 du screening avec 2 seeds (42, 123).
+La consolidation finale est réalisée sur 5 seeds pour les 3 meilleures variantes issues de la sélection (E09--E11), avec reporting moyenne~$\pm$~écart-type.
+Les résultats finaux rapportés sont produits en mode full-data (sans \texttt{{max\_samples}}) pour garantir la comparabilité.
 
 \subsection{{Règle de décision Top-3}}
-Le classement screening est effectué par tri lexicographique sur:
+Le classement screening puis sélection est effectué par tri lexicographique sur:
 \begin{{enumerate}}
 \item WER (ascendant),
 \item runtime d'inférence (ascendant),
@@ -317,6 +319,8 @@ def _experiment_section(experiment: Dict[str, Any]) -> str:
     rank_text = ""
     if "auto_from_screening_rank" in experiment:
         rank_text = rf"\textbf{{Source auto}}: configuration héritée du rang screening {int(experiment['auto_from_screening_rank'])}."
+    if "auto_from_selection_rank" in experiment:
+        rank_text = rf"\textbf{{Source auto}}: configuration héritée du rang sélection {int(experiment['auto_from_selection_rank'])}."
 
     return rf"""
 \section{{Expérience {exp_id_tex} --- {title}}}
@@ -369,7 +373,7 @@ Seed & WER $\downarrow$ & Runtime inf. (s) $\downarrow$ & Débit (samples/s) $\u
 
 def _consolidation_text() -> str:
     return r"""
-\section{Consolidation Top-3 (E09--E11)}
+\section{Consolidation Top-3 (E09--E11, après sélection Top-5)}
 \subsection{Tableau final principal (mean $\pm$ std, 5 seeds)}
 \textit{À compléter après exécution des consolidations.}
 
@@ -493,4 +497,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

@@ -29,8 +29,9 @@ Script principal: `scripts/run_experiment_suite.py`
 
 - Lit un manifest unique: `configs/suite_e00_e11.yaml`.
 - Exécute les expériences dans l'ordre avec isolement des sorties par ID (`E00`, `E01`, ...).
-- Classe automatiquement le screening (WER, puis runtime, puis mémoire) pour déterminer Top-1/2/3.
-- Lance ensuite E09/E10/E11 en 5 seeds à partir des meilleures configs.
+- Classe automatiquement le screening (WER, puis runtime, puis mémoire) pour déterminer un Top-5.
+- Exécute ensuite une phase de sélection Top-5 en 2 seeds (42, 123).
+- Lance enfin E09/E10/E11 en 5 seeds à partir du classement de sélection.
 - Affiche l'état de progression et le stockage en temps réel.
 - Applique une garde d'espace disque (`--disk-guard-gb`) pour arrêt propre.
 - Génère à la fin:
@@ -49,7 +50,7 @@ Pourquoi ce design:
 ## Windows (PowerShell)
 
 ```powershell
-cd audio_representation_experimentations/daaa-project
+cd audio_representation_experimentations/daaa-project-template-work
 $env:PYTHONPATH='.'
 
 # 1) Pipeline simple
@@ -70,7 +71,7 @@ python scripts/generate_report_template.py --suite-config configs/suite_e00_e11.
 ## Linux/macOS
 
 ```bash
-cd audio_representation_experimentations/daaa-project
+cd audio_representation_experimentations/daaa-project-template-work
 export PYTHONPATH=.
 
 make data CONFIG=configs/low_storage.yaml

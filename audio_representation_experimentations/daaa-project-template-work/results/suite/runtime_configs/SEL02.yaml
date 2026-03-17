@@ -1,7 +1,7 @@
 experiment:
-  name: audio_transformer_low_storage_E09
+  name: audio_transformer_low_storage_SEL02
   output_dir: outputs
-  results_dir: results/experiments/E09
+  results_dir: results/experiments/SEL02
   cache_dir: data/cache
   processed_dir: data/processed
   checkpoint_every_steps: 1000
@@ -10,10 +10,7 @@ experiment:
   seeds:
   - 42
   - 123
-  - 456
-  - 789
-  - 1024
-  id: E09
+  id: SEL02
 audio:
   sample_rate: 16000
   max_duration_sec: 6.0
@@ -40,7 +37,7 @@ training:
   grad_clip_norm: 1.0
   log_every_steps: 25
   pretrain:
-    enabled: true
+    enabled: false
     epochs: 1
     batch_size: 4
     grad_accum_steps: 2
@@ -62,23 +59,23 @@ datasets:
     name: Codec-SUPERB/fluent_speech_commands_synth
     config: null
     split: train
-    max_samples: null
+    max_samples: 500
     transcript_key: null
   asr_train:
     name: openslr/librispeech_asr
     config: clean
     split: train.clean.100
-    max_samples: null
+    max_samples: 800
     transcript_key: text
   asr_valid:
     name: openslr/librispeech_asr
     config: clean
     split: validation.clean
-    max_samples: null
+    max_samples: 150
     transcript_key: text
   asr_tests:
   - name: openslr/librispeech_asr
     config: clean
     split: test.clean
-    max_samples: null
+    max_samples: 150
     transcript_key: text

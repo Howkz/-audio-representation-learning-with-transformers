@@ -38,6 +38,7 @@ model:
 training:
   amp: true
   grad_clip_norm: 1.0
+  log_every_steps: 25
   pretrain:
     enabled: true
     epochs: 1
@@ -61,23 +62,23 @@ datasets:
     name: Codec-SUPERB/fluent_speech_commands_synth
     config: null
     split: train
-    max_samples: 500
+    max_samples: null
     transcript_key: null
   asr_train:
     name: openslr/librispeech_asr
     config: clean
     split: train.clean.100
-    max_samples: 800
+    max_samples: null
     transcript_key: text
   asr_valid:
     name: openslr/librispeech_asr
     config: clean
     split: validation.clean
-    max_samples: 150
+    max_samples: null
     transcript_key: text
   asr_tests:
   - name: openslr/librispeech_asr
     config: clean
     split: test.clean
-    max_samples: 150
+    max_samples: null
     transcript_key: text

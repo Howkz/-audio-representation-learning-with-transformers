@@ -23,24 +23,24 @@
   citecolor=blue!40!black
 }
 
-\title{Rapport d'Experimentations sur l'Apprentissage de la représentation audio via transformateurs}
-\author{CLAIR Maël, SABINE Hugo, CHANTELOUP William}
+\title{Rapport d'Experimentations sur l'Apprentissage de la representation audio via transformateurs}
+\author{CLAIR Mael, SABINE Hugo, CHANTELOUP William}
 \date{\today}
 
 \begin{document}
 
 \begin{titlepage}
 \centering
-{\Large Master 2 Algorithmiques et Systèmes Intelligents\par}
+{\Large Master 2 Algorithmiques et Systemes Intelligents\par}
 \vspace{0.35cm}
 {\large Projet DAAA\par}
 \vspace{1.3cm}
-{\LARGE\bfseries Rapport d'Experimentations sur l'Apprentissage de la représentation audio via transformateurs\par}
+{\LARGE\bfseries Rapport d'Experimentations sur l'Apprentissage de la representation audio via transformateurs\par}
 \vspace{0.8cm}
-{\large Pré-entraînement MAE et adaptation CTC: étude expérimentale progressive E00→E11\par}
+{\large Pre-entrainement MAE et adaptation CTC: etude experimentale progressive E00->E11\par}
 \vfill
 \begin{tabular}{ll}
-\textbf{Étudiants} : & CLAIR Maël \\
+\textbf{Étudiants} : & CLAIR Mael \\
  & SABINE Hugo \\
  & CHANTELOUP William \\
 \textbf{Date} : & \today \\
@@ -59,9 +59,11 @@ Contraintes de conception: environnement vdigpu, budget stockage limité (enviro
 
 \paragraph{Choix globaux assumés}
 \begin{itemize}
-\item Screening uniquement sur LibriSpeech pour tenir le budget disque/temps.
-\item VoxPopuli est exclu par défaut de cette suite (extension possible si marge).
-\item Le cache data est conservé entre expériences.
+\item Screening uniquement sur LibriSpeech en sous-echantillons pour tenir le budget disque/temps.
+\item Selection Top-5 executee en 2 seeds (42, 123) avant consolidation finale.
+\item Final Top-3 execute en 5 seeds sur mode full-data (max\_samples desactive).
+\item VoxPopuli est exclu par defaut de cette suite (extension possible si marge).
+\item Le cache data est conserve entre experiences.
 \end{itemize}
 
 
@@ -99,8 +101,8 @@ Chaque expérience est exécutée dans un namespace dédié, avec nettoyage des 
 
 \subsection{Politique dataset et périmètre}
 \begin{itemize}
-\item \textbf{Screening}: librispeech\_only.
-\item \textbf{Consolidation finale}: librispeech\_only.
+\item \textbf{Screening}: subsampled\_librispeech\_only.
+\item \textbf{Consolidation finale}: full\_data\_librispeech\_only.
 \item VoxPopuli reste une extension possible, hors chemin critique de la présente étude (contraintes disque/temps).
 \end{itemize}
 
@@ -123,10 +125,12 @@ Les métriques principales sont:
 
 \subsection{Règles statistiques}
 Le screening initial est réalisé en 1 seed par variante (E01--E08).
-La consolidation finale est réalisée sur 5 seeds pour les 3 meilleures variantes (E09--E11), avec reporting moyenne~$\pm$~écart-type.
+Une phase de sélection intermédiaire est ensuite exécutée sur le Top-5 du screening avec 2 seeds (42, 123).
+La consolidation finale est réalisée sur 5 seeds pour les 3 meilleures variantes issues de la sélection (E09--E11), avec reporting moyenne~$\pm$~écart-type.
+Les résultats finaux rapportés sont produits en mode full-data (sans \texttt{max\_samples}) pour garantir la comparabilité.
 
 \subsection{Règle de décision Top-3}
-Le classement screening est effectué par tri lexicographique sur:
+Le classement screening puis sélection est effectué par tri lexicographique sur:
 \begin{enumerate}
 \item WER (ascendant),
 \item runtime d'inférence (ascendant),
@@ -144,7 +148,7 @@ Vérifier la validité opérationnelle du pipeline complet (data, entraînement,
 
 
 \paragraph{Justification du plan}
-Valider la chaîne complète data/train/test avec un coût minimal avant toute analyse scientifique.
+Valider la chaine complete data/train/test avec un cout minimal avant toute analyse scientifique.
 
 \paragraph{Mécanisme scientifique visé}
 Un smoke test réduit le risque méthodologique: il détecte tôt les erreurs de données, de configuration ou de sérialisation des checkpoints.
@@ -156,7 +160,7 @@ Un smoke test réduit le risque méthodologique: il détecte tôt les erreurs de
 
 \subsection{Hypothèse causale et résultats attendus}
 \begin{itemize}[leftmargin=1.2cm]
-\item \textbf{Hypothèse}: Aucune conclusion de performance; uniquement validation technique et reproductibilité.
+\item \textbf{Hypothèse}: Aucune conclusion de performance; uniquement validation technique et reproductibilite.
 \item \textbf{Mécanisme attendu}: Si le pipeline est sain, toutes les étapes se terminent et produisent les artefacts attendus avec une faible consommation.
 \item \textbf{Tendance attendue}: Succès d'exécution, cohérence des fichiers de sortie, absence de crash ou de corruption d'état.
 \item \textbf{Critère de décision}: Passage en screening uniquement si E00 est exécuté de bout en bout sans erreur bloquante.
@@ -191,7 +195,7 @@ Seed & WER $\downarrow$ & Runtime inf. (s) $\downarrow$ & Débit (samples/s) $\u
 
 
 \paragraph{Justification du plan}
-Établir un point de référence frugal, stable et compatible avec la contrainte 15 Go.
+Etablir un point de reference frugal, stable et compatible avec la contrainte 15 Go.
 
 \paragraph{Mécanisme scientifique visé}
 Une baseline contrôlée est nécessaire pour attribuer les écarts de performance aux seuls changements expérimentaux.
@@ -238,7 +242,7 @@ Mesurer explicitement l'effet causal du pré-entraînement MAE.
 
 
 \paragraph{Justification du plan}
-Isoler l'effet du pré-entraînement MAE en supprimant cette phase.
+Isoler l'effet du pre-entrainement MAE en supprimant cette phase.
 
 \paragraph{Mécanisme scientifique visé}
 Comparer MAE vs NoMAE à architecture quasi identique isole l'effet représentationnel du prétexte auto-supervisé.
@@ -250,7 +254,7 @@ Comparer MAE vs NoMAE à architecture quasi identique isole l'effet représentat
 
 \subsection{Hypothèse causale et résultats attendus}
 \begin{itemize}[leftmargin=1.2cm]
-\item \textbf{Hypothèse}: WER dégradé vs E01 si MAE apporte une représentation utile.
+\item \textbf{Hypothèse}: WER degrade vs E01 si MAE apporte une representation utile.
 \item \textbf{Mécanisme attendu}: Sans MAE, l'encodeur apprend uniquement via CTC supervisé; la représentation initiale est moins structurée acoustiquement.
 \item \textbf{Tendance attendue}: Tendance attendue: WER plus élevé qu'E01, avec coût d'entraînement possiblement plus faible.
 \item \textbf{Critère de décision}: Confirmer H1 si E01 surpasse E02 sur WER à coût comparable.
@@ -285,7 +289,7 @@ Seed & WER $\downarrow$ & Runtime inf. (s) $\downarrow$ & Débit (samples/s) $\u
 
 
 \paragraph{Justification du plan}
-Tester une architecture plus compacte pour maximiser la frugalité.
+Tester une architecture plus compacte pour maximiser la frugalite.
 
 \paragraph{Mécanisme scientifique visé}
 La contrainte disque/compute impose d'explorer le bas du spectre capacité/coût.
@@ -303,7 +307,7 @@ La contrainte disque/compute impose d'explorer le bas du spectre capacité/coût
 
 \subsection{Hypothèse causale et résultats attendus}
 \begin{itemize}[leftmargin=1.2cm]
-\item \textbf{Hypothèse}: Moins de mémoire/temps, possible dégradation WER.
+\item \textbf{Hypothèse}: Moins de memoire/temps, possible degradation WER.
 \item \textbf{Mécanisme attendu}: Moins de dimensions/couches réduit la capacité d'approximation, mais diminue nettement mémoire et runtime.
 \item \textbf{Tendance attendue}: Mémoire et temps en baisse; possible hausse du WER (sous-capacité).
 \item \textbf{Critère de décision}: Conserver la variante si le gain de frugalité compense une dégradation WER limitée.
@@ -338,7 +342,7 @@ Tester une capacité plus élevée pour sonder le plafond de performance du desi
 
 
 \paragraph{Justification du plan}
-Tester une capacité supérieure pour évaluer le compromis performance/coût.
+Tester une capacite superieure pour evaluer le compromis performance/cout.
 
 \paragraph{Mécanisme scientifique visé}
 L'augmentation de capacité peut mieux modéliser la variabilité acoustique, au prix d'un coût de calcul supérieur.
@@ -356,7 +360,7 @@ L'augmentation de capacité peut mieux modéliser la variabilité acoustique, au
 
 \subsection{Hypothèse causale et résultats attendus}
 \begin{itemize}[leftmargin=1.2cm]
-\item \textbf{Hypothèse}: WER potentiellement meilleur, mais coût mémoire/temps plus élevé.
+\item \textbf{Hypothèse}: WER potentiellement meilleur, mais cout memoire/temps plus eleve.
 \item \textbf{Mécanisme attendu}: Plus de paramètres augmente l'expressivité, ce qui peut réduire le WER si la donnée est suffisante.
 \item \textbf{Tendance attendue}: WER potentiellement meilleur qu'E01; hausse attendue du runtime et de la mémoire.
 \item \textbf{Critère de décision}: Retenue si amélioration WER substantielle pour un surcoût acceptable dans le budget.
@@ -403,7 +407,7 @@ Le codage positionnel influence la modélisation temporelle des séquences audio
 
 \subsection{Hypothèse causale et résultats attendus}
 \begin{itemize}[leftmargin=1.2cm]
-\item \textbf{Hypothèse}: Impact sur la qualité de sequence modeling et le transfert ASR.
+\item \textbf{Hypothèse}: Impact sur la qualite de sequence modeling et le transfert ASR.
 \item \textbf{Mécanisme attendu}: Un positionnel appris peut mieux s'adapter au domaine, mais peut sur-apprendre si données limitées.
 \item \textbf{Tendance attendue}: Variation modérée du WER; coût similaire à E01.
 \item \textbf{Critère de décision}: Choisir la variante la plus stable en WER sans pénalité de coût.
@@ -438,7 +442,7 @@ Tester un patching temps-fréquence pour modifier le biais inductif de l'encodeu
 
 
 \paragraph{Justification du plan}
-Tester un patching plus local en fréquence pour enrichir la représentation spectrale.
+Tester un patching plus local en frequence pour enrichir la representation spectrale.
 
 \paragraph{Mécanisme scientifique visé}
 La structure spectrale locale peut être mieux capturée par un découpage mixte temps/fréquence.
@@ -451,7 +455,7 @@ La structure spectrale locale peut être mieux capturée par un découpage mixte
 
 \subsection{Hypothèse causale et résultats attendus}
 \begin{itemize}[leftmargin=1.2cm]
-\item \textbf{Hypothèse}: Qualité possiblement meilleure sur certains signaux, avec coût calculé plus élevé.
+\item \textbf{Hypothèse}: Qualite possiblement meilleure sur certains signaux, avec cout calcule plus eleve.
 \item \textbf{Mécanisme attendu}: Un patching plus fin en fréquence peut enrichir la représentation, mais augmente la complexité de séquence.
 \item \textbf{Tendance attendue}: Possible gain WER sur signaux complexes; runtime/mémoire potentiellement en hausse.
 \item \textbf{Critère de décision}: Retenir si gain de qualité non dominé par un coût excessif.
@@ -486,7 +490,7 @@ Ablation du mask ratio MAE vers une difficulté plus faible (0.40).
 
 
 \paragraph{Justification du plan}
-Ablation du ratio de masquage vers un régime plus conservateur.
+Ablation du ratio de masquage vers un regime plus conservateur.
 
 \paragraph{Mécanisme scientifique visé}
 Un prétexte trop simple peut limiter la richesse des représentations apprises.
@@ -533,7 +537,7 @@ Ablation du mask ratio MAE vers une difficulté élevée (0.75).
 
 
 \paragraph{Justification du plan}
-Ablation du ratio de masquage vers un régime plus agressif.
+Ablation du ratio de masquage vers un regime plus agressif.
 
 \paragraph{Mécanisme scientifique visé}
 Un masquage fort peut forcer des représentations globales plus robustes, mais rend l'optimisation plus dure.
@@ -545,7 +549,7 @@ Un masquage fort peut forcer des représentations globales plus robustes, mais r
 
 \subsection{Hypothèse causale et résultats attendus}
 \begin{itemize}[leftmargin=1.2cm]
-\item \textbf{Hypothèse}: Apprentissage plus difficile; possible gain de robustesse ou dégradation selon capacité.
+\item \textbf{Hypothèse}: Apprentissage plus difficile; possible gain de robustesse ou degradation selon capacite.
 \item \textbf{Mécanisme attendu}: Le modèle doit inférer davantage de contexte latent, ce qui peut améliorer ou détériorer le transfert ASR.
 \item \textbf{Tendance attendue}: Résultat dépendant de la capacité: soit robustesse accrue, soit dégradation si sous-capacité.
 \item \textbf{Critère de décision}: Conserver si WER et stabilité restent compétitifs malgré la difficulté accrue.
@@ -577,10 +581,10 @@ Consolider statistiquement la meilleure configuration issue du screening.
 \subsection{Choix méthodologiques et justification}
 \textbf{Phase}: final\\
 \textbf{Seeds prévues}: 42, 123, 456, 789, 1024\\
-\textbf{Source auto}: configuration héritée du rang screening 1.
+\textbf{Source auto}: configuration héritée du rang sélection 1.
 
 \paragraph{Justification du plan}
-Consolidation statistique de la meilleure variante screening (5 seeds).
+Consolidation statistique de la meilleure variante apres selection Top-5.
 
 \paragraph{Mécanisme scientifique visé}
 Une conclusion scientifique exige d'estimer la variabilité inter-seeds, pas seulement une seed favorable.
@@ -592,7 +596,7 @@ Une conclusion scientifique exige d'estimer la variabilité inter-seeds, pas seu
 
 \subsection{Hypothèse causale et résultats attendus}
 \begin{itemize}[leftmargin=1.2cm]
-\item \textbf{Hypothèse}: Résultat principal du rapport.
+\item \textbf{Hypothèse}: Resultat principal du rapport.
 \item \textbf{Mécanisme attendu}: Le réplica sur 5 seeds réduit le risque de sur-interprétation d'un résultat isolé.
 \item \textbf{Tendance attendue}: Moyenne WER la plus compétitive avec écart-type maîtrisé.
 \item \textbf{Critère de décision}: Candidate principale pour la conclusion finale du rapport.
@@ -624,10 +628,10 @@ Consolider la seconde meilleure configuration pour une comparaison robuste.
 \subsection{Choix méthodologiques et justification}
 \textbf{Phase}: final\\
 \textbf{Seeds prévues}: 42, 123, 456, 789, 1024\\
-\textbf{Source auto}: configuration héritée du rang screening 2.
+\textbf{Source auto}: configuration héritée du rang sélection 2.
 
 \paragraph{Justification du plan}
-Consolidation statistique de la deuxième meilleure variante screening.
+Consolidation statistique de la deuxieme meilleure variante apres selection Top-5.
 
 \paragraph{Mécanisme scientifique visé}
 Un second candidat limite le risque de conclure sur une seule famille de réglages.
@@ -671,10 +675,10 @@ Consolider la troisième meilleure configuration pour compléter le benchmark mu
 \subsection{Choix méthodologiques et justification}
 \textbf{Phase}: final\\
 \textbf{Seeds prévues}: 42, 123, 456, 789, 1024\\
-\textbf{Source auto}: configuration héritée du rang screening 3.
+\textbf{Source auto}: configuration héritée du rang sélection 3.
 
 \paragraph{Justification du plan}
-Consolidation statistique de la troisième meilleure variante screening.
+Consolidation statistique de la troisieme meilleure variante apres selection Top-5.
 
 \paragraph{Mécanisme scientifique visé}
 Trois candidats finaux permettent une discussion Pareto plus crédible qu'un duel binaire.
@@ -686,7 +690,7 @@ Trois candidats finaux permettent une discussion Pareto plus crédible qu'un due
 
 \subsection{Hypothèse causale et résultats attendus}
 \begin{itemize}[leftmargin=1.2cm]
-\item \textbf{Hypothèse}: Compléter le benchmark multi-modèles final.
+\item \textbf{Hypothèse}: Completer le benchmark multi-modeles final.
 \item \textbf{Mécanisme attendu}: Analyse conjointe qualité/coût/stabilité sur trois points du front de compromis.
 \item \textbf{Tendance attendue}: Option potentiellement plus frugale avec qualité légèrement inférieure.
 \item \textbf{Critère de décision}: Retenir comme alternative si le compromis coût/performance est préférable selon les contraintes.
@@ -711,7 +715,7 @@ Seed & WER $\downarrow$ & Runtime inf. (s) $\downarrow$ & Débit (samples/s) $\u
 \textit{Section volontairement laissée vide avant interprétation finale.}
 
 
-\section{Consolidation Top-3 (E09--E11)}
+\section{Consolidation Top-3 (E09--E11, après sélection Top-5)}
 \subsection{Tableau final principal (mean $\pm$ std, 5 seeds)}
 \textit{À compléter après exécution des consolidations.}
 
