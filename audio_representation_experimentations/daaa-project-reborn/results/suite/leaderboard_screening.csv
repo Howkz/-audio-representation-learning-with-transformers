@@ -1,1 +1,2 @@
 rank,id,title,wer,inference_runtime_sec,inference_peak_gpu_mem_mb
+1,E01,Baseline small MAE,1.0,34.17868423461914,24.646484375

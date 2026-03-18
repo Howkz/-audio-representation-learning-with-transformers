@@ -1,2 +1,2 @@
 id,phase,title,wer,inference_runtime_sec,inference_peak_gpu_mem_mb,source_id
-E00,smoke,Smoke test pipeline,1.0,7.373423099517822,13.13525390625,
+E01,screening,Baseline small MAE,1.0,34.17868423461914,24.646484375,
