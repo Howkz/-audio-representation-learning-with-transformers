@@ -31,10 +31,16 @@ def _restore_rng_state(state: Dict[str, Any]) -> None:
     if "numpy" in state:
         np.random.set_state(state["numpy"])
     if "torch_cpu" in state:
-        torch.set_rng_state(_coerce_rng_tensor(state["torch_cpu"]))
+        try:
+            torch.set_rng_state(_coerce_rng_tensor(state["torch_cpu"]))
+        except Exception as exc:
+            print(f"[CHECKPOINT][WARN] Skipping torch CPU RNG restore: {exc}")
     if torch.cuda.is_available() and "torch_cuda" in state:
-        cuda_states = [_coerce_rng_tensor(item) for item in state["torch_cuda"]]
-        torch.cuda.set_rng_state_all(cuda_states)
+        try:
+            cuda_states = [_coerce_rng_tensor(item) for item in state["torch_cuda"]]
+            torch.cuda.set_rng_state_all(cuda_states)
+        except Exception as exc:
+            print(f"[CHECKPOINT][WARN] Skipping torch CUDA RNG restore: {exc}")
 
 
 def checkpoint_name(global_step: int, epoch: int, tag: str = "step") -> str:
