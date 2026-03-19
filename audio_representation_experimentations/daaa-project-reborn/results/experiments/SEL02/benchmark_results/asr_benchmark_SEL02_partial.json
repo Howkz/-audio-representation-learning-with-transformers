@@ -6,15 +6,15 @@
     "42": {
       "seed": 42.0,
       "wer": 1.0,
-      "inference_runtime_sec": 29.87618350982666,
-      "inference_samples_per_sec": 10.04144320847829,
+      "inference_runtime_sec": 33.73107433319092,
+      "inference_samples_per_sec": 8.893876223349462,
       "inference_peak_gpu_mem_mb": 29.603515625
     },
     "123": {
       "seed": 123.0,
       "wer": 1.0,
-      "inference_runtime_sec": 32.82480978965759,
-      "inference_samples_per_sec": 9.139428436064348,
+      "inference_runtime_sec": 35.20983052253723,
+      "inference_samples_per_sec": 8.520347742315174,
       "inference_peak_gpu_mem_mb": 29.603515625
     }
   }

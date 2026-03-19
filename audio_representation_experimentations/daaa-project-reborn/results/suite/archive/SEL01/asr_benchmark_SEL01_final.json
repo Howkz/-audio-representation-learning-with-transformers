@@ -6,15 +6,15 @@
     "42": {
       "seed": 42.0,
       "wer": 1.0,
-      "inference_runtime_sec": 30.912026405334473,
-      "inference_samples_per_sec": 9.704960654026523,
+      "inference_runtime_sec": 31.677239179611206,
+      "inference_samples_per_sec": 9.470522298328717,
       "inference_peak_gpu_mem_mb": 24.646484375
     },
     "123": {
       "seed": 123.0,
       "wer": 1.0074673304293715,
-      "inference_runtime_sec": 34.08417749404907,
-      "inference_samples_per_sec": 8.80173799272048,
+      "inference_runtime_sec": 34.963155031204224,
+      "inference_samples_per_sec": 8.580461338007208,
       "inference_peak_gpu_mem_mb": 24.646484375
     }
   },
@@ -28,12 +28,12 @@
       "std": 0.0037336652146857663
     },
     "inference_runtime_sec": {
-      "mean": 32.49810194969177,
-      "std": 1.5860755443572998
+      "mean": 33.320197105407715,
+      "std": 1.6429579257965088
     },
     "inference_samples_per_sec": {
-      "mean": 9.253349323373502,
-      "std": 0.45161133065302206
+      "mean": 9.025491818167962,
+      "std": 0.44503048016075475
     },
     "inference_peak_gpu_mem_mb": {
       "mean": 24.646484375,

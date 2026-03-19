@@ -30,7 +30,7 @@ model:
   patch_time: 4
   patch_freq: 80
   max_len: 1536
-  pos_embed: learned
+  pos_embed: sinusoidal
   mae_decoder_dim: 96
   mae_decoder_depth: 1
   mae_decoder_heads: 4
@@ -40,7 +40,7 @@ training:
   grad_clip_norm: 1.0
   log_every_steps: 25
   pretrain:
-    enabled: true
+    enabled: false
     epochs: 1
     batch_size: 4
     grad_accum_steps: 2
