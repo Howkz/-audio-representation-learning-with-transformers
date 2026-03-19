@@ -1,160 +1,169 @@
-# Phase 2 Experiment Plan
+# Plan d'expérimentation Phase 2
 
-## Purpose
+## Objectif général
 
-Phase 2 is a corrective campaign.
+La phase 2 est une campagne corrective.
 
-Its goal is not to multiply ablations immediately. Its first goal is to exit the
-current degenerate regime where `WER ~= 1.0` across nearly all variants.
+Son but n'est pas de multiplier immédiatement les ablations. Son premier but
+est de sortir du régime actuel dégénéré où `WER ~= 1.0` pour presque toutes les
+variantes.
 
-Only once a non-degenerate baseline exists should we resume architecture and
-pretraining comparisons.
+Ce n'est qu'une fois une baseline non dégénérée obtenue qu'il faudra reprendre
+les comparaisons d'architecture et de pré-entraînement.
 
-## Why We Need Phase 2
+## Pourquoi une phase 2 est nécessaire
 
-Phase 1 produced three strong signals:
+La phase 1 a produit trois signaux forts :
 
-1. The pipeline runs.
-2. Resource usage differences are measurable.
-3. ASR quality does not separate meaningfully between variants.
+1. le pipeline tourne
+2. les différences de consommation de ressources sont mesurables
+3. la qualité ASR ne se sépare pas de façon significative entre variantes
 
-The third point is the blocker. We therefore need a new protocol centered on
-diagnosis and recovery instead of immediate leaderboard comparison.
+Le troisième point est bloquant. Il faut donc un nouveau protocole centré sur
+le diagnostic et la récupération, pas sur la comparaison immédiate de
+leaderboards.
 
-## Phase 2 Objectives
+## Objectifs de la phase 2
 
-### Objective A
+### Objectif A
 
-Obtain at least one baseline that transcribes better than the current
-near-degenerate regime.
+Obtenir au moins une baseline qui transcrit mieux que le régime actuel quasi
+dégénéré.
 
-### Objective B
+### Objectif B
 
-Verify that predictions are not dominated by blank or near-empty outputs.
+Vérifier que les prédictions ne sont pas dominées par `blank` ni par des sorties
+quasi vides.
 
-### Objective C
+### Objectif C
 
-Create real contrast on ASR quality before resuming fine architectural ablations.
+Créer un vrai contraste sur la qualité ASR avant de reprendre des ablations
+architecturales fines.
 
-## Phase 2 Rules
+## Règles de la phase 2
 
-1. Do not reuse `E00 -> E11` naming.
-2. Do not mix phase 2 outputs with the legacy `results/experiments/` phase 1
-   interpretation.
-3. Prefer fewer runs with stronger diagnostics over many weak ablations.
-4. Inspect predictions explicitly during phase 2.
-5. Only re-open `MAE vs NoMAE` or architecture comparisons after a baseline
-   exits the `WER ~= 1.0` regime.
+1. ne pas réutiliser le nommage `E00 -> E11`
+2. ne pas mélanger les sorties phase 2 avec l'interprétation héritée de phase 1
+   dans `results/experiments/`
+3. préférer peu de runs, mais fortement diagnostiqués, à beaucoup d'ablations
+   faibles
+4. inspecter explicitement les prédictions pendant la phase 2
+5. ne rouvrir `MAE vs NoMAE` ou les comparaisons d'architecture qu'après la
+   sortie du régime `WER ~= 1.0`
 
-## Proposed Naming
+## Nommage proposé
 
-Use a new prefix for phase 2, for example:
+Utiliser un nouveau préfixe pour la phase 2, par exemple :
 
-- `P2Dxx` for diagnostic runs
-- `P2Bxx` for baseline recovery runs
-- `P2Axx` for later ablations
+- `P2Dxx` pour les runs diagnostiques
+- `P2Bxx` pour les baselines de récupération
+- `P2Axx` pour les ablations ultérieures
 
-This prevents confusion with phase 1 experiment IDs.
+Cela évite toute confusion avec les identifiants de phase 1.
 
-## Minimal Phase 2 Run List
+## Première liste minimale de runs phase 2
 
-The first phase 2 batch should be small and diagnostic.
+Le premier lot phase 2 doit rester petit et orienté diagnostic.
 
-### P2D01 - Diagnostic CTC Baseline
+### P2D01 - Baseline diagnostique CTC
 
-Goal:
+But :
 
-- inspect whether predictions are blank, empty, repetitive, or badly aligned
+- inspecter si les prédictions sont vides, dominées par `blank`, répétitives ou
+  mal alignées
 
-Main changes:
+Modifications principales :
 
-- keep one simple baseline architecture
-- add qualitative prediction dumps on validation
-- log input lengths, target lengths, prediction lengths, and blank dominance
+- conserver une architecture baseline simple
+- ajouter des dumps qualitatifs de prédictions sur la validation
+- logguer les longueurs d'entrée, longueurs de cible, longueurs de prédiction et
+  la dominance de `blank`
 
-Expected value:
+Valeur attendue :
 
-- identifies whether the failure is truly a CTC collapse
+- identifier si l'échec actuel correspond bien à un collapse CTC
 
-### P2B01 - Budget Recovery Baseline
+### P2B01 - Baseline de récupération par budget
 
-Goal:
+But :
 
-- test whether the current supervised budget is simply too small
+- tester si le budget supervisé actuel est simplement trop faible
 
-Main changes:
+Modifications principales :
 
-- increase `finetune.max_steps`
-- optionally increase effective supervised data budget
-- keep the rest as stable as possible
+- augmenter `finetune.max_steps`
+- éventuellement augmenter le budget de données supervisées effectif
+- garder le reste aussi stable que possible
 
-Expected value:
+Valeur attendue :
 
-- if `WER` decreases materially, the main issue is budget rather than exotic
-  architecture design
+- si le `WER` baisse de façon nette, le problème principal est le budget plutôt
+  qu'un choix architectural exotique
 
-### P2B02 - NoMAE Recovery Baseline
+### P2B02 - Baseline de récupération NoMAE
 
-Goal:
+But :
 
-- compare a simpler supervised-only recovery against the MAE-based recovery
+- comparer une récupération supervisée simple à la récupération basée sur MAE
 
-Main changes:
+Modifications principales :
 
-- same training budget as `P2B01`
-- disable pretraining
+- même budget d'entraînement que `P2B01`
+- pré-entraînement désactivé
 
-Expected value:
+Valeur attendue :
 
-- meaningful `MAE vs NoMAE` comparison, but only after the baseline is no longer
-  fully degenerate
+- comparaison `MAE vs NoMAE` réellement informative, mais seulement une fois la
+  baseline sortie du régime dégénéré
 
-### P2A01 - Lower Compression Variant
+### P2A01 - Variante à compression plus faible
 
-Goal:
+But :
 
-- test whether the encoder compresses time too aggressively for CTC
+- tester si l'encodeur compresse trop agressivement le temps pour CTC
 
-Main changes:
+Modifications principales :
 
-- reduce temporal compression or patch size along time
-- keep the rest close to the best recovery baseline
+- réduire la compression temporelle ou la taille de patch sur l'axe temps
+- garder le reste proche de la meilleure baseline de récupération
 
-Expected value:
+Valeur attendue :
 
-- checks whether alignment failure is partly caused by sequence compression
+- vérifier si l'échec d'alignement vient en partie de la compression de séquence
 
-## Success Criteria
+## Critères de succès
 
-Phase 2 should not be judged only on runtime.
+La phase 2 ne doit pas être jugée seulement sur le runtime.
 
-The first acceptable success criteria are:
+Les premiers critères de succès acceptables sont :
 
-1. `WER < 1.0` in a stable and repeatable way.
-2. Validation predictions are visibly non-empty and not dominated by blank.
-3. At least one baseline shows a quality delta large enough to justify a real
-   follow-up comparison.
+1. `WER < 1.0` de manière stable et répétable
+2. des prédictions de validation visiblement non vides et non dominées par
+   `blank`
+3. au moins une baseline présentant un delta de qualité assez grand pour
+   justifier une vraie comparaison de suivi
 
-Only after those criteria are met should we resume:
+Ce n'est qu'après validation de ces critères qu'il faudra reprendre :
 
 - `MAE` vs `NoMAE`
-- capacity comparisons
-- positional embedding comparisons
-- mask-ratio comparisons
+- comparaisons de capacité
+- comparaisons d'embeddings positionnels
+- comparaisons de mask ratio
 
-## Recommended Phase 2 Folder Usage
+## Usage recommandé des dossiers phase 2
 
-- phase 1 launcher archive: `scripts/experiments_phase1/`
-- phase 2 launcher workspace: `scripts/experiments_phase2/`
-- phase 1 config archive: `configs/phase1/`
-- phase 2 config workspace: `configs/phase2/`
-- phase 1 suite snapshot: `results/phase1/`
-- phase 2 outputs: `results/phase2/`
+- archive des launchers phase 1 : `scripts/experiments_phase1/`
+- espace de travail des launchers phase 2 : `scripts/experiments_phase2/`
+- archive des configs phase 1 : `configs/phase1/`
+- espace de travail des configs phase 2 : `configs/phase2/`
+- snapshot de suite phase 1 : `results/phase1/`
+- sorties phase 2 : `results/phase2/`
 
-## Immediate Next Implementation Tasks
+## Prochaines tâches d'implémentation
 
-1. Add a diagnostic mode that logs a small batch of references and predictions.
-2. Create one clean phase 2 baseline config.
-3. Create one extended-budget variant.
-4. Create one matched `NoMAE` variant.
-5. Keep all phase 2 outputs under phase 2 specific paths.
+1. ajouter un mode diagnostic qui loggue un petit lot de références et de
+   prédictions
+2. créer une baseline phase 2 propre
+3. créer une variante à budget étendu
+4. créer une variante `NoMAE` alignée
+5. garder toutes les sorties phase 2 sous des chemins explicitement dédiés

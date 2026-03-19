@@ -1,16 +1,16 @@
-# Phase 2 Launchers
+# Launchers Phase 2
 
-This directory is reserved for the corrective phase 2 campaign.
+Ce dossier est réservé à la campagne corrective de phase 2.
 
-Guidelines:
+Consignes :
 
-- use new experiment IDs, not `E00 -> E11`
-- keep launchers phase 2 specific
-- write outputs to phase 2 specific result paths
-- prefer a small number of strongly instrumented runs
+- utiliser de nouveaux identifiants d'expérience, pas `E00 -> E11`
+- garder des launchers spécifiques à la phase 2
+- écrire les sorties dans des chemins de résultats dédiés à la phase 2
+- préférer peu de runs, mais fortement instrumentés
 
-Suggested prefixes:
+Préfixes suggérés :
 
-- `P2Dxx` for diagnostics
-- `P2Bxx` for baseline recovery
-- `P2Axx` for later ablations
+- `P2Dxx` pour les diagnostics
+- `P2Bxx` pour les baselines de récupération
+- `P2Axx` pour les ablations ultérieures

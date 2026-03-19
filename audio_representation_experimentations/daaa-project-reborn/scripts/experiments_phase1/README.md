@@ -1,17 +1,18 @@
-# Phase 1 Launchers
+# Launchers Phase 1
 
-This directory is a frozen snapshot of the original phase 1 shell launchers.
+Ce dossier est un snapshot figé des launchers shell originaux de la phase 1.
 
-Scope:
+Périmètre :
 
 - `E00 -> E11`
 - `run_single_experiment.sh`
 
-These launchers are kept for traceability and retrospective analysis.
+Ces launchers sont conservés pour la traçabilité et l'analyse rétrospective.
 
-Rule:
+Règle :
 
-- do not add new corrective experiments here
-- do not reuse these names for phase 2 work
+- ne pas ajouter ici de nouvelles expériences correctives
+- ne pas réutiliser ces noms pour la phase 2
 
-New corrective experiments should be created under `scripts/experiments_phase2/`.
+Les nouvelles expériences correctives doivent être créées dans
+`scripts/experiments_phase2/`.

@@ -1,15 +1,16 @@
-# Phase 2 Results Workspace
+# Espace de travail des résultats Phase 2
 
-This directory is reserved for phase 2 outputs.
+Ce dossier est réservé aux sorties de la phase 2.
 
-Rule:
+Règle :
 
-- phase 2 runs should write their outputs here or in subpaths explicitly tied to
-  phase 2
-- avoid mixing new corrective experiments with the legacy phase 1 interpretation
+- les runs phase 2 doivent écrire leurs sorties ici ou dans des sous-chemins
+  explicitement rattachés à la phase 2
+- éviter de mélanger les nouvelles expériences correctives avec l'interprétation
+  héritée de phase 1
 
-Typical future content:
+Contenu futur typique :
 
-- phase 2 runtime configs
-- phase 2 suite summaries
-- phase 2 benchmark artifacts
+- configs runtime phase 2
+- résumés de suite phase 2
+- artefacts de benchmark phase 2

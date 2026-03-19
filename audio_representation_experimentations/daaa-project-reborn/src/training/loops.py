@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import math
+import sys
 import time
 from functools import partial
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
 import torch
-from torch.cuda.amp import GradScaler, autocast
+from torch.cuda.amp import GradScaler
 from torch.nn.utils import clip_grad_norm_
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
@@ -33,6 +34,23 @@ def _device() -> torch.device:
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
+def _format_hms(total_seconds: float) -> str:
+    seconds = max(0, int(round(float(total_seconds))))
+    hours, rem = divmod(seconds, 3600)
+    minutes, secs = divmod(rem, 60)
+    return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+
+
+def _autocast_context(device: torch.device, enabled: bool):
+    if hasattr(torch, "amp") and hasattr(torch.amp, "autocast"):
+        return torch.amp.autocast(device_type=device.type, enabled=enabled)
+    return torch.cuda.amp.autocast(enabled=enabled)
+
+
+def _use_tqdm() -> bool:
+    return bool(getattr(sys.stdout, "isatty", lambda: False)())
+
+
 def _progress_speed_line(
     stage: str,
     seed: int,
@@ -46,13 +64,17 @@ def _progress_speed_line(
     samples_per_sec = float(steps_per_sec * max(1, effective_batch_size))
     if total_steps > 0 and steps_per_sec > 0.0:
         remaining = max(total_steps - global_step, 0)
-        eta_min = float((remaining / steps_per_sec) / 60.0)
-        eta_text = f"{eta_min:.1f} min"
+        eta_sec = float(remaining / steps_per_sec)
+        total_est_sec = float(elapsed + eta_sec)
+        time_text = f"{_format_hms(elapsed)}/{_format_hms(total_est_sec)}"
+        eta_text = _format_hms(eta_sec)
     else:
+        time_text = f"{_format_hms(elapsed)}/N/A"
         eta_text = "N/A"
     return (
         f"[SPEED][{stage}] seed={seed} step={global_step}/{total_steps} "
-        f"steps/s={steps_per_sec:.2f} samples/s={samples_per_sec:.2f} eta={eta_text}"
+        f"time={time_text} eta={eta_text} "
+        f"steps/s={steps_per_sec:.2f} samples/s={samples_per_sec:.2f}"
     )
 
 
@@ -194,7 +216,14 @@ def run_pretrain_seed(
             epoch=epoch,
             shuffle=True,
         )
-        progress = tqdm(loader, desc=f"pretrain seed={seed} epoch={epoch}", leave=False)
+        use_tqdm = _use_tqdm()
+        progress = tqdm(
+            loader,
+            desc=f"pretrain seed={seed} epoch={epoch}",
+            leave=False,
+            mininterval=5.0,
+            disable=not use_tqdm,
+        )
         mae.train()
         optimizer.zero_grad(set_to_none=True)
 
@@ -212,7 +241,7 @@ def run_pretrain_seed(
                     device=device,
                 )
 
-            with autocast(enabled=amp_enabled):
+            with _autocast_context(device=device, enabled=amp_enabled):
                 loss = mae(x, mask)
                 loss_scaled = loss / grad_acc
             scaler.scale(loss_scaled).backward()
@@ -244,7 +273,7 @@ def run_pretrain_seed(
                     keep_last_checkpoints=keep_last,
                 )
 
-            if global_step % max(1, log_every_steps) == 0:
+            if (not use_tqdm) and global_step % max(1, log_every_steps) == 0:
                 print(
                     _progress_speed_line(
                         stage="PRETRAIN",
@@ -420,7 +449,14 @@ def run_finetune_seed(
             epoch=epoch,
             shuffle=True,
         )
-        progress = tqdm(loader, desc=f"finetune seed={seed} epoch={epoch}", leave=False)
+        use_tqdm = _use_tqdm()
+        progress = tqdm(
+            loader,
+            desc=f"finetune seed={seed} epoch={epoch}",
+            leave=False,
+            mininterval=5.0,
+            disable=not use_tqdm,
+        )
         model.train()
         optimizer.zero_grad(set_to_none=True)
 
@@ -433,7 +469,7 @@ def run_finetune_seed(
             targets = batch["targets"].to(device, non_blocking=True)
             target_lengths = batch["target_lengths"].to(device, non_blocking=True)
 
-            with autocast(enabled=amp_enabled):
+            with _autocast_context(device=device, enabled=amp_enabled):
                 logits, out_lengths = model(x, lengths)
                 log_probs = logits.log_softmax(dim=-1).transpose(0, 1)
                 loss = ctc_loss_fn(log_probs, targets, out_lengths, target_lengths)
@@ -468,7 +504,7 @@ def run_finetune_seed(
                     keep_last_checkpoints=keep_last,
                 )
 
-            if global_step % max(1, log_every_steps) == 0:
+            if (not use_tqdm) and global_step % max(1, log_every_steps) == 0:
                 print(
                     _progress_speed_line(
                         stage="FINETUNE",

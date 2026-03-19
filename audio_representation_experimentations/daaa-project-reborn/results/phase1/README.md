@@ -1,19 +1,18 @@
-# Phase 1 Results Snapshot
+# Snapshot des résultats Phase 1
 
-This directory stores lightweight archival material for the frozen phase 1
-campaign.
+Ce dossier stocke du matériel d'archive léger pour la campagne phase 1 figée.
 
-Current content:
+Contenu actuel :
 
 - `suite_snapshot/leaderboard_screening.csv`
 - `suite_snapshot/leaderboard_selection.csv`
 - `suite_snapshot/selection_manifest.json`
 - `suite_snapshot/suite_summary.csv`
 
-Detailed run artifacts remain in the legacy locations:
+Les artefacts détaillés des runs restent dans les emplacements hérités :
 
 - `results/experiments/`
 - `results/suite/`
 
-Those locations should be treated as phase 1 legacy outputs unless explicitly
-migrated.
+Ces emplacements doivent être traités comme des sorties héritées de phase 1,
+sauf migration explicite ultérieure.

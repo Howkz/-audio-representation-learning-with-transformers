@@ -1,16 +1,16 @@
-# Phase 2 Config Workspace
+# Espace de travail des configs Phase 2
 
-This directory is reserved for new phase 2 configs.
+Ce dossier est réservé aux nouvelles configs de phase 2.
 
-Phase 2 configs should:
+Les configs phase 2 doivent :
 
-- use new experiment IDs
-- keep outputs separated from phase 1 artifacts
-- favor diagnosability over large ablation breadth
+- utiliser de nouveaux identifiants d'expérience
+- garder les sorties séparées des artefacts de phase 1
+- privilégier la capacité de diagnostic à la largeur des ablations
 
-Recommended first additions:
+Premières additions recommandées :
 
-- one diagnostic baseline config
-- one extended-budget recovery config
-- one matched `NoMAE` config
-- one reduced-compression config
+- une config baseline diagnostique
+- une config de récupération à budget étendu
+- une config `NoMAE` alignée
+- une config à compression réduite

@@ -106,6 +106,13 @@ def _bytes_to_gb(num_bytes: int) -> float:
     return float(num_bytes) / (1024 ** 3)
 
 
+def _format_hms(total_seconds: float) -> str:
+    seconds = max(0, int(round(float(total_seconds))))
+    hours, rem = divmod(seconds, 3600)
+    minutes, secs = divmod(rem, 60)
+    return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+
+
 def _storage_snapshot() -> Dict[str, float]:
     root = Path(".").resolve()
     usage = shutil.disk_usage(root)
@@ -123,7 +130,7 @@ def _storage_snapshot() -> Dict[str, float]:
 
 def _print_storage(tag: str, elapsed_sec: Optional[float] = None) -> None:
     snap = _storage_snapshot()
-    elapsed_msg = f" elapsed={elapsed_sec:.0f}s" if elapsed_sec is not None else ""
+    elapsed_msg = f" elapsed={_format_hms(elapsed_sec)}" if elapsed_sec is not None else ""
     print(
         f"[STORAGE] {tag}{elapsed_msg} | free={snap['free_gb']:.2f}GB "
         f"cache={snap['cache_gb']:.2f}GB checkpoints={snap['checkpoints_gb']:.2f}GB "

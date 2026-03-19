@@ -1,11 +1,11 @@
-# Phase 1 Config Snapshot
+# Snapshot des configs Phase 1
 
-This directory contains a frozen copy of the main phase 1 YAML configs.
+Ce dossier contient une copie figée des principales configs YAML de la phase 1.
 
-The copied files are archival references for:
+Les fichiers copiés servent de référence d'archive pour :
 
-- original screening logic
-- original suite logic
-- original low-storage settings
+- la logique de screening d'origine
+- la logique de suite d'origine
+- les réglages low-storage d'origine
 
-Phase 2 config development should happen in `configs/phase2/`.
+Le développement des configs de phase 2 doit se faire dans `configs/phase2/`.
