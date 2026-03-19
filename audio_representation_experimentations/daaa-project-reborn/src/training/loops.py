@@ -159,7 +159,7 @@ def run_pretrain_seed(
     start_epoch = 0
     start_step_in_epoch = 0
     global_step = 0
-    latest = find_latest_checkpoint(out_root)
+    latest = find_latest_checkpoint(out_root) if force_continue_completed else None
     if latest is not None:
         payload = load_checkpoint(latest, mae, optimizer, scheduler, scaler, map_location=device)
         start_epoch = int(payload["epoch"])
@@ -384,7 +384,7 @@ def run_finetune_seed(
     start_step_in_epoch = 0
     global_step = 0
     best_wer: Optional[float] = None
-    latest = find_latest_checkpoint(out_root)
+    latest = find_latest_checkpoint(out_root) if force_continue_completed else None
     if latest is not None:
         payload = load_checkpoint(latest, model, optimizer, scheduler, scaler, map_location=device)
         start_epoch = int(payload["epoch"])
