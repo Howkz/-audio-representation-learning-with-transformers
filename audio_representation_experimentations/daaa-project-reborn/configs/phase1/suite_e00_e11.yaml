@@ -1,0 +1,235 @@
+suite:
+  name: "suite_e00_e11_time24h"
+  language: "fr"
+  report_output: "results/suite/rapport_final.tex"
+  leaderboard_output: "results/suite/leaderboard_screening.csv"
+  summary_output: "results/suite/suite_summary.csv"
+  report:
+    title: "Rapport d'Experimentations sur l'Apprentissage de la representation audio via transformateurs"
+    subtitle: "Pre-entrainement MAE et adaptation CTC: etude experimentale progressive E00->E11"
+    authors:
+      - "CLAIR Mael"
+      - "SABINE Hugo"
+      - "CHANTELOUP William"
+    program: "Master 2 Algorithmiques et Systemes Intelligents"
+    course: "Projet DAAA"
+  dataset_policy:
+    screening: "subsampled_librispeech_fixed_budget"
+    final: "expanded_subsample_librispeech_fixed_budget"
+  selection:
+    enabled: true
+    top_k_from_screening: 5
+    seeds: [42, 123]
+    leaderboard_output: "results/suite/leaderboard_selection.csv"
+  notes:
+    - "Screening sur LibriSpeech en sous-echantillons fixes pour controler le temps total."
+    - "Selection Top-5 executee en 2 seeds (42, 123) pour robustifier avant finale."
+    - "Final Top-3 execute en 5 seeds sur un sous-echantillon elargi (pas de full-data, budget 24h)."
+    - "VoxPopuli est exclu du chemin principal pour rester compatible avec la contrainte temps."
+    - "Le cache data est conserve entre experiences."
+
+experiments:
+  - id: "E00"
+    enabled: true
+    phase: "smoke"
+    base_config: "configs/smoke.yaml"
+    seeds: [42]
+    title: "Smoke test pipeline"
+    choice_justification: "Valider la chaine complete data/train/test avec un cout minimal avant toute analyse scientifique."
+    expected_effect: "Aucune conclusion de performance; uniquement validation technique et reproductibilite."
+    overrides: {}
+
+  - id: "E01"
+    enabled: true
+    phase: "screening"
+    base_config: "configs/low_storage.yaml"
+    seeds: [42]
+    title: "Baseline small MAE"
+    choice_justification: "Etablir un point de reference frugal et stable compatible avec un budget <24h."
+    expected_effect: "Servir de base comparative pour toutes les autres variantes."
+    overrides: {}
+
+  - id: "E02"
+    enabled: true
+    phase: "screening"
+    base_config: "configs/low_storage.yaml"
+    seeds: [42]
+    title: "Small NoMAE"
+    choice_justification: "Isoler l'effet du pre-entrainement MAE en supprimant cette phase."
+    expected_effect: "WER degrade vs E01 si MAE apporte une representation utile."
+    overrides:
+      training:
+        pretrain:
+          enabled: false
+
+  - id: "E03"
+    enabled: true
+    phase: "screening"
+    base_config: "configs/low_storage.yaml"
+    seeds: [42]
+    title: "Tiny MAE"
+    choice_justification: "Tester une architecture plus compacte pour maximiser la frugalite."
+    expected_effect: "Moins de memoire/temps, possible degradation WER."
+    overrides:
+      model:
+        dim: 128
+        depth: 2
+        num_heads: 4
+        mlp_ratio: 2.0
+        mae_decoder_dim: 64
+        mae_decoder_depth: 1
+        mae_decoder_heads: 2
+
+  - id: "E04"
+    enabled: true
+    phase: "screening"
+    base_config: "configs/low_storage.yaml"
+    seeds: [42]
+    title: "Base MAE"
+    choice_justification: "Tester une capacite superieure pour evaluer le compromis performance/cout."
+    expected_effect: "WER potentiellement meilleur, mais cout memoire/temps plus eleve."
+    overrides:
+      model:
+        dim: 256
+        depth: 6
+        num_heads: 8
+        mlp_ratio: 4.0
+        mae_decoder_dim: 128
+        mae_decoder_depth: 2
+        mae_decoder_heads: 4
+
+  - id: "E05"
+    enabled: true
+    phase: "screening"
+    base_config: "configs/low_storage.yaml"
+    seeds: [42]
+    title: "Small Learned Positional Embeddings"
+    choice_justification: "Comparer sinusoidal vs learned embeddings en gardant le reste fixe."
+    expected_effect: "Impact sur la qualite de sequence modeling et le transfert ASR."
+    overrides:
+      model:
+        pos_embed: "learned"
+
+  - id: "E06"
+    enabled: true
+    phase: "screening"
+    base_config: "configs/low_storage.yaml"
+    seeds: [42]
+    title: "Small Time-Frequency Patching"
+    choice_justification: "Tester un patching plus local en frequence pour enrichir la representation spectrale."
+    expected_effect: "Qualite possiblement meilleure sur certains signaux, avec cout calcule plus eleve."
+    overrides:
+      model:
+        patch_strategy: "timefreq"
+        patch_freq: 20
+
+  - id: "E07"
+    enabled: true
+    phase: "screening"
+    base_config: "configs/low_storage.yaml"
+    seeds: [42]
+    title: "Small MAE mask 0.40"
+    choice_justification: "Ablation du ratio de masquage vers un regime plus conservateur."
+    expected_effect: "Reconstruction plus facile, transfert potentiellement moins robuste."
+    overrides:
+      model:
+        mae_mask_ratio: 0.4
+
+  - id: "E08"
+    enabled: true
+    phase: "screening"
+    base_config: "configs/low_storage.yaml"
+    seeds: [42]
+    title: "Small MAE mask 0.75"
+    choice_justification: "Ablation du ratio de masquage vers un regime plus agressif."
+    expected_effect: "Apprentissage plus difficile; possible gain de robustesse ou degradation selon capacite."
+    overrides:
+      model:
+        mae_mask_ratio: 0.75
+
+  - id: "E09"
+    enabled: true
+    phase: "final"
+    auto_from_selection_rank: 1
+    base_config: "configs/low_storage.yaml"
+    seeds: [42, 123, 456, 789, 1024]
+    title: "Final Top-1"
+    choice_justification: "Consolidation statistique de la meilleure variante apres selection Top-5."
+    expected_effect: "Resultat principal du rapport."
+    overrides:
+      training:
+        pretrain:
+          max_steps: 260
+        finetune:
+          max_steps: 360
+      datasets:
+        pretrain:
+          max_samples: 2000
+        asr_train:
+          max_samples: 3000
+        asr_valid:
+          max_samples: null
+        asr_tests:
+          - name: "openslr/librispeech_asr"
+            config: "clean"
+            split: "test.clean"
+            max_samples: null
+            transcript_key: "text"
+
+  - id: "E10"
+    enabled: true
+    phase: "final"
+    auto_from_selection_rank: 2
+    base_config: "configs/low_storage.yaml"
+    seeds: [42, 123, 456, 789, 1024]
+    title: "Final Top-2"
+    choice_justification: "Consolidation statistique de la deuxieme meilleure variante apres selection Top-5."
+    expected_effect: "Comparaison robuste contre Top-1."
+    overrides:
+      training:
+        pretrain:
+          max_steps: 260
+        finetune:
+          max_steps: 360
+      datasets:
+        pretrain:
+          max_samples: 2000
+        asr_train:
+          max_samples: 3000
+        asr_valid:
+          max_samples: null
+        asr_tests:
+          - name: "openslr/librispeech_asr"
+            config: "clean"
+            split: "test.clean"
+            max_samples: null
+            transcript_key: "text"
+
+  - id: "E11"
+    enabled: true
+    phase: "final"
+    auto_from_selection_rank: 3
+    base_config: "configs/low_storage.yaml"
+    seeds: [42, 123, 456, 789, 1024]
+    title: "Final Top-3"
+    choice_justification: "Consolidation statistique de la troisieme meilleure variante apres selection Top-5."
+    expected_effect: "Completer le benchmark multi-modeles final."
+    overrides:
+      training:
+        pretrain:
+          max_steps: 260
+        finetune:
+          max_steps: 360
+      datasets:
+        pretrain:
+          max_samples: 2000
+        asr_train:
+          max_samples: 3000
+        asr_valid:
+          max_samples: null
+        asr_tests:
+          - name: "openslr/librispeech_asr"
+            config: "clean"
+            split: "test.clean"
+            max_samples: null
+            transcript_key: "text"
