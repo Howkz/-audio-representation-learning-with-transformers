@@ -19,15 +19,22 @@ def _rng_state() -> Dict[str, Any]:
     return state
 
 
+def _coerce_rng_tensor(value: Any) -> torch.ByteTensor:
+    if isinstance(value, torch.Tensor):
+        return value.detach().to(dtype=torch.uint8, device="cpu")
+    return torch.tensor(value, dtype=torch.uint8)
+
+
 def _restore_rng_state(state: Dict[str, Any]) -> None:
     if "python" in state:
         random.setstate(state["python"])
     if "numpy" in state:
         np.random.set_state(state["numpy"])
     if "torch_cpu" in state:
-        torch.set_rng_state(state["torch_cpu"])
+        torch.set_rng_state(_coerce_rng_tensor(state["torch_cpu"]))
     if torch.cuda.is_available() and "torch_cuda" in state:
-        torch.cuda.set_rng_state_all(state["torch_cuda"])
+        cuda_states = [_coerce_rng_tensor(item) for item in state["torch_cuda"]]
+        torch.cuda.set_rng_state_all(cuda_states)
 
 
 def checkpoint_name(global_step: int, epoch: int, tag: str = "step") -> str:
