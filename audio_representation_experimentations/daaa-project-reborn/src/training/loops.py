@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import re
 import sys
 import time
 from functools import partial
@@ -26,7 +27,12 @@ from src.training.checkpointing import (
     load_checkpoint,
     save_checkpoint,
 )
-from src.training.metrics import compute_wer, greedy_decode_batch
+from src.training.metrics import (
+    collect_ctc_batch_diagnostics,
+    compute_wer,
+    finalize_ctc_diagnostics,
+)
+from src.training.results import write_json_artifact
 from src.training.utils import count_parameters, peak_memory_mb, reset_peak_memory
 
 
@@ -49,6 +55,59 @@ def _autocast_context(device: torch.device, enabled: bool):
 
 def _use_tqdm() -> bool:
     return bool(getattr(sys.stdout, "isatty", lambda: False)())
+
+
+def _diagnostics_cfg(cfg: Dict[str, Any]) -> Dict[str, Any]:
+    diagnostics = cfg.get("diagnostics", {})
+    return diagnostics if isinstance(diagnostics, dict) else {}
+
+
+def _diagnostics_examples_limit(cfg: Dict[str, Any]) -> int:
+    diagnostics = _diagnostics_cfg(cfg)
+    return max(0, int(diagnostics.get("max_saved_examples", 8)))
+
+
+def _safe_slug(value: str) -> str:
+    return re.sub(r"[^A-Za-z0-9_.-]+", "_", str(value)).strip("._") or "artifact"
+
+
+def _diagnostics_artifact_path(
+    cfg: Dict[str, Any],
+    stage: str,
+    seed: int,
+    suffix: str,
+) -> Path:
+    diagnostics_dir = Path(cfg["experiment"]["results_dir"]) / "diagnostics"
+    filename = f"{_safe_slug(stage)}_seed_{seed}_{_safe_slug(suffix)}.json"
+    return diagnostics_dir / filename
+
+
+def _merge_diagnostic_totals(target: Dict[str, float], update: Dict[str, float]) -> None:
+    for key, value in update.items():
+        target[key] = float(target.get(key, 0.0)) + float(value)
+
+
+def _maybe_warn_ctc(stage: str, metrics: Dict[str, Any], cfg: Dict[str, Any]) -> None:
+    diagnostics = _diagnostics_cfg(cfg)
+    blank_threshold = float(diagnostics.get("warn_blank_ratio", 0.98))
+    empty_threshold = float(diagnostics.get("warn_empty_pred_ratio", 0.80))
+    invalid_threshold = float(diagnostics.get("warn_invalid_length_ratio", 0.0))
+
+    if float(metrics.get("blank_ratio", 0.0)) >= blank_threshold:
+        print(
+            f"[{stage}][WARN] blank_ratio={float(metrics['blank_ratio']):.3f} "
+            f">= {blank_threshold:.3f}. Les sorties sont probablement dominées par blank."
+        )
+    if float(metrics.get("empty_pred_ratio", 0.0)) >= empty_threshold:
+        print(
+            f"[{stage}][WARN] empty_pred_ratio={float(metrics['empty_pred_ratio']):.3f} "
+            f">= {empty_threshold:.3f}. Les prédictions sont largement vides."
+        )
+    if float(metrics.get("invalid_length_ratio", 0.0)) > invalid_threshold:
+        print(
+            f"[{stage}][WARN] invalid_length_ratio={float(metrics['invalid_length_ratio']):.3f}. "
+            "Une partie des séquences viole la contrainte CTC out_lengths >= target_lengths."
+        )
 
 
 def _progress_speed_line(
@@ -332,6 +391,7 @@ def evaluate_ctc(
     cfg: Dict[str, Any],
     seed: int,
     epoch: int,
+    artifact_path: Optional[Path] = None,
 ) -> Dict[str, float]:
     device = _device()
     num_workers = int(cfg["data"]["num_workers"])
@@ -348,21 +408,47 @@ def evaluate_ctc(
     model.eval()
     predictions = []
     references = []
+    diagnostic_totals: Dict[str, float] = {}
+    diagnostic_examples = []
+    max_examples = _diagnostics_examples_limit(cfg)
     start_ts = time.time()
     reset_peak_memory()
     for batch in loader:
         x = batch["x_logmel"].to(device, non_blocking=True)
         lengths = batch["lengths"].to(device, non_blocking=True)
-        logits, _ = model(x, lengths)
-        predictions.extend(greedy_decode_batch(logits, tokenizer))
+        logits, out_lengths = model(x, lengths)
+        batch_predictions, batch_totals, batch_examples = collect_ctc_batch_diagnostics(
+            logits=logits,
+            out_lengths=out_lengths,
+            target_lengths=batch["target_lengths"],
+            references=batch["transcripts"],
+            tokenizer=tokenizer,
+            max_examples=max(0, max_examples - len(diagnostic_examples)),
+        )
+        predictions.extend(batch_predictions)
         references.extend(batch["transcripts"])
+        _merge_diagnostic_totals(diagnostic_totals, batch_totals)
+        diagnostic_examples.extend(batch_examples)
     runtime = max(1e-9, time.time() - start_ts)
+    diagnostic_metrics = finalize_ctc_diagnostics(diagnostic_totals)
     result = {
         "wer": compute_wer(predictions, references),
         "eval_runtime_sec": float(runtime),
         "eval_samples_per_sec": float(len(references) / runtime),
         "eval_peak_gpu_mem_mb": peak_memory_mb(),
+        **diagnostic_metrics,
     }
+    if artifact_path is not None:
+        write_json_artifact(
+            artifact_path,
+            {
+                "seed": int(seed),
+                "epoch": int(epoch),
+                "stage": "validation",
+                "metrics": result,
+                "examples": diagnostic_examples,
+            },
+        )
     return result
 
 
@@ -431,8 +517,14 @@ def run_finetune_seed(
     reset_peak_memory()
     running_loss = 0.0
     running_count = 0
+    train_sample_count = 0
+    train_invalid_length_count = 0
+    train_out_length_sum = 0.0
+    train_target_length_sum = 0.0
+    train_length_margin_sum = 0.0
     train_peak_gpu_mem_mb = 0.0
     eval_peak_gpu_mem_mb = 0.0
+    emitted_invalid_length_warning = False
     print(
         f"[FINETUNE] seed={seed} max_steps={int(training_cfg['max_steps'])} "
         f"micro_batch={int(training_cfg['batch_size'])} grad_acc={grad_acc} "
@@ -479,7 +571,23 @@ def run_finetune_seed(
             global_step += 1
             running_loss += float(loss.item())
             running_count += 1
+            batch_size = int(target_lengths.shape[0])
+            invalid_length_mask = out_lengths < target_lengths
+            train_sample_count += batch_size
+            train_invalid_length_count += int(invalid_length_mask.sum().item())
+            train_out_length_sum += float(out_lengths.sum().item())
+            train_target_length_sum += float(target_lengths.sum().item())
+            train_length_margin_sum += float((out_lengths - target_lengths).sum().item())
             train_peak_gpu_mem_mb = max(train_peak_gpu_mem_mb, peak_memory_mb())
+
+            if invalid_length_mask.any() and not emitted_invalid_length_warning:
+                emitted_invalid_length_warning = True
+                min_margin = int((out_lengths - target_lengths).min().item())
+                print(
+                    f"[FINETUNE][WARN] seed={seed} global_step={global_step} "
+                    f"{int(invalid_length_mask.sum().item())}/{batch_size} échantillons ont "
+                    f"out_lengths < target_lengths (min_margin={min_margin})."
+                )
 
             if global_step % grad_acc == 0:
                 scaler.unscale_(optimizer)
@@ -520,9 +628,24 @@ def run_finetune_seed(
                 break
 
         start_step_in_epoch = 0
-        eval_metrics = evaluate_ctc(model, valid_dataset, tokenizer, cfg, seed=seed, epoch=epoch)
+        eval_metrics = evaluate_ctc(
+            model,
+            valid_dataset,
+            tokenizer,
+            cfg,
+            seed=seed,
+            epoch=epoch,
+            artifact_path=_diagnostics_artifact_path(cfg, "validation", seed, f"epoch_{epoch:03d}"),
+        )
         eval_peak_gpu_mem_mb = max(eval_peak_gpu_mem_mb, float(eval_metrics["eval_peak_gpu_mem_mb"]))
         current_wer = float(eval_metrics["wer"])
+        print(
+            f"[VALID] seed={seed} epoch={epoch} wer={current_wer:.4f} "
+            f"blank_ratio={float(eval_metrics['blank_ratio']):.3f} "
+            f"empty_pred_ratio={float(eval_metrics['empty_pred_ratio']):.3f} "
+            f"invalid_length_ratio={float(eval_metrics['invalid_length_ratio']):.3f}"
+        )
+        _maybe_warn_ctc(stage="VALID", metrics=eval_metrics, cfg=cfg)
         if best_wer is None or current_wer < best_wer:
             best_wer = current_wer
             torch.save(
@@ -563,17 +686,38 @@ def run_finetune_seed(
     with open(run_completed, "w", encoding="utf-8") as handle:
         handle.write("done\n")
 
-    final_valid = evaluate_ctc(model, valid_dataset, tokenizer, cfg, seed=seed, epoch=99_999)
+    final_valid = evaluate_ctc(
+        model,
+        valid_dataset,
+        tokenizer,
+        cfg,
+        seed=seed,
+        epoch=99_999,
+        artifact_path=_diagnostics_artifact_path(cfg, "validation", seed, "final"),
+    )
     eval_peak_gpu_mem_mb = max(eval_peak_gpu_mem_mb, float(final_valid["eval_peak_gpu_mem_mb"]))
+    _maybe_warn_ctc(stage="VALID-FINAL", metrics=final_valid, cfg=cfg)
     metrics = {
         "train_loss": float(running_loss / max(1, running_count)),
         "train_runtime_sec": float(time.time() - train_start_ts),
         "train_peak_gpu_mem_mb": float(train_peak_gpu_mem_mb),
+        "train_invalid_length_ratio": float(train_invalid_length_count / max(1, train_sample_count)),
+        "train_avg_out_length": float(train_out_length_sum / max(1, train_sample_count)),
+        "train_avg_target_length": float(train_target_length_sum / max(1, train_sample_count)),
+        "train_avg_length_margin": float(train_length_margin_sum / max(1, train_sample_count)),
         "eval_peak_gpu_mem_mb": float(eval_peak_gpu_mem_mb),
         "valid_peak_gpu_mem_mb": float(eval_peak_gpu_mem_mb),
         "valid_wer": float(final_valid["wer"]),
         "valid_runtime_sec": float(final_valid["eval_runtime_sec"]),
         "valid_samples_per_sec": float(final_valid["eval_samples_per_sec"]),
+        "valid_blank_ratio": float(final_valid["blank_ratio"]),
+        "valid_empty_pred_ratio": float(final_valid["empty_pred_ratio"]),
+        "valid_nonempty_pred_ratio": float(final_valid["nonempty_pred_ratio"]),
+        "valid_invalid_length_ratio": float(final_valid["invalid_length_ratio"]),
+        "valid_avg_out_length": float(final_valid["avg_out_length"]),
+        "valid_avg_target_length": float(final_valid["avg_target_length"]),
+        "valid_avg_length_margin": float(final_valid["avg_length_margin"]),
+        "valid_exact_match_ratio": float(final_valid["exact_match_ratio"]),
         "best_valid_wer": float(best_wer if best_wer is not None else final_valid["wer"]),
         **{f"finetune_{k}_params": float(v) for k, v in count_parameters(model).items()},
     }
@@ -588,7 +732,8 @@ def evaluate_seed_on_dataset(
     tokenizer: CharCTCTokenizer,
     checkpoint_path: Path,
     dataset_label: str,
-) -> Dict[str, float]:
+    artifact_path: Optional[Path] = None,
+) -> Dict[str, Any]:
     device = _device()
     encoder = build_encoder(cfg)
     model = AudioTransformerCTC(encoder=encoder, vocab_size=tokenizer.vocab_size).to(device)
@@ -610,17 +755,30 @@ def evaluate_seed_on_dataset(
 
     refs = []
     preds = []
+    diagnostic_totals: Dict[str, float] = {}
+    diagnostic_examples = []
+    max_examples = _diagnostics_examples_limit(cfg)
     reset_peak_memory()
     start_ts = time.time()
     for batch in loader:
         x = batch["x_logmel"].to(device, non_blocking=True)
         lengths = batch["lengths"].to(device, non_blocking=True)
-        logits, _ = model(x, lengths)
-        preds.extend(greedy_decode_batch(logits, tokenizer))
+        logits, out_lengths = model(x, lengths)
+        batch_predictions, batch_totals, batch_examples = collect_ctc_batch_diagnostics(
+            logits=logits,
+            out_lengths=out_lengths,
+            target_lengths=batch["target_lengths"],
+            references=batch["transcripts"],
+            tokenizer=tokenizer,
+            max_examples=max(0, max_examples - len(diagnostic_examples)),
+        )
+        preds.extend(batch_predictions)
         refs.extend(batch["transcripts"])
+        _merge_diagnostic_totals(diagnostic_totals, batch_totals)
+        diagnostic_examples.extend(batch_examples)
 
     runtime = max(1e-9, time.time() - start_ts)
-    return {
+    result: Dict[str, Any] = {
         "seed": float(seed),
         "dataset": dataset_label,
         "wer": compute_wer(preds, refs),
@@ -629,4 +787,18 @@ def evaluate_seed_on_dataset(
         "inference_peak_gpu_mem_mb": peak_memory_mb(),
         "model_total_params": float(param_counts["total"]),
         "model_trainable_params": float(param_counts["trainable"]),
+        **finalize_ctc_diagnostics(diagnostic_totals),
     }
+    if artifact_path is not None:
+        write_json_artifact(
+            artifact_path,
+            {
+                "seed": int(seed),
+                "dataset": dataset_label,
+                "checkpoint": str(checkpoint_path),
+                "metrics": result,
+                "examples": diagnostic_examples,
+            },
+        )
+        result["diagnostics_artifact"] = str(artifact_path)
+    return result

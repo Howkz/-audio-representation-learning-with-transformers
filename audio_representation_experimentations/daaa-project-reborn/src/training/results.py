@@ -65,3 +65,9 @@ def aggregate_partial_to_final(partial_path: Path, final_path: Path) -> Dict[str
         json.dump(aggregated, handle, indent=2)
     return aggregated
 
+
+def write_json_artifact(path: Path, payload: Dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2)
+

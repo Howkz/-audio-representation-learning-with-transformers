@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 import copy
-import json
+import re
 import sys
 from pathlib import Path
 from typing import Any, Dict
@@ -99,7 +99,7 @@ def main() -> None:
     from src.data.text import CharCTCTokenizer
     from src.evaluation.reporting import write_dataset_breakdown_table, write_final_table
     from src.training.loops import evaluate_seed_on_dataset
-    from src.training.results import aggregate_partial_to_final, write_run_partial
+    from src.training.results import aggregate_partial_to_final, write_json_artifact, write_run_partial
 
     def _load_audio_dataset(local_cfg: Dict[str, Any], spec: Dict[str, Any], local_audio_cfg):
         default_streaming = bool(local_cfg.get("data", {}).get("streaming", False))
@@ -129,12 +129,13 @@ def main() -> None:
     partial_path = benchmark_dir / f"asr_benchmark{filename_suffix}_partial.json"
     final_path = benchmark_dir / f"asr_benchmark{filename_suffix}_final.json"
     dataset_breakdown_path = benchmark_dir / f"asr_benchmark_by_dataset{filename_suffix}_final.json"
+    diagnostics_breakdown_path = benchmark_dir / f"asr_diagnostics_by_dataset{filename_suffix}_final.json"
 
     print(f"[TEST] Experiment id: {exp_id if exp_id else 'N/A'}")
     pretrain_enabled = bool(cfg["training"]["pretrain"].get("enabled", True))
     adaptation_label = "MAE pretrain -> CTC fine-tune" if pretrain_enabled else "CTC fine-tune only (no MAE)"
 
-    dataset_runs: Dict[str, Dict[str, Dict[str, float]]] = {k: {} for k in test_datasets.keys()}
+    dataset_runs: Dict[str, Dict[str, Dict[str, Any]]] = {k: {} for k in test_datasets.keys()}
 
     for seed in cfg["experiment"]["seeds"]:
         eval_cfg = copy.deepcopy(cfg)
@@ -150,6 +151,9 @@ def main() -> None:
                         tokenizer=tokenizer,
                         checkpoint_path=ckpt_path,
                         dataset_label=dataset_label,
+                        artifact_path=Path(cfg["experiment"]["results_dir"])
+                        / "diagnostics"
+                        / f"test_seed_{seed}_{re.sub(r'[^A-Za-z0-9_.-]+', '_', dataset_label)}.json",
                     )
                     break
                 except RuntimeError as exc:
@@ -166,7 +170,8 @@ def main() -> None:
             per_dataset_metrics.append(metrics)
             print(
                 f"[TEST] seed={seed} dataset={dataset_label} "
-                f"wer={metrics['wer']:.4f} runtime={metrics['inference_runtime_sec']:.2f}s"
+                f"wer={metrics['wer']:.4f} runtime={metrics['inference_runtime_sec']:.2f}s "
+                f"blank_ratio={metrics['blank_ratio']:.3f} empty_pred_ratio={metrics['empty_pred_ratio']:.3f}"
             )
 
         overall = {
@@ -175,6 +180,13 @@ def main() -> None:
             "inference_runtime_sec": float(np.mean([m["inference_runtime_sec"] for m in per_dataset_metrics])),
             "inference_samples_per_sec": float(np.mean([m["inference_samples_per_sec"] for m in per_dataset_metrics])),
             "inference_peak_gpu_mem_mb": float(np.max([m["inference_peak_gpu_mem_mb"] for m in per_dataset_metrics])),
+            "blank_ratio": float(np.mean([m["blank_ratio"] for m in per_dataset_metrics])),
+            "empty_pred_ratio": float(np.mean([m["empty_pred_ratio"] for m in per_dataset_metrics])),
+            "nonempty_pred_ratio": float(np.mean([m["nonempty_pred_ratio"] for m in per_dataset_metrics])),
+            "invalid_length_ratio": float(np.mean([m["invalid_length_ratio"] for m in per_dataset_metrics])),
+            "avg_out_length": float(np.mean([m["avg_out_length"] for m in per_dataset_metrics])),
+            "avg_target_length": float(np.mean([m["avg_target_length"] for m in per_dataset_metrics])),
+            "avg_length_margin": float(np.mean([m["avg_length_margin"] for m in per_dataset_metrics])),
         }
         write_run_partial(
             partial_path=partial_path,
@@ -187,8 +199,14 @@ def main() -> None:
 
     aggregate_partial_to_final(partial_path=partial_path, final_path=final_path)
     dataset_breakdown = _aggregate_by_dataset(dataset_runs)
-    with open(dataset_breakdown_path, "w", encoding="utf-8") as handle:
-        json.dump(dataset_breakdown, handle, indent=2)
+    write_json_artifact(dataset_breakdown_path, dataset_breakdown)
+    write_json_artifact(
+        diagnostics_breakdown_path,
+        {
+            "experiment_id": exp_id,
+            "datasets": dataset_runs,
+        },
+    )
 
     tables_dir = Path(cfg["experiment"]["results_dir"]) / "tables"
     write_final_table(
@@ -201,7 +219,10 @@ def main() -> None:
         table_md_path=tables_dir / f"asr_dataset_breakdown{filename_suffix}.md",
         title="ASR Dataset Breakdown (5 seeds)",
     )
-    print(f"[TEST] Aggregated files: {final_path} and {dataset_breakdown_path}")
+    print(
+        f"[TEST] Aggregated files: {final_path}, {dataset_breakdown_path} "
+        f"and {diagnostics_breakdown_path}"
+    )
 
 
 if __name__ == "__main__":

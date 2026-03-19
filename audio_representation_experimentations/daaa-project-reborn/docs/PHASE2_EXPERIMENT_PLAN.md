@@ -167,3 +167,25 @@ Ce n'est qu'après validation de ces critères qu'il faudra reprendre :
 3. créer une variante à budget étendu
 4. créer une variante `NoMAE` alignée
 5. garder toutes les sorties phase 2 sous des chemins explicitement dédiés
+
+## État d'implémentation actuel
+
+Les premières briques de phase 2 sont maintenant en place :
+
+1. de nouveaux launchers séparés sous `scripts/experiments_phase2/`
+2. de nouvelles configs séparées sous `configs/phase2/`
+3. des sorties séparées sous `results/phase2/experiments/`
+4. des diagnostics CTC persistés pendant la validation et le test
+
+## Correctif pipeline déjà intégré
+
+Un point de risque d'implémentation a été corrigé avant les runs phase 2 :
+
+- le décodage greedy respecte désormais `out_lengths`
+
+Avant ce correctif, l'évaluation décodait toute la longueur temporelle des
+logits, y compris les pas au-delà de la longueur utile estimée par le modèle.
+Cela pouvait polluer les transcriptions décodées et donc le `WER`.
+
+Ce correctif ne garantit pas à lui seul une récupération complète, mais il
+retire une source crédible d'erreur d'implémentation dans le pipeline ASR.
