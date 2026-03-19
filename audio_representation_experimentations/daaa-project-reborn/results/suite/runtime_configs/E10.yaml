@@ -30,7 +30,7 @@ model:
   patch_time: 4
   patch_freq: 80
   max_len: 1536
-  pos_embed: sinusoidal
+  pos_embed: learned
   mae_decoder_dim: 96
   mae_decoder_depth: 1
   mae_decoder_heads: 4
@@ -40,7 +40,7 @@ training:
   grad_clip_norm: 1.0
   log_every_steps: 25
   pretrain:
-    enabled: false
+    enabled: true
     epochs: 1
     batch_size: 4
     grad_accum_steps: 2
@@ -55,8 +55,9 @@ training:
     weight_decay: 0.01
     max_steps: 360
 data:
-  num_workers: 1
+  num_workers: 0
   precompute_feature_cache: false
+  streaming: true
 datasets:
   pretrain:
     name: openslr/librispeech_asr

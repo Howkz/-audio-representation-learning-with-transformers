@@ -18,19 +18,19 @@ audio:
   win_length: 400
   hop_length: 160
 model:
-  dim: 128
-  depth: 2
-  num_heads: 4
-  mlp_ratio: 2.0
+  dim: 192
+  depth: 4
+  num_heads: 6
+  mlp_ratio: 3.0
   dropout: 0.1
   patch_strategy: time
   patch_time: 4
   patch_freq: 80
   max_len: 1536
-  pos_embed: sinusoidal
-  mae_decoder_dim: 64
+  pos_embed: learned
+  mae_decoder_dim: 96
   mae_decoder_depth: 1
-  mae_decoder_heads: 2
+  mae_decoder_heads: 4
   mae_mask_ratio: 0.6
 training:
   amp: true
@@ -52,8 +52,9 @@ training:
     weight_decay: 0.01
     max_steps: 200
 data:
-  num_workers: 1
+  num_workers: 0
   precompute_feature_cache: false
+  streaming: true
 datasets:
   pretrain:
     name: openslr/librispeech_asr

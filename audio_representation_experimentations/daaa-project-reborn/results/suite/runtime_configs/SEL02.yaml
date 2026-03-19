@@ -23,9 +23,9 @@ model:
   num_heads: 6
   mlp_ratio: 3.0
   dropout: 0.1
-  patch_strategy: time
+  patch_strategy: timefreq
   patch_time: 4
-  patch_freq: 80
+  patch_freq: 20
   max_len: 1536
   pos_embed: sinusoidal
   mae_decoder_dim: 96
@@ -37,7 +37,7 @@ training:
   grad_clip_norm: 1.0
   log_every_steps: 25
   pretrain:
-    enabled: false
+    enabled: true
     epochs: 1
     batch_size: 4
     grad_accum_steps: 2
@@ -52,8 +52,9 @@ training:
     weight_decay: 0.01
     max_steps: 200
 data:
-  num_workers: 1
+  num_workers: 0
   precompute_feature_cache: false
+  streaming: true
 datasets:
   pretrain:
     name: openslr/librispeech_asr

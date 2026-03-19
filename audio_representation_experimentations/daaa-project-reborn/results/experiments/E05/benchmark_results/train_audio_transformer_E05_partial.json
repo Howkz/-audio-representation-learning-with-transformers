@@ -1,0 +1,26 @@
+{
+  "model_name": "audio_transformer_time_budget_E05",
+  "architecture": "Audio Transformer Encoder + CTC",
+  "adaptation_technique": "MAE pretrain -> CTC fine-tune",
+  "runs": {
+    "42": {
+      "pretrain_loss": 52.79660718100411,
+      "pretrain_runtime_sec": 66.21822834014893,
+      "pretrain_peak_gpu_mem_mb": 77.4658203125,
+      "pretrain_total_params": 2002496.0,
+      "pretrain_trainable_params": 2002496.0,
+      "train_loss": 0.7680393654108048,
+      "train_runtime_sec": 120.21081519126892,
+      "train_peak_gpu_mem_mb": 59.2666015625,
+      "eval_peak_gpu_mem_mb": 41.74755859375,
+      "valid_peak_gpu_mem_mb": 41.74755859375,
+      "valid_wer": 1.0,
+      "valid_runtime_sec": 36.8182258605957,
+      "valid_samples_per_sec": 8.148138401233277,
+      "best_valid_wer": 1.0,
+      "finetune_total_params": 1846493.0,
+      "finetune_trainable_params": 1846493.0,
+      "seed": 42.0
+    }
+  }
+}

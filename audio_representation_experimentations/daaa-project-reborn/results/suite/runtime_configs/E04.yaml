@@ -51,8 +51,9 @@ training:
     weight_decay: 0.01
     max_steps: 200
 data:
-  num_workers: 1
+  num_workers: 0
   precompute_feature_cache: false
+  streaming: true
 datasets:
   pretrain:
     name: openslr/librispeech_asr

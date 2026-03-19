@@ -1,0 +1,115 @@
+{
+  "model_name": "audio_transformer_time_budget_SEL04",
+  "architecture": "Audio Transformer Encoder + CTC",
+  "adaptation_technique": "MAE pretrain -> CTC fine-tune",
+  "runs": {
+    "42": {
+      "pretrain_loss": 54.58748986380441,
+      "pretrain_runtime_sec": 59.61781573295593,
+      "pretrain_peak_gpu_mem_mb": 37.53466796875,
+      "pretrain_total_params": 385600.0,
+      "pretrain_trainable_params": 385600.0,
+      "train_loss": 0.7663997215032577,
+      "train_runtime_sec": 107.761554479599,
+      "train_peak_gpu_mem_mb": 27.8515625,
+      "eval_peak_gpu_mem_mb": 23.9248046875,
+      "valid_peak_gpu_mem_mb": 23.9248046875,
+      "valid_wer": 1.0,
+      "valid_runtime_sec": 33.47779369354248,
+      "valid_samples_per_sec": 8.961164010574176,
+      "best_valid_wer": 1.0,
+      "finetune_total_params": 310173.0,
+      "finetune_trainable_params": 310173.0,
+      "seed": 42.0
+    },
+    "123": {
+      "pretrain_loss": 54.43543682098389,
+      "pretrain_runtime_sec": 58.8890426158905,
+      "pretrain_peak_gpu_mem_mb": 37.53466796875,
+      "pretrain_total_params": 385600.0,
+      "pretrain_trainable_params": 385600.0,
+      "train_loss": 0.8716201907396317,
+      "train_runtime_sec": 112.55271220207214,
+      "train_peak_gpu_mem_mb": 27.8525390625,
+      "eval_peak_gpu_mem_mb": 23.9248046875,
+      "valid_peak_gpu_mem_mb": 23.9248046875,
+      "valid_wer": 1.0,
+      "valid_runtime_sec": 33.53906869888306,
+      "valid_samples_per_sec": 8.944792197226121,
+      "best_valid_wer": 1.0,
+      "finetune_total_params": 310173.0,
+      "finetune_trainable_params": 310173.0,
+      "seed": 123.0
+    }
+  },
+  "metrics": {
+    "pretrain_loss": {
+      "mean": 54.51146334239415,
+      "std": 0.07602652141025956
+    },
+    "pretrain_runtime_sec": {
+      "mean": 59.25342917442322,
+      "std": 0.36438655853271484
+    },
+    "pretrain_peak_gpu_mem_mb": {
+      "mean": 37.53466796875,
+      "std": 0.0
+    },
+    "pretrain_total_params": {
+      "mean": 385600.0,
+      "std": 0.0
+    },
+    "pretrain_trainable_params": {
+      "mean": 385600.0,
+      "std": 0.0
+    },
+    "train_loss": {
+      "mean": 0.8190099561214448,
+      "std": 0.05261023461818698
+    },
+    "train_runtime_sec": {
+      "mean": 110.15713334083557,
+      "std": 2.3955788612365723
+    },
+    "train_peak_gpu_mem_mb": {
+      "mean": 27.85205078125,
+      "std": 0.00048828125
+    },
+    "eval_peak_gpu_mem_mb": {
+      "mean": 23.9248046875,
+      "std": 0.0
+    },
+    "valid_peak_gpu_mem_mb": {
+      "mean": 23.9248046875,
+      "std": 0.0
+    },
+    "valid_wer": {
+      "mean": 1.0,
+      "std": 0.0
+    },
+    "valid_runtime_sec": {
+      "mean": 33.50843119621277,
+      "std": 0.030637502670288086
+    },
+    "valid_samples_per_sec": {
+      "mean": 8.952978103900149,
+      "std": 0.008185906674027521
+    },
+    "best_valid_wer": {
+      "mean": 1.0,
+      "std": 0.0
+    },
+    "finetune_total_params": {
+      "mean": 310173.0,
+      "std": 0.0
+    },
+    "finetune_trainable_params": {
+      "mean": 310173.0,
+      "std": 0.0
+    },
+    "seed": {
+      "mean": 82.5,
+      "std": 40.5
+    }
+  }
+}

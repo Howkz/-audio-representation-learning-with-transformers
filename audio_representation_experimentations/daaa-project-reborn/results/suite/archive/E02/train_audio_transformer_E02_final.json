@@ -1,0 +1,71 @@
+{
+  "model_name": "audio_transformer_time_budget_E02",
+  "architecture": "Audio Transformer Encoder + CTC",
+  "adaptation_technique": "CTC fine-tune only (no MAE)",
+  "runs": {
+    "42": {
+      "train_loss": 0.7464720624685287,
+      "train_runtime_sec": 119.23199224472046,
+      "train_peak_gpu_mem_mb": 55.51513671875,
+      "eval_peak_gpu_mem_mb": 39.12255859375,
+      "valid_peak_gpu_mem_mb": 39.12255859375,
+      "valid_wer": 1.0,
+      "valid_runtime_sec": 34.773054122924805,
+      "valid_samples_per_sec": 8.627369886449497,
+      "best_valid_wer": 1.0,
+      "finetune_total_params": 1551581.0,
+      "finetune_trainable_params": 1551581.0,
+      "seed": 42.0
+    }
+  },
+  "metrics": {
+    "train_loss": {
+      "mean": 0.7464720624685287,
+      "std": 0.0
+    },
+    "train_runtime_sec": {
+      "mean": 119.23199224472046,
+      "std": 0.0
+    },
+    "train_peak_gpu_mem_mb": {
+      "mean": 55.51513671875,
+      "std": 0.0
+    },
+    "eval_peak_gpu_mem_mb": {
+      "mean": 39.12255859375,
+      "std": 0.0
+    },
+    "valid_peak_gpu_mem_mb": {
+      "mean": 39.12255859375,
+      "std": 0.0
+    },
+    "valid_wer": {
+      "mean": 1.0,
+      "std": 0.0
+    },
+    "valid_runtime_sec": {
+      "mean": 34.773054122924805,
+      "std": 0.0
+    },
+    "valid_samples_per_sec": {
+      "mean": 8.627369886449497,
+      "std": 0.0
+    },
+    "best_valid_wer": {
+      "mean": 1.0,
+      "std": 0.0
+    },
+    "finetune_total_params": {
+      "mean": 1551581.0,
+      "std": 0.0
+    },
+    "finetune_trainable_params": {
+      "mean": 1551581.0,
+      "std": 0.0
+    },
+    "seed": {
+      "mean": 42.0,
+      "std": 0.0
+    }
+  }
+}

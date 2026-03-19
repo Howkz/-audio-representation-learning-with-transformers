@@ -1,0 +1,6 @@
+{
+  "id": "SEL03",
+  "completed_at_unix": 1773917836,
+  "runtime_config": "results/suite/runtime_configs/SEL03.yaml",
+  "rank_source_experiment": "E05"
+}

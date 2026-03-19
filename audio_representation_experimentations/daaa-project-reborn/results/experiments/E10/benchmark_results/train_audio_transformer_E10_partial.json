@@ -1,0 +1,11 @@
+{
+  "model_name": "audio_transformer_time_budget_E10",
+  "architecture": "Audio Transformer Encoder + CTC",
+  "adaptation_technique": "MAE pretrain -> CTC fine-tune",
+  "runs": {
+    "42": {
+      "status": 1.0,
+      "seed": 42.0
+    }
+  }
+}

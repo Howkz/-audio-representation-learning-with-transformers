@@ -1,0 +1,14 @@
+{
+  "model_name": "audio_transformer_time_budget_E03",
+  "architecture": "Audio Transformer Encoder + CTC",
+  "adaptation_technique": "MAE pretrain -> CTC fine-tune",
+  "runs": {
+    "42": {
+      "seed": 42.0,
+      "wer": 1.0,
+      "inference_runtime_sec": 31.629223823547363,
+      "inference_samples_per_sec": 9.48489920820174,
+      "inference_peak_gpu_mem_mb": 14.1923828125
+    }
+  }
+}
