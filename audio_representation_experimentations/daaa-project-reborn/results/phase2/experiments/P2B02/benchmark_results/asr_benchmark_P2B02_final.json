@@ -1,0 +1,85 @@
+{
+  "model_name": "phase2_budget_recovery_no_mae",
+  "architecture": "Audio Transformer Encoder + CTC",
+  "adaptation_technique": "CTC fine-tune only (no MAE)",
+  "runs": {
+    "42": {
+      "seed": 42.0,
+      "wer": 1.0,
+      "inference_runtime_sec": 34.03198266029358,
+      "inference_samples_per_sec": 8.815237213611463,
+      "inference_peak_gpu_mem_mb": 24.646484375,
+      "blank_ratio": 0.5009050772626932,
+      "empty_pred_ratio": 0.4666666666666667,
+      "nonempty_pred_ratio": 0.5333333333333333,
+      "invalid_length_ratio": 0.2633333333333333,
+      "avg_out_length": 151.0,
+      "avg_target_length": 115.85666666666667,
+      "avg_length_margin": 35.14333333333333
+    },
+    "123": {
+      "seed": 123.0,
+      "wer": 1.0,
+      "inference_runtime_sec": 36.00845789909363,
+      "inference_samples_per_sec": 8.331375946192667,
+      "inference_peak_gpu_mem_mb": 24.646484375,
+      "blank_ratio": 0.6793377483443709,
+      "empty_pred_ratio": 0.93,
+      "nonempty_pred_ratio": 0.06999999999999995,
+      "invalid_length_ratio": 0.2633333333333333,
+      "avg_out_length": 151.0,
+      "avg_target_length": 115.85666666666667,
+      "avg_length_margin": 35.14333333333333
+    }
+  },
+  "metrics": {
+    "seed": {
+      "mean": 82.5,
+      "std": 40.5
+    },
+    "wer": {
+      "mean": 1.0,
+      "std": 0.0
+    },
+    "inference_runtime_sec": {
+      "mean": 35.0202202796936,
+      "std": 0.9882376194000244
+    },
+    "inference_samples_per_sec": {
+      "mean": 8.573306579902065,
+      "std": 0.24193063370939782
+    },
+    "inference_peak_gpu_mem_mb": {
+      "mean": 24.646484375,
+      "std": 0.0
+    },
+    "blank_ratio": {
+      "mean": 0.590121412803532,
+      "std": 0.08921633554083885
+    },
+    "empty_pred_ratio": {
+      "mean": 0.6983333333333334,
+      "std": 0.2316666666666667
+    },
+    "nonempty_pred_ratio": {
+      "mean": 0.30166666666666664,
+      "std": 0.2316666666666667
+    },
+    "invalid_length_ratio": {
+      "mean": 0.2633333333333333,
+      "std": 0.0
+    },
+    "avg_out_length": {
+      "mean": 151.0,
+      "std": 0.0
+    },
+    "avg_target_length": {
+      "mean": 115.85666666666667,
+      "std": 0.0
+    },
+    "avg_length_margin": {
+      "mean": 35.14333333333333,
+      "std": 0.0
+    }
+  }
+}

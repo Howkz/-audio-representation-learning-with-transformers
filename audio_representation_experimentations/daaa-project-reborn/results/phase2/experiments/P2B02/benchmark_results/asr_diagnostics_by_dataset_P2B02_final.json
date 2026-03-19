@@ -1,0 +1,49 @@
+{
+  "experiment_id": "P2B02",
+  "datasets": {
+    "openslr/librispeech_asr:test.clean": {
+      "42": {
+        "seed": 42.0,
+        "dataset": "openslr/librispeech_asr:test.clean",
+        "wer": 1.0,
+        "inference_runtime_sec": 34.03198266029358,
+        "inference_samples_per_sec": 8.815237213611463,
+        "inference_peak_gpu_mem_mb": 24.646484375,
+        "model_total_params": 1551581.0,
+        "model_trainable_params": 1551581.0,
+        "blank_ratio": 0.5009050772626932,
+        "empty_pred_ratio": 0.4666666666666667,
+        "nonempty_pred_ratio": 0.5333333333333333,
+        "exact_match_ratio": 0.0,
+        "avg_pred_chars": 0.5366666666666666,
+        "avg_ref_chars": 95.43,
+        "avg_out_length": 151.0,
+        "avg_target_length": 115.85666666666667,
+        "avg_length_margin": 35.14333333333333,
+        "invalid_length_ratio": 0.2633333333333333,
+        "diagnostics_artifact": "results/phase2/experiments/P2B02/diagnostics/test_seed_42_openslr_librispeech_asr_test.clean.json"
+      },
+      "123": {
+        "seed": 123.0,
+        "dataset": "openslr/librispeech_asr:test.clean",
+        "wer": 1.0,
+        "inference_runtime_sec": 36.00845789909363,
+        "inference_samples_per_sec": 8.331375946192667,
+        "inference_peak_gpu_mem_mb": 24.646484375,
+        "model_total_params": 1551581.0,
+        "model_trainable_params": 1551581.0,
+        "blank_ratio": 0.6793377483443709,
+        "empty_pred_ratio": 0.93,
+        "nonempty_pred_ratio": 0.06999999999999995,
+        "exact_match_ratio": 0.0,
+        "avg_pred_chars": 0.07,
+        "avg_ref_chars": 95.43,
+        "avg_out_length": 151.0,
+        "avg_target_length": 115.85666666666667,
+        "avg_length_margin": 35.14333333333333,
+        "invalid_length_ratio": 0.2633333333333333,
+        "diagnostics_artifact": "results/phase2/experiments/P2B02/diagnostics/test_seed_123_openslr_librispeech_asr_test.clean.json"
+      }
+    }
+  }
+}

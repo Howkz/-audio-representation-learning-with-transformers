@@ -1,0 +1,21 @@
+{
+  "model_name": "phase2_diagnostic_ctc_baseline",
+  "architecture": "Audio Transformer Encoder + CTC",
+  "adaptation_technique": "MAE pretrain -> CTC fine-tune",
+  "runs": {
+    "42": {
+      "seed": 42.0,
+      "wer": 1.0,
+      "inference_runtime_sec": 29.93364644050598,
+      "inference_samples_per_sec": 10.022166881547792,
+      "inference_peak_gpu_mem_mb": 24.646484375,
+      "blank_ratio": 0.6376158940397351,
+      "empty_pred_ratio": 0.9866666666666667,
+      "nonempty_pred_ratio": 0.013333333333333308,
+      "invalid_length_ratio": 0.2633333333333333,
+      "avg_out_length": 151.0,
+      "avg_target_length": 115.85666666666667,
+      "avg_length_margin": 35.14333333333333
+    }
+  }
+}
