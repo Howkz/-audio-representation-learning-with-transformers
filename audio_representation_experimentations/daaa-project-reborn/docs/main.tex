@@ -98,6 +98,21 @@ Contraintes de conception: environnement vdigpu, execution reproductible, suivi 
 Le protocole suit les étapes \texttt{make data}, \texttt{make train}, \texttt{make test}.
 Chaque expérience est exécutée dans un namespace dédié, avec nettoyage des checkpoints intermédiaires après archivage des résultats, tout en conservant le cache de données.
 
+
+\subsection{Compromis d'implementation audio (absence de torchaudio)}
+L'environnement vdigpu cible n'expose pas toujours \texttt{torchaudio} (et le decodeur \texttt{torchcodec} associe a \texttt{datasets} en streaming).
+Le pipeline a donc ete adapte pour rester executable:
+\begin{itemize}
+\item chargement dataset en mode streaming avec desactivation du decodage audio natif \texttt{datasets};
+\item decodage audio applicatif via \texttt{soundfile} lorsque disponible, avec fallback \texttt{ffmpeg};
+\item execution DataLoader en \texttt{num\_workers=0} dans les profils frugaux pour eviter les crashes workers.
+\end{itemize}
+Ces choix maintiennent la faisabilite experimentale sous contrainte disque/temps, au prix de compromis explicites:
+\begin{itemize}
+\item surcout CPU potentiel au decodage, donc debit inferieur a une stack 100\% \texttt{torchaudio};
+\item variabilite possible de latence d'IO selon l'outil de decodage effectivement present;
+\item differences mineures possibles de re-echantillonnage entre backends audio.
+\end{itemize}
 \subsection{Politique dataset et périmètre}
 \begin{itemize}
 \item \textbf{Screening}: librispeech\_only.
@@ -116,7 +131,7 @@ Ainsi, le protocole ne depend pas de variables globales de budget; il depend de 
 
 \subsection{Contrôle expérimental}
 \begin{itemize}
-\item Même pipeline de preprocessing audio pour toutes les variantes.
+\item Même pipeline de prep rocessing audio pour toutes les variantes.
 \item Même protocole d'évaluation et mêmes splits pour la comparabilité.
 \item Une seule variable manipulée à la fois durant le screening autant que possible.
 \item Checkpointing complet (modèle, optimiseur, scheduler, scaler AMP, état RNG) pour reprise fiable.
@@ -871,9 +886,14 @@ Top-3 & --- & --- & --- & --- \\
 \subsection{Menaces externes}
 \textit{À compléter: généralisation inter-domaines, absence de VoxPopuli/TTS dans le cœur de l'étude, validité hors LibriSpeech.}
 
-\subsection{Contraintes matérielles}
-\textit{À compléter: limites vdigpu, budget disque/temps et impacts potentiels sur l'ampleur des ablations.}
-
+\subsection{Contraintes materielles}
+Les contraintes materielles sont traitees explicitement:
+\begin{itemize}
+\item stockage local limite: execution en streaming et quotas fixes pour eviter les ecritures Arrow volumineuses;
+\item contrainte dominante: temps total (cible 24h), qui pilote les steps et la profondeur des ablations;
+\item absence potentielle de \texttt{torchaudio}/\texttt{torchcodec}: decodage de secours \texttt{soundfile}/\texttt{ffmpeg}, plus robuste mais potentiellement moins performant;
+\item impact methodologique: comparaisons internes valides (pipeline identique entre variantes), mais comparabilite externe a des stacks \texttt{torchaudio}-optimisees a discuter.
+\end{itemize}
 \section{Conclusion}
 \textit{À compléter: synthèse finale, réponse explicite à RQ1--RQ4, recommandations opérationnelles (architecture retenue, compromis retenu, extensions futures).}
 

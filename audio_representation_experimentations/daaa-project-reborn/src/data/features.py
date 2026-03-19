@@ -175,7 +175,9 @@ def _decode_audio_with_ffmpeg(audio_dict: Dict[str, Any], target_sr: int) -> Tup
             f"ffmpeg failed to decode audio (code={proc.returncode}). stderr={stderr}"
         )
 
-    pcm = np.frombuffer(proc.stdout, dtype=np.float32)
+    # `frombuffer` over subprocess stdout creates a read-only NumPy view.
+    # Copy before converting to Torch to avoid undefined writes/warnings.
+    pcm = np.frombuffer(proc.stdout, dtype=np.float32).copy()
     if pcm.size == 0:
         raise RuntimeError("ffmpeg produced empty audio output.")
     waveform = torch.from_numpy(pcm).unsqueeze(0)

@@ -95,7 +95,11 @@ def load_checkpoint(
     scaler: Optional[torch.cuda.amp.GradScaler],
     map_location: str | torch.device = "cpu",
 ) -> Dict[str, Any]:
-    payload = torch.load(checkpoint_path, map_location=map_location)
+    # Training checkpoints are produced by this project and intentionally contain
+    # optimizer/scheduler/scaler states plus Python/NumPy/Torch RNG states.
+    # PyTorch 2.6 changed torch.load default `weights_only=True`, which rejects
+    # these richer payloads unless we explicitly opt into full loading.
+    payload = torch.load(checkpoint_path, map_location=map_location, weights_only=False)
     model.load_state_dict(payload["model_state_dict"])
     optimizer.load_state_dict(payload["optimizer_state_dict"])
     if scheduler is not None and payload.get("scheduler_state_dict") is not None:
