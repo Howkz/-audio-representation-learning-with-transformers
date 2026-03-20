@@ -52,6 +52,12 @@ un pipeline ASR plus conforme au sujet et plus defensable pour le rendu :
   - reprend strictement l'objectif de `P7C01`
   - change uniquement le `checkpoint_selection` pour tester si un meilleur `ctc_best.pt` existe deja
 
+- `configs/phase7/hidden_states_kd_stronger_librispeech.yaml`
+  - `P7C05`
+  - repart de `P7C01`
+  - change uniquement l'intensite de la hidden-state KD
+  - objectif : tester si une KD un peu plus forte reduit la sous-emission
+
 ## Choix techniques
 
 - Student :
@@ -147,6 +153,12 @@ make test CONFIG=configs/phase7/combined_hidden_anti_overemit_librispeech.yaml
 make data CONFIG=configs/phase7/hidden_states_selection_v2_librispeech.yaml
 make train CONFIG=configs/phase7/hidden_states_selection_v2_librispeech.yaml
 make test CONFIG=configs/phase7/hidden_states_selection_v2_librispeech.yaml
+```
+
+```bash
+make data CONFIG=configs/phase7/hidden_states_kd_stronger_librispeech.yaml
+make train CONFIG=configs/phase7/hidden_states_kd_stronger_librispeech.yaml
+make test CONFIG=configs/phase7/hidden_states_kd_stronger_librispeech.yaml
 ```
 
 ## Criteres de validation
