@@ -1,0 +1,181 @@
+{
+  "model_name": "phase6_simple_generalization_no_mae",
+  "architecture": "Audio Transformer Encoder + CTC",
+  "adaptation_technique": "CTC fine-tune only (no MAE)",
+  "runs": {
+    "42": {
+      "train_loss": 3.159521991411845,
+      "train_runtime_sec": 378.7086544036865,
+      "train_peak_gpu_mem_mb": 66.71923828125,
+      "train_invalid_length_ratio": 0.0,
+      "train_avg_out_length": 138.46277777777777,
+      "train_avg_target_length": 32.46611111111111,
+      "train_avg_length_margin": 105.99666666666667,
+      "eval_peak_gpu_mem_mb": 53.48486328125,
+      "valid_peak_gpu_mem_mb": 53.48486328125,
+      "valid_wer": 1.0026178359985352,
+      "valid_accuracy": 0.14077922077922078,
+      "valid_runtime_sec": 6.93670392036438,
+      "valid_samples_per_sec": 9.226283943316718,
+      "valid_blank_ratio": 0.3848396501457726,
+      "valid_empty_pred_ratio": 0.0,
+      "valid_nonempty_pred_ratio": 1.0,
+      "valid_invalid_length_ratio": 0.0,
+      "valid_avg_out_length": 133.984375,
+      "valid_avg_target_length": 30.078125,
+      "valid_avg_length_margin": 103.90625,
+      "valid_exact_match_ratio": 0.0,
+      "valid_selection_score": 1.0026178359985352,
+      "best_valid_wer": 1.0026178359985352,
+      "best_valid_score": 1.0026178359985352,
+      "best_valid_empty_pred_ratio": 0.0,
+      "finetune_total_params": 1520861.0,
+      "finetune_trainable_params": 1520861.0,
+      "seed": 42.0
+    },
+    "123": {
+      "train_loss": 2.8311260746584996,
+      "train_runtime_sec": 391.88570642471313,
+      "train_peak_gpu_mem_mb": 66.71728515625,
+      "train_invalid_length_ratio": 0.0,
+      "train_avg_out_length": 138.42777777777778,
+      "train_avg_target_length": 32.46277777777778,
+      "train_avg_length_margin": 105.965,
+      "eval_peak_gpu_mem_mb": 53.484375,
+      "valid_peak_gpu_mem_mb": 53.484375,
+      "valid_wer": 1.0,
+      "valid_accuracy": 0.1761038961038961,
+      "valid_runtime_sec": 7.363529682159424,
+      "valid_samples_per_sec": 8.691483943503492,
+      "valid_blank_ratio": 0.8871137026239067,
+      "valid_empty_pred_ratio": 0.015625,
+      "valid_nonempty_pred_ratio": 0.984375,
+      "valid_invalid_length_ratio": 0.0,
+      "valid_avg_out_length": 133.984375,
+      "valid_avg_target_length": 30.078125,
+      "valid_avg_length_margin": 103.90625,
+      "valid_exact_match_ratio": 0.0,
+      "valid_selection_score": 1.015625,
+      "best_valid_wer": 1.0,
+      "best_valid_score": 1.015625,
+      "best_valid_empty_pred_ratio": 0.015625,
+      "finetune_total_params": 1520861.0,
+      "finetune_trainable_params": 1520861.0,
+      "seed": 123.0
+    }
+  },
+  "metrics": {
+    "train_loss": {
+      "mean": 2.995324033035172,
+      "std": 0.16419795837667261
+    },
+    "train_runtime_sec": {
+      "mean": 385.29718041419983,
+      "std": 6.588526010513306
+    },
+    "train_peak_gpu_mem_mb": {
+      "mean": 66.71826171875,
+      "std": 0.0009765625
+    },
+    "train_invalid_length_ratio": {
+      "mean": 0.0,
+      "std": 0.0
+    },
+    "train_avg_out_length": {
+      "mean": 138.4452777777778,
+      "std": 0.017499999999998295
+    },
+    "train_avg_target_length": {
+      "mean": 32.464444444444446,
+      "std": 0.0016666666666651508
+    },
+    "train_avg_length_margin": {
+      "mean": 105.98083333333334,
+      "std": 0.015833333333333144
+    },
+    "eval_peak_gpu_mem_mb": {
+      "mean": 53.484619140625,
+      "std": 0.000244140625
+    },
+    "valid_peak_gpu_mem_mb": {
+      "mean": 53.484619140625,
+      "std": 0.000244140625
+    },
+    "valid_wer": {
+      "mean": 1.0013089179992676,
+      "std": 0.0013089179992675781
+    },
+    "valid_accuracy": {
+      "mean": 0.15844155844155844,
+      "std": 0.017662337662337657
+    },
+    "valid_runtime_sec": {
+      "mean": 7.150116801261902,
+      "std": 0.21341288089752197
+    },
+    "valid_samples_per_sec": {
+      "mean": 8.958883943410104,
+      "std": 0.2673999999066128
+    },
+    "valid_blank_ratio": {
+      "mean": 0.6359766763848396,
+      "std": 0.25113702623906703
+    },
+    "valid_empty_pred_ratio": {
+      "mean": 0.0078125,
+      "std": 0.0078125
+    },
+    "valid_nonempty_pred_ratio": {
+      "mean": 0.9921875,
+      "std": 0.0078125
+    },
+    "valid_invalid_length_ratio": {
+      "mean": 0.0,
+      "std": 0.0
+    },
+    "valid_avg_out_length": {
+      "mean": 133.984375,
+      "std": 0.0
+    },
+    "valid_avg_target_length": {
+      "mean": 30.078125,
+      "std": 0.0
+    },
+    "valid_avg_length_margin": {
+      "mean": 103.90625,
+      "std": 0.0
+    },
+    "valid_exact_match_ratio": {
+      "mean": 0.0,
+      "std": 0.0
+    },
+    "valid_selection_score": {
+      "mean": 1.0091214179992676,
+      "std": 0.006503582000732422
+    },
+    "best_valid_wer": {
+      "mean": 1.0013089179992676,
+      "std": 0.0013089179992675781
+    },
+    "best_valid_score": {
+      "mean": 1.0091214179992676,
+      "std": 0.006503582000732422
+    },
+    "best_valid_empty_pred_ratio": {
+      "mean": 0.0078125,
+      "std": 0.0078125
+    },
+    "finetune_total_params": {
+      "mean": 1520861.0,
+      "std": 0.0
+    },
+    "finetune_trainable_params": {
+      "mean": 1520861.0,
+      "std": 0.0
+    },
+    "seed": {
+      "mean": 82.5,
+      "std": 40.5
+    }
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "model_name": "phase6_simple_generalization_no_mae",
+  "architecture": "Audio Transformer Encoder + CTC",
+  "adaptation_technique": "CTC fine-tune only (no MAE)",
+  "runs": {
+    "42": {
+      "seed": 42.0,
+      "wer": 1.0047169923782349,
+      "accuracy": 0.14915870850386537,
+      "inference_runtime_sec": 6.962890386581421,
+      "inference_samples_per_sec": 11.202244422850343,
+      "inference_peak_gpu_mem_mb": 32.9462890625,
+      "blank_ratio": 0.3897550111358575,
+      "empty_pred_ratio": 0.01282051282051282,
+      "nonempty_pred_ratio": 0.9871794871794872,
+      "invalid_length_ratio": 0.0,
+      "avg_out_length": 132.39743589743588,
+      "avg_target_length": 28.192307692307693,
+      "avg_length_margin": 104.2051282051282,
+      "checkpoint_variant": "best"
+    },
+    "123": {
+      "seed": 123.0,
+      "wer": 1.0047169923782349,
+      "accuracy": 0.14643019554342884,
+      "inference_runtime_sec": 6.672877788543701,
+      "inference_samples_per_sec": 11.689109627320605,
+      "inference_peak_gpu_mem_mb": 32.9462890625,
+      "blank_ratio": 0.8991962815919434,
+      "empty_pred_ratio": 0.01282051282051282,
+      "nonempty_pred_ratio": 0.9871794871794872,
+      "invalid_length_ratio": 0.0,
+      "avg_out_length": 132.39743589743588,
+      "avg_target_length": 28.192307692307693,
+      "avg_length_margin": 104.2051282051282,
+      "checkpoint_variant": "best"
+    }
+  }
+}

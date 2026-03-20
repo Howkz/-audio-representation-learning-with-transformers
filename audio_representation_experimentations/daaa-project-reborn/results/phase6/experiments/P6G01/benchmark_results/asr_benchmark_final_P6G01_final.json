@@ -1,0 +1,93 @@
+{
+  "model_name": "phase6_simple_generalization_no_mae",
+  "architecture": "Audio Transformer Encoder + CTC",
+  "adaptation_technique": "CTC fine-tune only (no MAE)",
+  "runs": {
+    "42": {
+      "seed": 42.0,
+      "wer": 1.0094339847564697,
+      "accuracy": 0.15643474306502958,
+      "inference_runtime_sec": 6.774051189422607,
+      "inference_samples_per_sec": 11.514527690873326,
+      "inference_peak_gpu_mem_mb": 32.9462890625,
+      "blank_ratio": 0.38287982957296407,
+      "empty_pred_ratio": 0.0,
+      "nonempty_pred_ratio": 1.0,
+      "invalid_length_ratio": 0.0,
+      "avg_out_length": 132.39743589743588,
+      "avg_target_length": 28.192307692307693,
+      "avg_length_margin": 104.2051282051282,
+      "checkpoint_variant": "final"
+    },
+    "123": {
+      "seed": 123.0,
+      "wer": 1.0023584365844727,
+      "accuracy": 0.1782628467485221,
+      "inference_runtime_sec": 6.907343626022339,
+      "inference_samples_per_sec": 11.292329471802615,
+      "inference_peak_gpu_mem_mb": 32.9462890625,
+      "blank_ratio": 0.8902875956231239,
+      "empty_pred_ratio": 0.0,
+      "nonempty_pred_ratio": 1.0,
+      "invalid_length_ratio": 0.0,
+      "avg_out_length": 132.39743589743588,
+      "avg_target_length": 28.192307692307693,
+      "avg_length_margin": 104.2051282051282,
+      "checkpoint_variant": "final"
+    }
+  },
+  "metrics": {
+    "seed": {
+      "mean": 82.5,
+      "std": 40.5
+    },
+    "wer": {
+      "mean": 1.0058962106704712,
+      "std": 0.003537774085998535
+    },
+    "accuracy": {
+      "mean": 0.16734879490677584,
+      "std": 0.010914051841746264
+    },
+    "inference_runtime_sec": {
+      "mean": 6.840697407722473,
+      "std": 0.06664621829986572
+    },
+    "inference_samples_per_sec": {
+      "mean": 11.40342858133797,
+      "std": 0.11109910953535529
+    },
+    "inference_peak_gpu_mem_mb": {
+      "mean": 32.9462890625,
+      "std": 0.0
+    },
+    "blank_ratio": {
+      "mean": 0.636583712598044,
+      "std": 0.2537038830250799
+    },
+    "empty_pred_ratio": {
+      "mean": 0.0,
+      "std": 0.0
+    },
+    "nonempty_pred_ratio": {
+      "mean": 1.0,
+      "std": 0.0
+    },
+    "invalid_length_ratio": {
+      "mean": 0.0,
+      "std": 0.0
+    },
+    "avg_out_length": {
+      "mean": 132.39743589743588,
+      "std": 0.0
+    },
+    "avg_target_length": {
+      "mean": 28.192307692307693,
+      "std": 0.0
+    },
+    "avg_length_margin": {
+      "mean": 104.2051282051282,
+      "std": 0.0
+    }
+  }
+}

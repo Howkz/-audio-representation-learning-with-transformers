@@ -1,0 +1,52 @@
+{
+  "experiment_id": "P6G01",
+  "checkpoint_variant": "best",
+  "datasets": {
+    "openslr/librispeech_asr:test.clean": {
+      "42": {
+        "seed": 42.0,
+        "dataset": "openslr/librispeech_asr:test.clean",
+        "wer": 1.0047169923782349,
+        "accuracy": 0.14915870850386537,
+        "inference_runtime_sec": 6.962890386581421,
+        "inference_samples_per_sec": 11.202244422850343,
+        "inference_peak_gpu_mem_mb": 32.9462890625,
+        "model_total_params": 1520861.0,
+        "model_trainable_params": 1520861.0,
+        "blank_ratio": 0.3897550111358575,
+        "empty_pred_ratio": 0.01282051282051282,
+        "nonempty_pred_ratio": 0.9871794871794872,
+        "exact_match_ratio": 0.0,
+        "avg_pred_chars": 3.923076923076923,
+        "avg_ref_chars": 23.756410256410255,
+        "avg_out_length": 132.39743589743588,
+        "avg_target_length": 28.192307692307693,
+        "avg_length_margin": 104.2051282051282,
+        "invalid_length_ratio": 0.0,
+        "diagnostics_artifact": "results/phase6/experiments/P6G01/diagnostics/test_seed_42_best_openslr_librispeech_asr_test.clean.json"
+      },
+      "123": {
+        "seed": 123.0,
+        "dataset": "openslr/librispeech_asr:test.clean",
+        "wer": 1.0047169923782349,
+        "accuracy": 0.14643019554342884,
+        "inference_runtime_sec": 6.672877788543701,
+        "inference_samples_per_sec": 11.689109627320605,
+        "inference_peak_gpu_mem_mb": 32.9462890625,
+        "model_total_params": 1520861.0,
+        "model_trainable_params": 1520861.0,
+        "blank_ratio": 0.8991962815919434,
+        "empty_pred_ratio": 0.01282051282051282,
+        "nonempty_pred_ratio": 0.9871794871794872,
+        "exact_match_ratio": 0.0,
+        "avg_pred_chars": 4.666666666666667,
+        "avg_ref_chars": 23.756410256410255,
+        "avg_out_length": 132.39743589743588,
+        "avg_target_length": 28.192307692307693,
+        "avg_length_margin": 104.2051282051282,
+        "invalid_length_ratio": 0.0,
+        "diagnostics_artifact": "results/phase6/experiments/P6G01/diagnostics/test_seed_123_best_openslr_librispeech_asr_test.clean.json"
+      }
+    }
+  }
+}
