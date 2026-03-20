@@ -18,11 +18,11 @@
         "std": 0.0
       },
       "inference_runtime_sec": {
-        "mean": 1.3022866249084473,
+        "mean": 1.1266717910766602,
         "std": 0.0
       },
       "inference_samples_per_sec": {
-        "mean": 9.9824414620813,
+        "mean": 11.538409058397614,
         "std": 0.0
       },
       "inference_peak_gpu_mem_mb": {
