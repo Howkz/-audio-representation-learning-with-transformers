@@ -4,19 +4,19 @@
   "adaptation_technique": "CTC fine-tune only (no MAE)",
   "runs": {
     "42": {
-      "train_loss": 13.654523372650146,
-      "train_runtime_sec": 1.5724070072174072,
-      "train_peak_gpu_mem_mb": 39.205078125,
+      "train_loss": 0.22392681776945633,
+      "train_runtime_sec": 1323.5768036842346,
+      "train_peak_gpu_mem_mb": 51.4755859375,
       "train_invalid_length_ratio": 0.0,
       "train_avg_out_length": 100.66666666666667,
       "train_avg_target_length": 18.666666666666668,
       "train_avg_length_margin": 82.0,
-      "eval_peak_gpu_mem_mb": 36.78955078125,
-      "valid_peak_gpu_mem_mb": 36.78955078125,
-      "valid_wer": 1.7000000476837158,
-      "valid_accuracy": 0.0,
-      "valid_runtime_sec": 0.3140292167663574,
-      "valid_samples_per_sec": 9.553251225767461,
+      "eval_peak_gpu_mem_mb": 48.4267578125,
+      "valid_peak_gpu_mem_mb": 48.4267578125,
+      "valid_wer": 1.5,
+      "valid_accuracy": 0.16326530612244894,
+      "valid_runtime_sec": 0.29489970207214355,
+      "valid_samples_per_sec": 10.172950257054133,
       "valid_blank_ratio": 0.0,
       "valid_empty_pred_ratio": 0.0,
       "valid_nonempty_pred_ratio": 1.0,
@@ -25,7 +25,7 @@
       "valid_avg_target_length": 16.333333333333332,
       "valid_avg_length_margin": 103.33333333333333,
       "valid_exact_match_ratio": 0.0,
-      "best_valid_wer": 1.7000000476837158,
+      "best_valid_wer": 1.0,
       "finetune_total_params": 1520861.0,
       "finetune_trainable_params": 1520861.0,
       "seed": 42.0
@@ -33,15 +33,15 @@
   },
   "metrics": {
     "train_loss": {
-      "mean": 13.654523372650146,
+      "mean": 0.22392681776945633,
       "std": 0.0
     },
     "train_runtime_sec": {
-      "mean": 1.5724070072174072,
+      "mean": 1323.5768036842346,
       "std": 0.0
     },
     "train_peak_gpu_mem_mb": {
-      "mean": 39.205078125,
+      "mean": 51.4755859375,
       "std": 0.0
     },
     "train_invalid_length_ratio": {
@@ -61,27 +61,27 @@
       "std": 0.0
     },
     "eval_peak_gpu_mem_mb": {
-      "mean": 36.78955078125,
+      "mean": 48.4267578125,
       "std": 0.0
     },
     "valid_peak_gpu_mem_mb": {
-      "mean": 36.78955078125,
+      "mean": 48.4267578125,
       "std": 0.0
     },
     "valid_wer": {
-      "mean": 1.7000000476837158,
+      "mean": 1.5,
       "std": 0.0
     },
     "valid_accuracy": {
-      "mean": 0.0,
+      "mean": 0.16326530612244894,
       "std": 0.0
     },
     "valid_runtime_sec": {
-      "mean": 0.3140292167663574,
+      "mean": 0.29489970207214355,
       "std": 0.0
     },
     "valid_samples_per_sec": {
-      "mean": 9.553251225767461,
+      "mean": 10.172950257054133,
       "std": 0.0
     },
     "valid_blank_ratio": {
@@ -117,7 +117,7 @@
       "std": 0.0
     },
     "best_valid_wer": {
-      "mean": 1.7000000476837158,
+      "mean": 1.0,
       "std": 0.0
     },
     "finetune_total_params": {

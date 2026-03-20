@@ -6,7 +6,7 @@
         "std": 0.0
       },
       "wer": {
-        "mean": 1.75,
+        "mean": 1.0,
         "std": 0.0
       },
       "accuracy": {
@@ -14,11 +14,11 @@
         "std": 0.0
       },
       "inference_runtime_sec": {
-        "mean": 0.666834831237793,
+        "mean": 0.6745474338531494,
         "std": 0.0
       },
       "inference_samples_per_sec": {
-        "mean": 7.498108625668059,
+        "mean": 7.4123771718157805,
         "std": 0.0
       },
       "inference_peak_gpu_mem_mb": {
@@ -38,11 +38,11 @@
         "std": 0.0
       },
       "empty_pred_ratio": {
-        "mean": 0.0,
+        "mean": 1.0,
         "std": 0.0
       },
       "nonempty_pred_ratio": {
-        "mean": 1.0,
+        "mean": 0.0,
         "std": 0.0
       },
       "exact_match_ratio": {
@@ -50,7 +50,7 @@
         "std": 0.0
       },
       "avg_pred_chars": {
-        "mean": 31.4,
+        "mean": 0.0,
         "std": 0.0
       },
       "avg_ref_chars": {
