@@ -1,0 +1,74 @@
+{
+  "metrics": {
+    "openslr/librispeech_asr:test.clean": {
+      "seed": {
+        "mean": 42.0,
+        "std": 0.0
+      },
+      "wer": {
+        "mean": 1.0,
+        "std": 0.0
+      },
+      "inference_runtime_sec": {
+        "mean": 22.374603986740112,
+        "std": 0.0
+      },
+      "inference_samples_per_sec": {
+        "mean": 8.938705691440449,
+        "std": 0.0
+      },
+      "inference_peak_gpu_mem_mb": {
+        "mean": 34.482421875,
+        "std": 0.0
+      },
+      "model_total_params": {
+        "mean": 1520861.0,
+        "std": 0.0
+      },
+      "model_trainable_params": {
+        "mean": 1520861.0,
+        "std": 0.0
+      },
+      "blank_ratio": {
+        "mean": 1.0,
+        "std": 0.0
+      },
+      "empty_pred_ratio": {
+        "mean": 1.0,
+        "std": 0.0
+      },
+      "nonempty_pred_ratio": {
+        "mean": 0.0,
+        "std": 0.0
+      },
+      "exact_match_ratio": {
+        "mean": 0.0,
+        "std": 0.0
+      },
+      "avg_pred_chars": {
+        "mean": 0.0,
+        "std": 0.0
+      },
+      "avg_ref_chars": {
+        "mean": 98.14,
+        "std": 0.0
+      },
+      "avg_out_length": {
+        "mean": 391.505,
+        "std": 0.0
+      },
+      "avg_target_length": {
+        "mean": 119.85,
+        "std": 0.0
+      },
+      "avg_length_margin": {
+        "mean": 271.655,
+        "std": 0.0
+      },
+      "invalid_length_ratio": {
+        "mean": 0.0,
+        "std": 0.0
+      }
+    }
+  }
+}
