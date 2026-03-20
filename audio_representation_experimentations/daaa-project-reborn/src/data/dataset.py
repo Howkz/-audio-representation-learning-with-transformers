@@ -4,6 +4,8 @@ from dataclasses import dataclass
 import re
 from typing import Any, Dict, List, Optional
 
+import torch
+
 try:
     from torch.utils.data import Dataset as TorchDataset
 except ModuleNotFoundError:
