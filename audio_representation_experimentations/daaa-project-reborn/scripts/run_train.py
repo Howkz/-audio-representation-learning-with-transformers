@@ -134,7 +134,14 @@ def main() -> None:
         ds = apply_dataset_filters(ds, transcript_key=transcript_key, spec=spec)
         return AudioFeatureDataset(ds, audio_cfg=local_audio_cfg, transcript_key=spec.get("transcript_key"))
 
-    pretrain_ds = _build_dataset(cfg, cfg["datasets"]["pretrain"], build_audio_preprocess_config(cfg, cfg["datasets"]["pretrain"]))
+    pretrain_enabled = _pretrain_enabled(cfg)
+    pretrain_ds = None
+    if pretrain_enabled:
+        pretrain_ds = _build_dataset(
+            cfg,
+            cfg["datasets"]["pretrain"],
+            build_audio_preprocess_config(cfg, cfg["datasets"]["pretrain"]),
+        )
     asr_train_ds = _build_dataset(cfg, cfg["datasets"]["asr_train"], build_audio_preprocess_config(cfg, cfg["datasets"]["asr_train"]))
     asr_valid_ds = _build_dataset(cfg, cfg["datasets"]["asr_valid"], build_audio_preprocess_config(cfg, cfg["datasets"]["asr_valid"]))
     tokenizer = CharCTCTokenizer()
@@ -144,7 +151,6 @@ def main() -> None:
     filename_suffix = f"_{exp_id}" if exp_id else ""
     partial_path = benchmark_dir / f"train_audio_transformer{filename_suffix}_partial.json"
     final_path = benchmark_dir / f"train_audio_transformer{filename_suffix}_final.json"
-    pretrain_enabled = _pretrain_enabled(cfg)
 
     if (not args.continue_completed) and all(_finetune_seed_completed(cfg, int(seed)) for seed in cfg["experiment"]["seeds"]):
         print("[TRAIN] Tous les seeds sont déjà marqués comme terminés.")
