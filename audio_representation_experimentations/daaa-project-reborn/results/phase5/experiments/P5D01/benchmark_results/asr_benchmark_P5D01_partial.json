@@ -1,0 +1,22 @@
+{
+  "model_name": "phase5_learnability_diagnostic_no_mae",
+  "architecture": "Audio Transformer Encoder + CTC",
+  "adaptation_technique": "CTC fine-tune only (no MAE)",
+  "runs": {
+    "42": {
+      "seed": 42.0,
+      "wer": 1.75,
+      "accuracy": 0.0,
+      "inference_runtime_sec": 0.666834831237793,
+      "inference_samples_per_sec": 7.498108625668059,
+      "inference_peak_gpu_mem_mb": 30.1552734375,
+      "blank_ratio": 0.0,
+      "empty_pred_ratio": 0.0,
+      "nonempty_pred_ratio": 1.0,
+      "invalid_length_ratio": 0.0,
+      "avg_out_length": 97.6,
+      "avg_target_length": 15.2,
+      "avg_length_margin": 82.4
+    }
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "model_name": "phase5_learnability_diagnostic_no_mae",
+  "architecture": "Audio Transformer Encoder + CTC",
+  "adaptation_technique": "CTC fine-tune only (no MAE)",
+  "runs": {
+    "42": {
+      "seed": 42.0,
+      "wer": 1.75,
+      "accuracy": 0.0,
+      "inference_runtime_sec": 0.666834831237793,
+      "inference_samples_per_sec": 7.498108625668059,
+      "inference_peak_gpu_mem_mb": 30.1552734375,
+      "blank_ratio": 0.0,
+      "empty_pred_ratio": 0.0,
+      "nonempty_pred_ratio": 1.0,
+      "invalid_length_ratio": 0.0,
+      "avg_out_length": 97.6,
+      "avg_target_length": 15.2,
+      "avg_length_margin": 82.4
+    }
+  },
+  "metrics": {
+    "seed": {
+      "mean": 42.0,
+      "std": 0.0
+    },
+    "wer": {
+      "mean": 1.75,
+      "std": 0.0
+    },
+    "accuracy": {
+      "mean": 0.0,
+      "std": 0.0
+    },
+    "inference_runtime_sec": {
+      "mean": 0.666834831237793,
+      "std": 0.0
+    },
+    "inference_samples_per_sec": {
+      "mean": 7.498108625668059,
+      "std": 0.0
+    },
+    "inference_peak_gpu_mem_mb": {
+      "mean": 30.1552734375,
+      "std": 0.0
+    },
+    "blank_ratio": {
+      "mean": 0.0,
+      "std": 0.0
+    },
+    "empty_pred_ratio": {
+      "mean": 0.0,
+      "std": 0.0
+    },
+    "nonempty_pred_ratio": {
+      "mean": 1.0,
+      "std": 0.0
+    },
+    "invalid_length_ratio": {
+      "mean": 0.0,
+      "std": 0.0
+    },
+    "avg_out_length": {
+      "mean": 97.6,
+      "std": 0.0
+    },
+    "avg_target_length": {
+      "mean": 15.2,
+      "std": 0.0
+    },
+    "avg_length_margin": {
+      "mean": 82.4,
+      "std": 0.0
+    }
+  }
+}

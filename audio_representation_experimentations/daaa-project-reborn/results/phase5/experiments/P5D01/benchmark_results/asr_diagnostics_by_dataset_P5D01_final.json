@@ -1,0 +1,29 @@
+{
+  "experiment_id": "P5D01",
+  "datasets": {
+    "openslr/librispeech_asr:test.clean": {
+      "42": {
+        "seed": 42.0,
+        "dataset": "openslr/librispeech_asr:test.clean",
+        "wer": 1.75,
+        "accuracy": 0.0,
+        "inference_runtime_sec": 0.666834831237793,
+        "inference_samples_per_sec": 7.498108625668059,
+        "inference_peak_gpu_mem_mb": 30.1552734375,
+        "model_total_params": 1520861.0,
+        "model_trainable_params": 1520861.0,
+        "blank_ratio": 0.0,
+        "empty_pred_ratio": 0.0,
+        "nonempty_pred_ratio": 1.0,
+        "exact_match_ratio": 0.0,
+        "avg_pred_chars": 31.4,
+        "avg_ref_chars": 13.0,
+        "avg_out_length": 97.6,
+        "avg_target_length": 15.2,
+        "avg_length_margin": 82.4,
+        "invalid_length_ratio": 0.0,
+        "diagnostics_artifact": "results/phase5/experiments/P5D01/diagnostics/test_seed_42_openslr_librispeech_asr_test.clean.json"
+      }
+    }
+  }
+}
