@@ -1,0 +1,283 @@
+{
+  "model_name": "phase7_hidden_states_underemit_librispeech",
+  "architecture": "Audio Transformer Encoder + CTC",
+  "adaptation_technique": "CTC fine-tune + distillation (external:wav2vec2_ctc)",
+  "runs": {
+    "42": {
+      "train_loss": 8.530072441251258,
+      "train_ctc_loss": 8.485346075386245,
+      "train_kd_loss": 0.22363183680917603,
+      "train_kd_active_ratio": 1.0,
+      "train_overemit_loss": 0.0,
+      "train_underemit_loss": 0.0,
+      "train_nonblank_density": 0.9308501978156537,
+      "train_target_density": 0.12652048720853534,
+      "distillation_enabled": 1.0,
+      "train_runtime_sec": 218.12182641029358,
+      "train_peak_gpu_mem_mb": 680.3115234375,
+      "train_invalid_length_ratio": 0.0,
+      "train_avg_out_length": 311.244094488189,
+      "train_avg_target_length": 38.45669291338583,
+      "train_avg_length_margin": 272.78740157480314,
+      "finetune_effective_batch_size": 8.0,
+      "finetune_optimizer_steps": 188.0,
+      "finetune_warmup_steps": 20.0,
+      "finetune_warmup_start_factor": 0.1,
+      "finetune_min_lr_ratio": 0.05,
+      "finetune_early_stopped": 1.0,
+      "finetune_early_stop_epoch": 6.0,
+      "best_valid_epoch": 4.0,
+      "eval_peak_gpu_mem_mb": 438.2421875,
+      "valid_peak_gpu_mem_mb": 438.2421875,
+      "valid_wer": 1.0,
+      "valid_accuracy": 0.038971807628524036,
+      "valid_runtime_sec": 11.34602689743042,
+      "valid_samples_per_sec": 8.813657935417675,
+      "valid_blank_ratio": 0.2412294992940154,
+      "valid_empty_pred_ratio": 0.0,
+      "valid_nonempty_pred_ratio": 1.0,
+      "valid_pred_to_ref_char_ratio": 0.09381237524950099,
+      "valid_invalid_length_ratio": 0.0,
+      "valid_avg_out_length": 276.21,
+      "valid_avg_target_length": 36.18,
+      "valid_avg_length_margin": 240.03,
+      "valid_exact_match_ratio": 0.0,
+      "valid_selection_score": 1.6940207165851446,
+      "best_valid_wer": 1.0,
+      "best_valid_score": 1.6680554737325883,
+      "best_valid_empty_pred_ratio": 0.0,
+      "finetune_total_params": 2839133.0,
+      "finetune_trainable_params": 2839133.0,
+      "seed": 42.0
+    },
+    "123": {
+      "train_loss": 6.067303038018895,
+      "train_ctc_loss": 6.0175608601157125,
+      "train_kd_loss": 0.2487109008032506,
+      "train_kd_active_ratio": 1.0,
+      "train_overemit_loss": 0.0,
+      "train_underemit_loss": 0.0,
+      "train_nonblank_density": 0.9750039097831005,
+      "train_target_density": 0.12652048720853534,
+      "distillation_enabled": 1.0,
+      "train_runtime_sec": 171.31590604782104,
+      "train_peak_gpu_mem_mb": 698.67236328125,
+      "train_invalid_length_ratio": 0.0,
+      "train_avg_out_length": 311.244094488189,
+      "train_avg_target_length": 38.45669291338583,
+      "train_avg_length_margin": 272.78740157480314,
+      "finetune_effective_batch_size": 8.0,
+      "finetune_optimizer_steps": 188.0,
+      "finetune_warmup_steps": 20.0,
+      "finetune_warmup_start_factor": 0.1,
+      "finetune_min_lr_ratio": 0.05,
+      "finetune_early_stopped": 1.0,
+      "finetune_early_stop_epoch": 4.0,
+      "best_valid_epoch": 2.0,
+      "eval_peak_gpu_mem_mb": 458.12255859375,
+      "valid_peak_gpu_mem_mb": 458.12255859375,
+      "valid_wer": 1.0,
+      "valid_accuracy": 0.06495301271420673,
+      "valid_runtime_sec": 11.728904724121094,
+      "valid_samples_per_sec": 8.525945290897015,
+      "valid_blank_ratio": 0.17479454038593822,
+      "valid_empty_pred_ratio": 0.0,
+      "valid_nonempty_pred_ratio": 1.0,
+      "valid_pred_to_ref_char_ratio": 0.10079840319361277,
+      "valid_invalid_length_ratio": 0.0,
+      "valid_avg_out_length": 276.21,
+      "valid_avg_target_length": 36.18,
+      "valid_avg_length_margin": 240.03,
+      "valid_exact_match_ratio": 0.0,
+      "valid_selection_score": 1.6756423984648328,
+      "best_valid_wer": 1.007022500038147,
+      "best_valid_score": 1.672788811527937,
+      "best_valid_empty_pred_ratio": 0.0,
+      "finetune_total_params": 2839133.0,
+      "finetune_trainable_params": 2839133.0,
+      "seed": 123.0
+    }
+  },
+  "metrics": {
+    "train_loss": {
+      "mean": 7.298687739635076,
+      "std": 1.2313847016161819
+    },
+    "train_ctc_loss": {
+      "mean": 7.251453467750979,
+      "std": 1.233892607635266
+    },
+    "train_kd_loss": {
+      "mean": 0.2361713688062133,
+      "std": 0.012539531997037279
+    },
+    "train_kd_active_ratio": {
+      "mean": 1.0,
+      "std": 0.0
+    },
+    "train_overemit_loss": {
+      "mean": 0.0,
+      "std": 0.0
+    },
+    "train_underemit_loss": {
+      "mean": 0.0,
+      "std": 0.0
+    },
+    "train_nonblank_density": {
+      "mean": 0.952927053799377,
+      "std": 0.022076855983723387
+    },
+    "train_target_density": {
+      "mean": 0.12652048720853534,
+      "std": 0.0
+    },
+    "distillation_enabled": {
+      "mean": 1.0,
+      "std": 0.0
+    },
+    "train_runtime_sec": {
+      "mean": 194.7188662290573,
+      "std": 23.402960181236267
+    },
+    "train_peak_gpu_mem_mb": {
+      "mean": 689.491943359375,
+      "std": 9.180419921875
+    },
+    "train_invalid_length_ratio": {
+      "mean": 0.0,
+      "std": 0.0
+    },
+    "train_avg_out_length": {
+      "mean": 311.244094488189,
+      "std": 0.0
+    },
+    "train_avg_target_length": {
+      "mean": 38.45669291338583,
+      "std": 0.0
+    },
+    "train_avg_length_margin": {
+      "mean": 272.78740157480314,
+      "std": 0.0
+    },
+    "finetune_effective_batch_size": {
+      "mean": 8.0,
+      "std": 0.0
+    },
+    "finetune_optimizer_steps": {
+      "mean": 188.0,
+      "std": 0.0
+    },
+    "finetune_warmup_steps": {
+      "mean": 20.0,
+      "std": 0.0
+    },
+    "finetune_warmup_start_factor": {
+      "mean": 0.1,
+      "std": 0.0
+    },
+    "finetune_min_lr_ratio": {
+      "mean": 0.05,
+      "std": 0.0
+    },
+    "finetune_early_stopped": {
+      "mean": 1.0,
+      "std": 0.0
+    },
+    "finetune_early_stop_epoch": {
+      "mean": 5.0,
+      "std": 1.0
+    },
+    "best_valid_epoch": {
+      "mean": 3.0,
+      "std": 1.0
+    },
+    "eval_peak_gpu_mem_mb": {
+      "mean": 448.182373046875,
+      "std": 9.940185546875
+    },
+    "valid_peak_gpu_mem_mb": {
+      "mean": 448.182373046875,
+      "std": 9.940185546875
+    },
+    "valid_wer": {
+      "mean": 1.0,
+      "std": 0.0
+    },
+    "valid_accuracy": {
+      "mean": 0.05196241017136538,
+      "std": 0.012990602542841345
+    },
+    "valid_runtime_sec": {
+      "mean": 11.537465810775757,
+      "std": 0.19143891334533691
+    },
+    "valid_samples_per_sec": {
+      "mean": 8.669801613157345,
+      "std": 0.14385632226032996
+    },
+    "valid_blank_ratio": {
+      "mean": 0.2080120198399768,
+      "std": 0.03321747945403859
+    },
+    "valid_empty_pred_ratio": {
+      "mean": 0.0,
+      "std": 0.0
+    },
+    "valid_nonempty_pred_ratio": {
+      "mean": 1.0,
+      "std": 0.0
+    },
+    "valid_pred_to_ref_char_ratio": {
+      "mean": 0.09730538922155688,
+      "std": 0.0034930139720558903
+    },
+    "valid_invalid_length_ratio": {
+      "mean": 0.0,
+      "std": 0.0
+    },
+    "valid_avg_out_length": {
+      "mean": 276.21,
+      "std": 0.0
+    },
+    "valid_avg_target_length": {
+      "mean": 36.18,
+      "std": 0.0
+    },
+    "valid_avg_length_margin": {
+      "mean": 240.03,
+      "std": 0.0
+    },
+    "valid_exact_match_ratio": {
+      "mean": 0.0,
+      "std": 0.0
+    },
+    "valid_selection_score": {
+      "mean": 1.6848315575249888,
+      "std": 0.009189159060155938
+    },
+    "best_valid_wer": {
+      "mean": 1.0035112500190735,
+      "std": 0.0035112500190734863
+    },
+    "best_valid_score": {
+      "mean": 1.6704221426302626,
+      "std": 0.00236666889767434
+    },
+    "best_valid_empty_pred_ratio": {
+      "mean": 0.0,
+      "std": 0.0
+    },
+    "finetune_total_params": {
+      "mean": 2839133.0,
+      "std": 0.0
+    },
+    "finetune_trainable_params": {
+      "mean": 2839133.0,
+      "std": 0.0
+    },
+    "seed": {
+      "mean": 82.5,
+      "std": 40.5
+    }
+  }
+}
