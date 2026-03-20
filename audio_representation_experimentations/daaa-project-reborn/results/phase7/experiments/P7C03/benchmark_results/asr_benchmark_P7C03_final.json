@@ -1,0 +1,123 @@
+{
+  "model_name": "phase7_hidden_states_anti_overemit_librispeech",
+  "architecture": "Audio Transformer Encoder + CTC",
+  "adaptation_technique": "CTC fine-tune + distillation (external:wav2vec2_ctc)",
+  "runs": {
+    "42": {
+      "seed": 42.0,
+      "wer": 1.0,
+      "accuracy": 0.04137560451370226,
+      "eval_batch_size": 1.0,
+      "inference_runtime_sec": 9.546228408813477,
+      "inference_samples_per_sec": 11.418121935922532,
+      "inference_peak_gpu_mem_mb": 44.8984375,
+      "model_total_params": 2839133.0,
+      "model_trainable_params": 2839133.0,
+      "blank_ratio": 0.210450300093077,
+      "empty_pred_ratio": 0.0,
+      "nonempty_pred_ratio": 1.0,
+      "pred_to_ref_char_ratio": 0.12221863914866173,
+      "short_pred_ratio": 0.8777813608513383,
+      "invalid_length_ratio": 0.0,
+      "avg_out_length": 285.8440366972477,
+      "avg_target_length": 34.14678899082569,
+      "avg_length_margin": 251.69724770642202,
+      "checkpoint_variant": "best"
+    },
+    "123": {
+      "seed": 123.0,
+      "wer": 1.0,
+      "accuracy": 0.061526061257388465,
+      "eval_batch_size": 1.0,
+      "inference_runtime_sec": 12.74756669998169,
+      "inference_samples_per_sec": 8.550651474540357,
+      "inference_peak_gpu_mem_mb": 44.8984375,
+      "model_total_params": 2839133.0,
+      "model_trainable_params": 2839133.0,
+      "blank_ratio": 0.21818531951086434,
+      "empty_pred_ratio": 0.0,
+      "nonempty_pred_ratio": 1.0,
+      "pred_to_ref_char_ratio": 0.0948081264108352,
+      "short_pred_ratio": 0.9051918735891648,
+      "invalid_length_ratio": 0.0,
+      "avg_out_length": 285.8440366972477,
+      "avg_target_length": 34.14678899082569,
+      "avg_length_margin": 251.69724770642202,
+      "checkpoint_variant": "best"
+    }
+  },
+  "metrics": {
+    "seed": {
+      "mean": 82.5,
+      "std": 40.5
+    },
+    "wer": {
+      "mean": 1.0,
+      "std": 0.0
+    },
+    "accuracy": {
+      "mean": 0.05145083288554536,
+      "std": 0.010075228371843103
+    },
+    "eval_batch_size": {
+      "mean": 1.0,
+      "std": 0.0
+    },
+    "inference_runtime_sec": {
+      "mean": 11.146897554397583,
+      "std": 1.6006691455841064
+    },
+    "inference_samples_per_sec": {
+      "mean": 9.984386705231444,
+      "std": 1.433735230691087
+    },
+    "inference_peak_gpu_mem_mb": {
+      "mean": 44.8984375,
+      "std": 0.0
+    },
+    "model_total_params": {
+      "mean": 2839133.0,
+      "std": 0.0
+    },
+    "model_trainable_params": {
+      "mean": 2839133.0,
+      "std": 0.0
+    },
+    "blank_ratio": {
+      "mean": 0.21431780980197068,
+      "std": 0.003867509708893671
+    },
+    "empty_pred_ratio": {
+      "mean": 0.0,
+      "std": 0.0
+    },
+    "nonempty_pred_ratio": {
+      "mean": 1.0,
+      "std": 0.0
+    },
+    "pred_to_ref_char_ratio": {
+      "mean": 0.10851338277974847,
+      "std": 0.01370525636891326
+    },
+    "short_pred_ratio": {
+      "mean": 0.8914866172202516,
+      "std": 0.013705256368913232
+    },
+    "invalid_length_ratio": {
+      "mean": 0.0,
+      "std": 0.0
+    },
+    "avg_out_length": {
+      "mean": 285.8440366972477,
+      "std": 0.0
+    },
+    "avg_target_length": {
+      "mean": 34.14678899082569,
+      "std": 0.0
+    },
+    "avg_length_margin": {
+      "mean": 251.69724770642202,
+      "std": 0.0
+    }
+  }
+}

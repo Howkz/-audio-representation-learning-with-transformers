@@ -1,0 +1,90 @@
+{
+  "metrics": {
+    "openslr/librispeech_asr:test.clean": {
+      "seed": {
+        "mean": 82.5,
+        "std": 40.5
+      },
+      "wer": {
+        "mean": 1.0,
+        "std": 0.0
+      },
+      "accuracy": {
+        "mean": 0.048764105319720585,
+        "std": 0.009806555615260615
+      },
+      "eval_batch_size": {
+        "mean": 1.0,
+        "std": 0.0
+      },
+      "inference_runtime_sec": {
+        "mean": 12.997150540351868,
+        "std": 0.1740816831588745
+      },
+      "inference_samples_per_sec": {
+        "mean": 8.387958360834762,
+        "std": 0.11234692598098839
+      },
+      "inference_peak_gpu_mem_mb": {
+        "mean": 44.8984375,
+        "std": 0.0
+      },
+      "model_total_params": {
+        "mean": 2839133.0,
+        "std": 0.0
+      },
+      "model_trainable_params": {
+        "mean": 2839133.0,
+        "std": 0.0
+      },
+      "blank_ratio": {
+        "mean": 0.20367814616298102,
+        "std": 0.011105048624707126
+      },
+      "empty_pred_ratio": {
+        "mean": 0.0,
+        "std": 0.0
+      },
+      "nonempty_pred_ratio": {
+        "mean": 1.0,
+        "std": 0.0
+      },
+      "exact_match_ratio": {
+        "mean": 0.0,
+        "std": 0.0
+      },
+      "avg_pred_chars": {
+        "mean": 2.720183486238532,
+        "std": 0.2339449541284404
+      },
+      "avg_ref_chars": {
+        "mean": 28.44954128440367,
+        "std": 0.0
+      },
+      "avg_out_length": {
+        "mean": 285.8440366972477,
+        "std": 0.0
+      },
+      "pred_to_ref_char_ratio": {
+        "mean": 0.09561431796194776,
+        "std": 0.008223153821347959
+      },
+      "short_pred_ratio": {
+        "mean": 0.9043856820380523,
+        "std": 0.008223153821347973
+      },
+      "avg_target_length": {
+        "mean": 34.14678899082569,
+        "std": 0.0
+      },
+      "avg_length_margin": {
+        "mean": 251.69724770642202,
+        "std": 0.0
+      },
+      "invalid_length_ratio": {
+        "mean": 0.0,
+        "std": 0.0
+      }
+    }
+  }
+}
