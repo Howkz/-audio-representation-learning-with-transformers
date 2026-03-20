@@ -146,6 +146,11 @@ def _overemit_cfg(cfg: Dict[str, Any]) -> Dict[str, Any]:
     return overemit_cfg if isinstance(overemit_cfg, dict) else {}
 
 
+def _underemit_cfg(cfg: Dict[str, Any]) -> Dict[str, Any]:
+    underemit_cfg = cfg.get("anti_underemit", {})
+    return underemit_cfg if isinstance(underemit_cfg, dict) else {}
+
+
 def _resolve_distill_projection_dim(
     cfg: Dict[str, Any],
     teacher: Optional[Any],
@@ -275,16 +280,13 @@ def _compute_distillation_loss(
     raise ValueError(f"Unsupported teacher target_kind '{teacher_output.target_kind}'.")
 
 
-def _compute_overemit_loss(
+def _nonblank_density_stats(
     *,
     student_logits: torch.Tensor,
     student_lengths: torch.Tensor,
     target_lengths: torch.Tensor,
     blank_id: int,
-    density_scale: float,
-    density_margin: float,
-    power: float,
-) -> Tuple[torch.Tensor, float, float]:
+) -> Tuple[torch.Tensor, torch.Tensor]:
     if student_logits.ndim != 3:
         raise ValueError("student_logits must be [B, T, C].")
     valid_mask = (
@@ -292,7 +294,8 @@ def _compute_overemit_loss(
         < student_lengths.unsqueeze(1)
     )
     if not valid_mask.any():
-        return student_logits.new_zeros(()), 0.0, 0.0
+        zeros = student_logits.new_zeros((student_logits.shape[0],))
+        return zeros, zeros
 
     probs = torch.softmax(student_logits, dim=-1)
     nonblank_probs = 1.0 - probs[..., int(blank_id)]
@@ -304,6 +307,25 @@ def _compute_overemit_loss(
         target_lengths.to(nonblank_probs.dtype)
         / student_lengths.clamp_min(1).to(nonblank_probs.dtype)
     ).clamp(min=0.0, max=1.0)
+    return mean_nonblank, target_density
+
+
+def _compute_overemit_loss(
+    *,
+    student_logits: torch.Tensor,
+    student_lengths: torch.Tensor,
+    target_lengths: torch.Tensor,
+    blank_id: int,
+    density_scale: float,
+    density_margin: float,
+    power: float,
+) -> Tuple[torch.Tensor, float, float]:
+    mean_nonblank, target_density = _nonblank_density_stats(
+        student_logits=student_logits,
+        student_lengths=student_lengths,
+        target_lengths=target_lengths,
+        blank_id=blank_id,
+    )
     allowed_density = (
         target_density * max(0.0, float(density_scale)) + max(0.0, float(density_margin))
     ).clamp(max=1.0)
@@ -313,6 +335,35 @@ def _compute_overemit_loss(
         penalty = excess_density
     else:
         penalty = excess_density.pow(effective_power)
+    return penalty.mean(), float(mean_nonblank.mean().item()), float(target_density.mean().item())
+
+
+def _compute_underemit_loss(
+    *,
+    student_logits: torch.Tensor,
+    student_lengths: torch.Tensor,
+    target_lengths: torch.Tensor,
+    blank_id: int,
+    density_scale: float,
+    density_margin: float,
+    min_density: float,
+    power: float,
+) -> Tuple[torch.Tensor, float, float]:
+    mean_nonblank, target_density = _nonblank_density_stats(
+        student_logits=student_logits,
+        student_lengths=student_lengths,
+        target_lengths=target_lengths,
+        blank_id=blank_id,
+    )
+    required_density = (
+        target_density * max(0.0, float(density_scale)) - max(0.0, float(density_margin))
+    ).clamp(min=max(0.0, float(min_density)), max=1.0)
+    deficit_density = torch.relu(required_density - mean_nonblank)
+    effective_power = max(1.0, float(power))
+    if math.isclose(effective_power, 1.0, rel_tol=0.0, abs_tol=1e-8):
+        penalty = deficit_density
+    else:
+        penalty = deficit_density.pow(effective_power)
     return penalty.mean(), float(mean_nonblank.mean().item()), float(target_density.mean().item())
 
 
@@ -844,6 +895,13 @@ def run_finetune_seed(
     overemit_density_scale = float(overemit_cfg.get("density_scale", 1.0))
     overemit_density_margin = float(overemit_cfg.get("density_margin", 0.0))
     overemit_power = float(overemit_cfg.get("power", 2.0))
+    underemit_cfg = _underemit_cfg(cfg)
+    underemit_enabled = bool(underemit_cfg.get("enabled", False))
+    lambda_underemit = float(underemit_cfg.get("lambda", 0.0))
+    underemit_density_scale = float(underemit_cfg.get("density_scale", 1.0))
+    underemit_density_margin = float(underemit_cfg.get("density_margin", 0.0))
+    underemit_min_density = float(underemit_cfg.get("min_density", 0.0))
+    underemit_power = float(underemit_cfg.get("power", 2.0))
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=float(training_cfg["learning_rate"]),
@@ -919,6 +977,7 @@ def run_finetune_seed(
     running_kd_loss = 0.0
     running_kd_active_ratio = 0.0
     running_overemit_loss = 0.0
+    running_underemit_loss = 0.0
     running_nonblank_density = 0.0
     running_target_density = 0.0
     train_sample_count = 0
@@ -938,6 +997,7 @@ def run_finetune_seed(
         f"lambda_ctc={lambda_ctc:.3f} lambda_kd={lambda_kd:.3f} "
         f"informative_only={kd_informative_only} min_nonblank_prob={kd_min_nonblank_prob:.3f} "
         f"overemit={overemit_enabled} lambda_overemit={lambda_overemit:.3f} "
+        f"underemit={underemit_enabled} lambda_underemit={lambda_underemit:.3f} "
         f"optimizer_steps={optimizer_total_steps} warmup_steps={warmup_steps} "
         f"lr={float(training_cfg['learning_rate']):.6f} patience={early_stopping_patience}"
     )
@@ -984,6 +1044,7 @@ def run_finetune_seed(
                 kd_loss = logits.new_zeros(())
                 kd_active_ratio = 0.0
                 overemit_loss = logits.new_zeros(())
+                underemit_loss = logits.new_zeros(())
                 mean_nonblank_density = 0.0
                 mean_target_density = 0.0
                 if distill_enabled and lambda_kd > 0.0:
@@ -1014,7 +1075,23 @@ def run_finetune_seed(
                         density_margin=overemit_density_margin,
                         power=overemit_power,
                     )
-                loss = lambda_ctc * ctc_loss + lambda_kd * kd_loss + lambda_overemit * overemit_loss
+                if underemit_enabled and lambda_underemit > 0.0:
+                    underemit_loss, mean_nonblank_density, mean_target_density = _compute_underemit_loss(
+                        student_logits=logits,
+                        student_lengths=out_lengths,
+                        target_lengths=target_lengths,
+                        blank_id=tokenizer.blank_id,
+                        density_scale=underemit_density_scale,
+                        density_margin=underemit_density_margin,
+                        min_density=underemit_min_density,
+                        power=underemit_power,
+                    )
+                loss = (
+                    lambda_ctc * ctc_loss
+                    + lambda_kd * kd_loss
+                    + lambda_overemit * overemit_loss
+                    + lambda_underemit * underemit_loss
+                )
                 loss_scaled = loss / grad_acc
             scaler.scale(loss_scaled).backward()
 
@@ -1035,6 +1112,7 @@ def run_finetune_seed(
             running_kd_loss += float(kd_loss.item()) if isinstance(kd_loss, torch.Tensor) else float(kd_loss)
             running_kd_active_ratio += float(kd_active_ratio)
             running_overemit_loss += float(overemit_loss.item()) if isinstance(overemit_loss, torch.Tensor) else float(overemit_loss)
+            running_underemit_loss += float(underemit_loss.item()) if isinstance(underemit_loss, torch.Tensor) else float(underemit_loss)
             running_nonblank_density += float(mean_nonblank_density)
             running_target_density += float(mean_target_density)
             running_count += 1
@@ -1240,6 +1318,7 @@ def run_finetune_seed(
         "train_kd_loss": float(running_kd_loss / max(1, running_count)),
         "train_kd_active_ratio": float(running_kd_active_ratio / max(1, running_count)),
         "train_overemit_loss": float(running_overemit_loss / max(1, running_count)),
+        "train_underemit_loss": float(running_underemit_loss / max(1, running_count)),
         "train_nonblank_density": float(running_nonblank_density / max(1, running_count)),
         "train_target_density": float(running_target_density / max(1, running_count)),
         "distillation_enabled": 1.0 if distill_enabled else 0.0,

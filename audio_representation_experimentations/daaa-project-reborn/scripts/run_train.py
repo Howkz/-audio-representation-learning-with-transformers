@@ -112,6 +112,15 @@ def main() -> None:
                 f"density_scale={overemit_cfg.get('density_scale')} "
                 f"density_margin={overemit_cfg.get('density_margin')}"
             )
+        if bool(cfg.get("anti_underemit", {}).get("enabled", False)):
+            underemit_cfg = cfg.get("anti_underemit", {})
+            print(
+                f"[TRAIN] Anti-underemit enabled "
+                f"lambda={underemit_cfg.get('lambda')} "
+                f"density_scale={underemit_cfg.get('density_scale')} "
+                f"density_margin={underemit_cfg.get('density_margin')} "
+                f"min_density={underemit_cfg.get('min_density')}"
+            )
         print(f"[TRAIN] Pretrain dataset: {cfg['datasets']['pretrain']['name']}:{cfg['datasets']['pretrain']['split']}")
         print(f"[TRAIN] ASR train dataset: {cfg['datasets']['asr_train']['name']}:{cfg['datasets']['asr_train']['split']}")
         print(f"[TRAIN] ASR valid dataset: {cfg['datasets']['asr_valid']['name']}:{cfg['datasets']['asr_valid']['split']}")

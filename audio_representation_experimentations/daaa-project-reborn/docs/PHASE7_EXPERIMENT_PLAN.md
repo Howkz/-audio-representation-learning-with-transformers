@@ -58,6 +58,12 @@ un pipeline ASR plus conforme au sujet et plus defensable pour le rendu :
   - change uniquement l'intensite de la hidden-state KD
   - objectif : tester si une KD un peu plus forte reduit la sous-emission
 
+- `configs/phase7/hidden_states_underemit_librispeech.yaml`
+  - `P7N01`
+  - repart de `P7C01`
+  - ajoute une contrainte douce contre la sous-emission
+  - objectif : augmenter legerement la densite non-blank sans retomber dans le babbling
+
 - `configs/phase7/hidden_states_aug_librispeech.yaml`
   - `P7A02`
   - repart de `P7C01`
@@ -125,6 +131,12 @@ un pipeline ASR plus conforme au sujet et plus defensable pour le rendu :
     - SpecAugment leger sur log-Mel
   - les splits validation/test restent strictement non augmentes
 
+- Contraintes de densite :
+  - `anti_overemit` penalise une densite non-blank trop elevee
+  - `anti_underemit` penalise une densite non-blank trop basse par rapport a
+    `target_lengths / out_lengths`
+  - la version `P7N01` n'active que `anti_underemit`
+
 ## Commandes
 
 ```bash
@@ -179,6 +191,12 @@ make test CONFIG=configs/phase7/hidden_states_selection_v2_librispeech.yaml
 make data CONFIG=configs/phase7/hidden_states_kd_stronger_librispeech.yaml
 make train CONFIG=configs/phase7/hidden_states_kd_stronger_librispeech.yaml
 make test CONFIG=configs/phase7/hidden_states_kd_stronger_librispeech.yaml
+```
+
+```bash
+make data CONFIG=configs/phase7/hidden_states_underemit_librispeech.yaml
+make train CONFIG=configs/phase7/hidden_states_underemit_librispeech.yaml
+make test CONFIG=configs/phase7/hidden_states_underemit_librispeech.yaml
 ```
 
 ```bash
