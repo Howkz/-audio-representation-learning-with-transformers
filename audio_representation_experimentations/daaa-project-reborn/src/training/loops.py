@@ -168,6 +168,28 @@ def _progress_postfix(
     )
 
 
+def _planned_training_schedule(
+    dataset_size: int,
+    batch_size: int,
+    epochs: int,
+    max_steps: int,
+    stage: str,
+    seed: int,
+) -> Tuple[int, int, int]:
+    steps_per_epoch = max(1, math.ceil(max(0, dataset_size) / max(1, batch_size)))
+    requested_epochs = max(1, int(epochs))
+    requested_max_steps = max(1, int(max_steps))
+    effective_epochs = max(requested_epochs, math.ceil(requested_max_steps / steps_per_epoch))
+    total_steps = min(requested_max_steps, effective_epochs * steps_per_epoch)
+    if effective_epochs > requested_epochs:
+        print(
+            f"[{stage}][WARN] seed={seed} epochs={requested_epochs} insuffisant pour "
+            f"atteindre max_steps={requested_max_steps} avec steps_per_epoch={steps_per_epoch}. "
+            f"Extension automatique à effective_epochs={effective_epochs}."
+        )
+    return steps_per_epoch, total_steps, effective_epochs
+
+
 def _seeded_loader(
     dataset: torch.utils.data.Dataset,
     batch_size: int,
@@ -260,10 +282,13 @@ def run_pretrain_seed(
         lr=float(training_cfg["learning_rate"]),
         weight_decay=float(training_cfg["weight_decay"]),
     )
-    steps_per_epoch = max(1, math.ceil(len(dataset) / int(training_cfg["batch_size"])))
-    total_steps = min(
-        int(training_cfg["max_steps"]),
-        int(training_cfg["epochs"]) * steps_per_epoch,
+    steps_per_epoch, total_steps, effective_epochs = _planned_training_schedule(
+        dataset_size=len(dataset),
+        batch_size=int(training_cfg["batch_size"]),
+        epochs=int(training_cfg["epochs"]),
+        max_steps=int(training_cfg["max_steps"]),
+        stage="PRETRAIN",
+        seed=seed,
     )
     scheduler = _build_scheduler(optimizer, total_steps=total_steps)
     scaler = _build_grad_scaler(device=device, enabled=amp_enabled)
@@ -305,7 +330,7 @@ def run_pretrain_seed(
         mininterval=5.0,
         disable=not use_tqdm,
     )
-    for epoch in range(start_epoch, int(training_cfg["epochs"])):
+    for epoch in range(start_epoch, effective_epochs):
         loader = _seeded_loader(
             dataset=dataset,
             batch_size=int(training_cfg["batch_size"]),
@@ -538,10 +563,13 @@ def run_finetune_seed(
         lr=float(training_cfg["learning_rate"]),
         weight_decay=float(training_cfg["weight_decay"]),
     )
-    steps_per_epoch = max(1, math.ceil(len(train_dataset) / int(training_cfg["batch_size"])))
-    total_steps = min(
-        int(training_cfg["max_steps"]),
-        int(training_cfg["epochs"]) * steps_per_epoch,
+    steps_per_epoch, total_steps, effective_epochs = _planned_training_schedule(
+        dataset_size=len(train_dataset),
+        batch_size=int(training_cfg["batch_size"]),
+        epochs=int(training_cfg["epochs"]),
+        max_steps=int(training_cfg["max_steps"]),
+        stage="FINETUNE",
+        seed=seed,
     )
     scheduler = _build_scheduler(optimizer, total_steps=total_steps)
     scaler = _build_grad_scaler(device=device, enabled=amp_enabled)
@@ -592,7 +620,7 @@ def run_finetune_seed(
         mininterval=5.0,
         disable=not use_tqdm,
     )
-    for epoch in range(start_epoch, int(training_cfg["epochs"])):
+    for epoch in range(start_epoch, effective_epochs):
         loader = _seeded_loader(
             dataset=train_dataset,
             batch_size=int(training_cfg["batch_size"]),
