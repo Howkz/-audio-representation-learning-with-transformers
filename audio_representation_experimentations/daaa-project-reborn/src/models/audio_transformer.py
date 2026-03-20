@@ -12,13 +12,23 @@ def make_mae_mask(
     seq_len: int,
     mask_ratio: float,
     device: torch.device,
+    valid_token_mask: Optional[torch.Tensor] = None,
 ) -> torch.Tensor:
     if not (0.0 < mask_ratio < 1.0):
         raise ValueError("mask_ratio must be in (0, 1).")
-    n_mask = max(1, int(round(seq_len * mask_ratio)))
     mask = torch.zeros((batch_size, seq_len), dtype=torch.bool, device=device)
     for b in range(batch_size):
-        idx = torch.randperm(seq_len, device=device)[:n_mask]
+        if valid_token_mask is not None:
+            valid_idx = torch.nonzero(valid_token_mask[b], as_tuple=False).flatten()
+            if valid_idx.numel() == 0:
+                continue
+            n_mask = max(1, int(round(valid_idx.numel() * mask_ratio)))
+            n_mask = min(n_mask, int(valid_idx.numel()))
+            perm = torch.randperm(valid_idx.numel(), device=device)[:n_mask]
+            idx = valid_idx[perm]
+        else:
+            n_mask = max(1, int(round(seq_len * mask_ratio)))
+            idx = torch.randperm(seq_len, device=device)[:n_mask]
         mask[b, idx] = True
     return mask
 
@@ -52,7 +62,11 @@ class AudioPatchEmbedding(nn.Module):
         self.patch_dim = self.patch_time * self.patch_freq
         self.proj = nn.Linear(self.patch_dim, dim)
 
-    def patchify(self, x_logmel: torch.Tensor) -> Dict[str, Any]:
+    def patchify(
+        self,
+        x_logmel: torch.Tensor,
+        lengths: Optional[torch.Tensor] = None,
+    ) -> Dict[str, Any]:
         if x_logmel.ndim != 3:
             raise ValueError("x_logmel must be [B, T, M].")
         bsz, t_len, n_mels = x_logmel.shape
@@ -83,10 +97,43 @@ class AudioPatchEmbedding(nn.Module):
             "pad_t": pad_t,
             "pad_f": pad_f,
             "t_original": t_len,
+            **self._patch_lengths(
+                lengths=lengths,
+                n_time=n_time,
+                n_freq=n_freq,
+                seq_len=n_time * n_freq,
+                device=x_pad.device,
+            ),
         }
 
-    def forward(self, x_logmel: torch.Tensor) -> Tuple[torch.Tensor, Dict[str, Any]]:
-        patch_info = self.patchify(x_logmel)
+    def _patch_lengths(
+        self,
+        lengths: Optional[torch.Tensor],
+        n_time: int,
+        n_freq: int,
+        seq_len: int,
+        device: torch.device,
+    ) -> Dict[str, Any]:
+        if lengths is None:
+            return {}
+        lengths = lengths.to(device=device, dtype=torch.long)
+        time_token_lengths = torch.div(lengths + (self.patch_time - 1), self.patch_time, rounding_mode="floor")
+        time_token_lengths = torch.clamp(time_token_lengths, min=0, max=n_time)
+        token_lengths = torch.clamp(time_token_lengths * n_freq, min=0, max=seq_len)
+        positions = torch.arange(seq_len, device=device, dtype=torch.long).unsqueeze(0)
+        key_padding_mask = positions >= token_lengths.unsqueeze(1)
+        return {
+            "time_token_lengths": time_token_lengths,
+            "token_lengths": token_lengths,
+            "key_padding_mask": key_padding_mask,
+        }
+
+    def forward(
+        self,
+        x_logmel: torch.Tensor,
+        lengths: Optional[torch.Tensor] = None,
+    ) -> Tuple[torch.Tensor, Dict[str, Any]]:
+        patch_info = self.patchify(x_logmel, lengths=lengths)
         tokens = self.proj(patch_info["patches"])
         return tokens, patch_info
 
@@ -152,18 +199,24 @@ class AudioTransformerEncoder(nn.Module):
     def forward(
         self,
         x_logmel: torch.Tensor,
+        lengths: Optional[torch.Tensor] = None,
         token_mask: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, Dict[str, Any]]:
-        tokens, patch_info = self.patch_embedding(x_logmel)
+        tokens, patch_info = self.patch_embedding(x_logmel, lengths=lengths)
+        key_padding_mask = patch_info.get("key_padding_mask")
         if token_mask is not None:
             if token_mask.shape != tokens.shape[:2]:
                 raise ValueError("token_mask shape mismatch.")
+            if key_padding_mask is not None:
+                token_mask = token_mask & (~key_padding_mask)
             mask_tok = self.mask_token.expand(tokens.shape[0], tokens.shape[1], -1)
             tokens = torch.where(token_mask.unsqueeze(-1), mask_tok, tokens)
         seq_len = tokens.shape[1]
         tokens = tokens + self._position_embedding(seq_len, tokens.device)
-        encoded = self.encoder(tokens)
+        encoded = self.encoder(tokens, src_key_padding_mask=key_padding_mask)
         encoded = self.norm(encoded)
+        if key_padding_mask is not None:
+            encoded = encoded.masked_fill(key_padding_mask.unsqueeze(-1), 0.0)
         return encoded, patch_info
 
 
@@ -198,15 +251,27 @@ class AudioMAEPretrain(nn.Module):
         self,
         x_logmel: torch.Tensor,
         mask: torch.Tensor,
+        lengths: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
-        encoded, patch_info = self.encoder(x_logmel, token_mask=mask)
+        encoded, patch_info = self.encoder(x_logmel, lengths=lengths, token_mask=mask)
         dec_tokens = self.enc_to_dec(encoded)
-        dec_out = self.dec_norm(self.decoder(dec_tokens))
+        dec_out = self.dec_norm(
+            self.decoder(
+                dec_tokens,
+                src_key_padding_mask=patch_info.get("key_padding_mask"),
+            )
+        )
         pred = self.decoder_pred(dec_out)
         target = patch_info["patches"]
+        valid_mask = torch.ones_like(mask, dtype=torch.bool)
+        if patch_info.get("key_padding_mask") is not None:
+            valid_mask = ~patch_info["key_padding_mask"]
 
-        if mask.any():
-            loss = F.mse_loss(pred[mask], target[mask])
+        loss_mask = mask & valid_mask
+        if loss_mask.any():
+            loss = F.mse_loss(pred[loss_mask], target[loss_mask])
+        elif valid_mask.any():
+            loss = F.mse_loss(pred[valid_mask], target[valid_mask])
         else:
             loss = F.mse_loss(pred, target)
         return loss
@@ -228,15 +293,17 @@ class AudioTransformerCTC(nn.Module):
         x_logmel: torch.Tensor,
         lengths: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        encoded, patch_info = self.encoder(x_logmel, token_mask=None)
+        encoded, patch_info = self.encoder(x_logmel, lengths=lengths, token_mask=None)
         bsz = encoded.shape[0]
         n_time = patch_info["n_time"]
         n_freq = patch_info["n_freq"]
         if n_freq > 1:
             encoded = encoded.view(bsz, n_time, n_freq, -1).mean(dim=2)
         logits = self.classifier(self.dropout(encoded))
-        patch_time = self.encoder.patch_embedding.patch_time
-        out_lengths = torch.div(lengths + (patch_time - 1), patch_time, rounding_mode="floor")
+        out_lengths = patch_info.get("time_token_lengths")
+        if out_lengths is None:
+            patch_time = self.encoder.patch_embedding.patch_time
+            out_lengths = torch.div(lengths + (patch_time - 1), patch_time, rounding_mode="floor")
         out_lengths = torch.clamp(out_lengths, max=logits.shape[1])
         return logits, out_lengths
 

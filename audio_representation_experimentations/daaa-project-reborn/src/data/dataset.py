@@ -38,6 +38,7 @@ class AudioPreprocessConfig:
     win_length: int
     hop_length: int
     length_policy: str = "crop_or_pad"
+    feature_norm: str = "none"
 
 
 class InMemoryRowsDataset(TorchDataset):
@@ -190,7 +191,7 @@ class AudioFeatureDataset(TorchDataset):
 
     def __getitem__(self, index: int) -> Dict[str, Any]:
         # Lazy import to let dry-run execute even if audio deps are not installed yet.
-        from .features import apply_length_policy, decode_audio, extract_logmel
+        from .features import apply_length_policy, decode_audio, extract_logmel, normalize_logmel
 
         row = self.ds[index]
         waveform, sr = decode_audio(row["audio"], self.audio_cfg.sample_rate)
@@ -206,6 +207,7 @@ class AudioFeatureDataset(TorchDataset):
             win_length=self.audio_cfg.win_length,
             hop_length=self.audio_cfg.hop_length,
         )
+        logmel = normalize_logmel(logmel, feature_norm=self.audio_cfg.feature_norm)
         item = {
             "x_logmel": logmel,
             "length": int(logmel.shape[0]),
@@ -240,6 +242,7 @@ def build_audio_preprocess_config(
         win_length=int(audio["win_length"]),
         hop_length=int(audio["hop_length"]),
         length_policy=str(length_policy),
+        feature_norm=str(spec.get("feature_norm", audio.get("feature_norm", "none"))),
     )
 
 

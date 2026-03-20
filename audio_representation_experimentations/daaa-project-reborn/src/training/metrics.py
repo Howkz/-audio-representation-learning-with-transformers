@@ -172,3 +172,20 @@ def compute_wer(predictions: Iterable[str], references: Iterable[str]) -> float:
     if total_ref_words == 0:
         return 0.0
     return float(total_errors / total_ref_words)
+
+
+def compute_char_accuracy(predictions: Iterable[str], references: Iterable[str]) -> float:
+    preds = [normalize_transcript(x) for x in predictions]
+    refs = [normalize_transcript(x) for x in references]
+    if len(preds) != len(refs):
+        raise ValueError("Predictions and references must have the same length.")
+
+    total_ref_chars = 0
+    total_errors = 0
+    for pred, ref in zip(preds, refs):
+        ref_chars = list(ref)
+        pred_chars = list(pred)
+        total_ref_chars += max(1, len(ref_chars))
+        total_errors += _levenshtein_distance(ref_chars, pred_chars)
+    accuracy = 1.0 - (float(total_errors) / float(max(1, total_ref_chars)))
+    return float(max(0.0, accuracy))

@@ -173,13 +173,15 @@ def main() -> None:
             per_dataset_metrics.append(metrics)
             print(
                 f"[TEST] seed={seed} dataset={dataset_label} "
-                f"wer={metrics['wer']:.4f} runtime={metrics['inference_runtime_sec']:.2f}s "
+                f"wer={metrics['wer']:.4f} accuracy={metrics['accuracy']:.4f} "
+                f"runtime={metrics['inference_runtime_sec']:.2f}s "
                 f"blank_ratio={metrics['blank_ratio']:.3f} empty_pred_ratio={metrics['empty_pred_ratio']:.3f}"
             )
 
         overall = {
             "seed": float(seed),
             "wer": float(np.mean([m["wer"] for m in per_dataset_metrics])),
+            "accuracy": float(np.mean([m["accuracy"] for m in per_dataset_metrics])),
             "inference_runtime_sec": float(np.mean([m["inference_runtime_sec"] for m in per_dataset_metrics])),
             "inference_samples_per_sec": float(np.mean([m["inference_samples_per_sec"] for m in per_dataset_metrics])),
             "inference_peak_gpu_mem_mb": float(np.max([m["inference_peak_gpu_mem_mb"] for m in per_dataset_metrics])),

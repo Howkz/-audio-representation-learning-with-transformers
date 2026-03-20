@@ -54,7 +54,8 @@ def main() -> None:
             print(
                 f"  - {spec['name']} | config={spec.get('config')} | split={spec['split']} "
                 f"| max={spec.get('max_samples')} | streaming={bool(spec.get('streaming', default_streaming))} "
-                f"| max_duration_sec={local_audio_cfg.max_duration_sec} | length_policy={local_audio_cfg.length_policy}"
+                f"| max_duration_sec={local_audio_cfg.max_duration_sec} | length_policy={local_audio_cfg.length_policy} "
+                f"| feature_norm={local_audio_cfg.feature_norm}"
             )
         return
 
@@ -87,6 +88,7 @@ def main() -> None:
                         "sample_rate": int(local_audio_cfg.sample_rate),
                         "max_duration_sec": None if local_audio_cfg.max_duration_sec is None else float(local_audio_cfg.max_duration_sec),
                         "length_policy": str(local_audio_cfg.length_policy),
+                        "feature_norm": str(local_audio_cfg.feature_norm),
                         "n_mels": int(local_audio_cfg.n_mels),
                         "win_length": int(local_audio_cfg.win_length),
                         "hop_length": int(local_audio_cfg.hop_length),
@@ -97,7 +99,8 @@ def main() -> None:
                 f"[DATA] Planned dataset={dataset_name} config={dataset_config} "
                 f"split={split} max_samples={max_samples} streaming={streaming} "
                 f"max_duration_sec={local_audio_cfg.max_duration_sec} "
-                f"length_policy={local_audio_cfg.length_policy}"
+                f"length_policy={local_audio_cfg.length_policy} "
+                f"feature_norm={local_audio_cfg.feature_norm}"
             )
     else:
         # Import data loader lazily to avoid importing heavy dataset backends
@@ -133,6 +136,7 @@ def main() -> None:
                 "sample_rate": int(local_audio_cfg.sample_rate),
                 "max_duration_sec": None if local_audio_cfg.max_duration_sec is None else float(local_audio_cfg.max_duration_sec),
                 "length_policy": str(local_audio_cfg.length_policy),
+                "feature_norm": str(local_audio_cfg.feature_norm),
                 "n_mels": int(local_audio_cfg.n_mels),
                 "win_length": int(local_audio_cfg.win_length),
                 "hop_length": int(local_audio_cfg.hop_length),
@@ -145,7 +149,8 @@ def main() -> None:
         "experiment": cfg["experiment"]["name"],
         "audio_preprocess": {
             "sample_rate": int(audio_cfg["sample_rate"]),
-            "max_duration_sec": float(audio_cfg["max_duration_sec"]),
+            "max_duration_sec": None if audio_cfg.get("max_duration_sec") is None else float(audio_cfg["max_duration_sec"]),
+            "feature_norm": str(audio_cfg.get("feature_norm", "none")),
             "n_mels": int(audio_cfg["n_mels"]),
             "win_length": int(audio_cfg["win_length"]),
             "hop_length": int(audio_cfg["hop_length"]),

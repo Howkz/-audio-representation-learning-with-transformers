@@ -1,0 +1,103 @@
+experiment:
+  id: "P4D01"
+  name: "phase4_diagnostic_padding_mask"
+  output_dir: "outputs/phase4"
+  results_dir: "results/phase4/experiments/P4D01"
+  cache_dir: "data/cache"
+  processed_dir: "data/processed/phase4/P4D01"
+  checkpoint_every_steps: 150
+  keep_last_checkpoints: 2
+  cleanup_pretrain_checkpoints_after_finetune: false
+  seeds: [42]
+
+audio:
+  sample_rate: 16000
+  max_duration_sec: 6.0
+  length_policy: "crop_or_pad"
+  feature_norm: "utterance"
+  n_mels: 80
+  win_length: 400
+  hop_length: 160
+
+model:
+  dim: 192
+  depth: 4
+  num_heads: 6
+  mlp_ratio: 3.0
+  dropout: 0.1
+  patch_strategy: "time"
+  patch_time: 2
+  patch_freq: 80
+  max_len: 6144
+  pos_embed: "sinusoidal"
+  mae_decoder_dim: 96
+  mae_decoder_depth: 1
+  mae_decoder_heads: 4
+  mae_mask_ratio: 0.6
+
+training:
+  amp: true
+  grad_clip_norm: 1.0
+  log_every_steps: 20
+  pretrain:
+    enabled: false
+    epochs: 1
+    batch_size: 2
+    grad_accum_steps: 4
+    learning_rate: 0.0001
+    weight_decay: 0.01
+    max_steps: 200
+  finetune:
+    epochs: 1
+    batch_size: 1
+    grad_accum_steps: 8
+    learning_rate: 0.0002
+    weight_decay: 0.01
+    max_steps: 600
+
+data:
+  num_workers: 0
+  precompute_feature_cache: false
+  streaming: true
+
+diagnostics:
+  enabled: true
+  max_saved_examples: 16
+  warn_blank_ratio: 0.98
+  warn_empty_pred_ratio: 0.80
+  warn_invalid_length_ratio: 0.00
+
+datasets:
+  pretrain:
+    name: "openslr/librispeech_asr"
+    config: "clean"
+    split: "train.clean.100"
+    max_samples: 1200
+    transcript_key: null
+  asr_train:
+    name: "openslr/librispeech_asr"
+    config: "clean"
+    split: "train.clean.100"
+    max_samples: 1800
+    transcript_key: "text"
+    max_duration_sec: null
+    length_policy: "none"
+    feature_norm: "utterance"
+  asr_valid:
+    name: "openslr/librispeech_asr"
+    config: "clean"
+    split: "validation.clean"
+    max_samples: 300
+    transcript_key: "text"
+    max_duration_sec: null
+    length_policy: "none"
+    feature_norm: "utterance"
+  asr_tests:
+    - name: "openslr/librispeech_asr"
+      config: "clean"
+      split: "test.clean"
+      max_samples: 300
+      transcript_key: "text"
+      max_duration_sec: null
+      length_policy: "none"
+      feature_norm: "utterance"

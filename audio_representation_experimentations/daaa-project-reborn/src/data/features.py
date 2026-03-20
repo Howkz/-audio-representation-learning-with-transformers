@@ -278,3 +278,18 @@ def extract_logmel(
     mel = torch.matmul(fb, power)  # [M, T]
     log_mel = torch.log(torch.clamp(mel, min=1e-6))
     return log_mel.transpose(0, 1).contiguous()  # [T, M]
+
+
+def normalize_logmel(
+    logmel: torch.Tensor,
+    feature_norm: str = "none",
+    eps: float = 1e-5,
+) -> torch.Tensor:
+    mode = str(feature_norm)
+    if mode == "none":
+        return logmel
+    if mode == "utterance":
+        mean = logmel.mean(dim=0, keepdim=True)
+        std = logmel.std(dim=0, keepdim=True, unbiased=False).clamp_min(float(eps))
+        return (logmel - mean) / std
+    raise ValueError(f"Unsupported feature_norm='{feature_norm}'.")

@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
 import torch
-from torch.cuda.amp import GradScaler
+from torch.cuda.amp import GradScaler as LegacyGradScaler
 from torch.nn.utils import clip_grad_norm_
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
@@ -29,6 +29,7 @@ from src.training.checkpointing import (
 )
 from src.training.metrics import (
     collect_ctc_batch_diagnostics,
+    compute_char_accuracy,
     compute_wer,
     finalize_ctc_diagnostics,
 )
@@ -51,6 +52,12 @@ def _autocast_context(device: torch.device, enabled: bool):
     if hasattr(torch, "amp") and hasattr(torch.amp, "autocast"):
         return torch.amp.autocast(device_type=device.type, enabled=enabled)
     return torch.cuda.amp.autocast(enabled=enabled)
+
+
+def _build_grad_scaler(device: torch.device, enabled: bool):
+    if hasattr(torch, "amp") and hasattr(torch.amp, "GradScaler"):
+        return torch.amp.GradScaler(device.type, enabled=enabled)
+    return LegacyGradScaler(enabled=enabled)
 
 
 def _use_tqdm() -> bool:
@@ -235,7 +242,7 @@ def run_pretrain_seed(
         int(training_cfg["epochs"]) * steps_per_epoch,
     )
     scheduler = _build_scheduler(optimizer, total_steps=total_steps)
-    scaler = GradScaler(enabled=amp_enabled)
+    scaler = _build_grad_scaler(device=device, enabled=amp_enabled)
 
     start_epoch = 0
     start_step_in_epoch = 0
@@ -290,18 +297,23 @@ def run_pretrain_seed(
             if epoch == start_epoch and batch_idx < start_step_in_epoch:
                 continue
             x = batch["x_logmel"].to(device, non_blocking=True)
+            lengths = batch["lengths"].to(device, non_blocking=True)
             with torch.no_grad():
-                patch_info = mae.encoder.patch_embedding.patchify(x)
+                patch_info = mae.encoder.patch_embedding.patchify(x, lengths=lengths)
                 seq_len = int(patch_info["patches"].shape[1])
+                valid_token_mask = None
+                if patch_info.get("key_padding_mask") is not None:
+                    valid_token_mask = ~patch_info["key_padding_mask"]
                 mask = make_mae_mask(
                     batch_size=x.shape[0],
                     seq_len=seq_len,
                     mask_ratio=mask_ratio,
                     device=device,
+                    valid_token_mask=valid_token_mask,
                 )
 
             with _autocast_context(device=device, enabled=amp_enabled):
-                loss = mae(x, mask)
+                loss = mae(x, mask, lengths=lengths)
                 loss_scaled = loss / grad_acc
             scaler.scale(loss_scaled).backward()
 
@@ -433,6 +445,7 @@ def evaluate_ctc(
     diagnostic_metrics = finalize_ctc_diagnostics(diagnostic_totals)
     result = {
         "wer": compute_wer(predictions, references),
+        "accuracy": compute_char_accuracy(predictions, references),
         "eval_runtime_sec": float(runtime),
         "eval_samples_per_sec": float(len(references) / runtime),
         "eval_peak_gpu_mem_mb": peak_memory_mb(),
@@ -492,7 +505,7 @@ def run_finetune_seed(
         int(training_cfg["epochs"]) * steps_per_epoch,
     )
     scheduler = _build_scheduler(optimizer, total_steps=total_steps)
-    scaler = GradScaler(enabled=amp_enabled)
+    scaler = _build_grad_scaler(device=device, enabled=amp_enabled)
     ctc_loss_fn = torch.nn.CTCLoss(blank=tokenizer.blank_id, zero_infinity=True)
 
     start_epoch = 0
@@ -641,6 +654,7 @@ def run_finetune_seed(
         current_wer = float(eval_metrics["wer"])
         print(
             f"[VALID] seed={seed} epoch={epoch} wer={current_wer:.4f} "
+            f"accuracy={float(eval_metrics['accuracy']):.4f} "
             f"blank_ratio={float(eval_metrics['blank_ratio']):.3f} "
             f"empty_pred_ratio={float(eval_metrics['empty_pred_ratio']):.3f} "
             f"invalid_length_ratio={float(eval_metrics['invalid_length_ratio']):.3f}"
@@ -667,7 +681,7 @@ def run_finetune_seed(
             global_step=global_step,
             step_in_epoch=0,
             best_metric=best_wer,
-            extra={"valid_wer": current_wer},
+            extra={"valid_wer": current_wer, "valid_accuracy": float(eval_metrics["accuracy"])},
             tag="epoch",
             keep_last_checkpoints=keep_last,
         )
@@ -708,6 +722,7 @@ def run_finetune_seed(
         "eval_peak_gpu_mem_mb": float(eval_peak_gpu_mem_mb),
         "valid_peak_gpu_mem_mb": float(eval_peak_gpu_mem_mb),
         "valid_wer": float(final_valid["wer"]),
+        "valid_accuracy": float(final_valid["accuracy"]),
         "valid_runtime_sec": float(final_valid["eval_runtime_sec"]),
         "valid_samples_per_sec": float(final_valid["eval_samples_per_sec"]),
         "valid_blank_ratio": float(final_valid["blank_ratio"]),
@@ -782,6 +797,7 @@ def evaluate_seed_on_dataset(
         "seed": float(seed),
         "dataset": dataset_label,
         "wer": compute_wer(preds, refs),
+        "accuracy": compute_char_accuracy(preds, refs),
         "inference_runtime_sec": float(runtime),
         "inference_samples_per_sec": float(len(refs) / runtime),
         "inference_peak_gpu_mem_mb": peak_memory_mb(),
