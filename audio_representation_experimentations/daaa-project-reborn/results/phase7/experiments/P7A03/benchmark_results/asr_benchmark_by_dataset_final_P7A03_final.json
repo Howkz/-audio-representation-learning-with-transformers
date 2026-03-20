@@ -1,0 +1,106 @@
+{
+  "metrics": {
+    "openslr/librispeech_asr:test.clean": {
+      "seed": {
+        "mean": 82.5,
+        "std": 40.5
+      },
+      "wer": {
+        "mean": 1.0,
+        "std": 0.0
+      },
+      "accuracy": {
+        "mean": 0.05037614185921546,
+        "std": 0.010881246641590514
+      },
+      "eval_batch_size": {
+        "mean": 1.0,
+        "std": 0.0
+      },
+      "inference_runtime_sec": {
+        "mean": 13.491487503051758,
+        "std": 0.2165677547454834
+      },
+      "inference_samples_per_sec": {
+        "mean": 8.081250752136397,
+        "std": 0.12972167305714422
+      },
+      "inference_peak_gpu_mem_mb": {
+        "mean": 38.103515625,
+        "std": 0.0
+      },
+      "model_total_params": {
+        "mean": 1949405.0,
+        "std": 0.0
+      },
+      "model_trainable_params": {
+        "mean": 1949405.0,
+        "std": 0.0
+      },
+      "blank_ratio": {
+        "mean": 0.20667907693295245,
+        "std": 0.030250024071637197
+      },
+      "empty_pred_ratio": {
+        "mean": 0.0,
+        "std": 0.0
+      },
+      "nonempty_pred_ratio": {
+        "mean": 1.0,
+        "std": 0.0
+      },
+      "exact_match_ratio": {
+        "mean": 0.0,
+        "std": 0.0
+      },
+      "avg_pred_chars": {
+        "mean": 2.7110091743119265,
+        "std": 0.004587155963302836
+      },
+      "avg_ref_chars": {
+        "mean": 28.44954128440367,
+        "std": 0.0
+      },
+      "avg_out_length": {
+        "mean": 285.8440366972477,
+        "std": 0.0
+      },
+      "pred_to_ref_char_ratio": {
+        "mean": 0.09529184134150274,
+        "std": 0.00016123831022250845
+      },
+      "short_pred_ratio": {
+        "mean": 0.9047081586584973,
+        "std": 0.00016123831022252233
+      },
+      "long_pred_ratio": {
+        "mean": 0.0,
+        "std": 0.0
+      },
+      "length_deviation_ratio": {
+        "mean": 0.9047081586584973,
+        "std": 0.00016123831022252233
+      },
+      "adjacent_repeat_ratio": {
+        "mean": 0.6894495412844037,
+        "std": 0.08119266055045876
+      },
+      "dominant_char_ratio": {
+        "mean": 0.996177370030581,
+        "std": 0.003822629969418956
+      },
+      "avg_target_length": {
+        "mean": 34.14678899082569,
+        "std": 0.0
+      },
+      "avg_length_margin": {
+        "mean": 251.69724770642202,
+        "std": 0.0
+      },
+      "invalid_length_ratio": {
+        "mean": 0.0,
+        "std": 0.0
+      }
+    }
+  }
+}

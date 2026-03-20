@@ -1,0 +1,49 @@
+{
+  "model_name": "phase7_hidden_states_depth4_librispeech",
+  "architecture": "Audio Transformer Encoder + CTC",
+  "adaptation_technique": "CTC fine-tune + distillation (external:wav2vec2_ctc)",
+  "runs": {
+    "42": {
+      "seed": 42.0,
+      "wer": 1.0,
+      "accuracy": 0.03949489521762495,
+      "eval_batch_size": 1.0,
+      "inference_runtime_sec": 13.708055257797241,
+      "inference_samples_per_sec": 7.951529079079252,
+      "inference_peak_gpu_mem_mb": 38.103515625,
+      "model_total_params": 1949405.0,
+      "model_trainable_params": 1949405.0,
+      "blank_ratio": 0.23692910100458967,
+      "empty_pred_ratio": 0.0,
+      "nonempty_pred_ratio": 1.0,
+      "pred_to_ref_char_ratio": 0.09545307965172525,
+      "short_pred_ratio": 0.9045469203482748,
+      "invalid_length_ratio": 0.0,
+      "avg_out_length": 285.8440366972477,
+      "avg_target_length": 34.14678899082569,
+      "avg_length_margin": 251.69724770642202,
+      "checkpoint_variant": "final"
+    },
+    "123": {
+      "seed": 123.0,
+      "wer": 1.0,
+      "accuracy": 0.061257388500805976,
+      "eval_batch_size": 1.0,
+      "inference_runtime_sec": 13.274919748306274,
+      "inference_samples_per_sec": 8.21097242519354,
+      "inference_peak_gpu_mem_mb": 38.103515625,
+      "model_total_params": 1949405.0,
+      "model_trainable_params": 1949405.0,
+      "blank_ratio": 0.17642905286131527,
+      "empty_pred_ratio": 0.0,
+      "nonempty_pred_ratio": 1.0,
+      "pred_to_ref_char_ratio": 0.09513060303128024,
+      "short_pred_ratio": 0.9048693969687198,
+      "invalid_length_ratio": 0.0,
+      "avg_out_length": 285.8440366972477,
+      "avg_target_length": 34.14678899082569,
+      "avg_length_margin": 251.69724770642202,
+      "checkpoint_variant": "final"
+    }
+  }
+}
