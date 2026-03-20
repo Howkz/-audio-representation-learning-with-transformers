@@ -83,7 +83,7 @@ evaluation:
 data:
   num_workers: 0
   precompute_feature_cache: false
-  streaming: false
+  streaming: true
   strict_asr_consistency: true
 
 diagnostics:

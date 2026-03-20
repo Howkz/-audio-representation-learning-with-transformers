@@ -10,6 +10,8 @@ un pipeline ASR plus conforme au sujet et plus defensable pour le rendu :
 - LibriSpeech `clean` devient le benchmark critique ;
 - VoxPopuli sort du chemin critique tant que la chaine LibriSpeech n'est pas stabilisee ;
 - le MAE est conserve comme option, mais il n'est plus necessaire a la voie principale.
+- les configs Phase 7 sont reglees en `streaming: true` pour rester compatibles avec
+  un poste local contraint en espace disque.
 
 ## Configs
 
