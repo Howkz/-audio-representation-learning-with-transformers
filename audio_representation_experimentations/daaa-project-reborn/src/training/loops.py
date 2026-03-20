@@ -289,10 +289,10 @@ def _prepare_teacher_forensics(
 def _write_json_artifacts(
     primary_path: Optional[Path],
     payload: Dict[str, Any],
-    extra_paths: Sequence[Path] = (),
+    extra_artifact_paths: Sequence[Path] = (),
 ) -> None:
     seen: set[str] = set()
-    for path in [primary_path, *list(extra_paths)]:
+    for path in [primary_path, *list(extra_artifact_paths)]:
         if path is None:
             continue
         key = str(path)
