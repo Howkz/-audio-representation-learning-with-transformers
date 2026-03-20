@@ -1,0 +1,35 @@
+{
+  "model_name": "phase3_corrective_no_mae",
+  "architecture": "Audio Transformer Encoder + CTC",
+  "adaptation_technique": "CTC fine-tune only (no MAE)",
+  "runs": {
+    "42": {
+      "seed": 42.0,
+      "wer": 1.0,
+      "inference_runtime_sec": 32.25918984413147,
+      "inference_samples_per_sec": 9.29967557925437,
+      "inference_peak_gpu_mem_mb": 34.482421875,
+      "blank_ratio": 0.0,
+      "empty_pred_ratio": 0.0,
+      "nonempty_pred_ratio": 1.0,
+      "invalid_length_ratio": 0.0,
+      "avg_out_length": 389.97,
+      "avg_target_length": 115.85666666666667,
+      "avg_length_margin": 274.11333333333334
+    },
+    "123": {
+      "seed": 123.0,
+      "wer": 1.0,
+      "inference_runtime_sec": 37.11728262901306,
+      "inference_samples_per_sec": 8.082488230577049,
+      "inference_peak_gpu_mem_mb": 34.482421875,
+      "blank_ratio": 1.0,
+      "empty_pred_ratio": 1.0,
+      "nonempty_pred_ratio": 0.0,
+      "invalid_length_ratio": 0.0,
+      "avg_out_length": 389.97,
+      "avg_target_length": 115.85666666666667,
+      "avg_length_margin": 274.11333333333334
+    }
+  }
+}

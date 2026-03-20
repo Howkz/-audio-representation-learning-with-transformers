@@ -1,0 +1,157 @@
+{
+  "model_name": "phase3_corrective_no_mae",
+  "architecture": "Audio Transformer Encoder + CTC",
+  "adaptation_technique": "CTC fine-tune only (no MAE)",
+  "runs": {
+    "42": {
+      "train_loss": 5.282050764220101,
+      "train_runtime_sec": 177.86722445487976,
+      "train_peak_gpu_mem_mb": 77.3193359375,
+      "train_invalid_length_ratio": 0.0,
+      "train_avg_out_length": 642.77,
+      "train_avg_target_length": 188.66285714285715,
+      "train_avg_length_margin": 454.10714285714283,
+      "eval_peak_gpu_mem_mb": 52.8056640625,
+      "valid_peak_gpu_mem_mb": 52.8056640625,
+      "valid_wer": 1.0,
+      "valid_runtime_sec": 46.96208596229553,
+      "valid_samples_per_sec": 8.51750921628882,
+      "valid_blank_ratio": 0.0,
+      "valid_empty_pred_ratio": 0.0,
+      "valid_nonempty_pred_ratio": 1.0,
+      "valid_invalid_length_ratio": 0.0,
+      "valid_avg_out_length": 320.5875,
+      "valid_avg_target_length": 100.725,
+      "valid_avg_length_margin": 219.8625,
+      "valid_exact_match_ratio": 0.0,
+      "best_valid_wer": 1.0,
+      "finetune_total_params": 1520861.0,
+      "finetune_trainable_params": 1520861.0,
+      "seed": 42.0
+    },
+    "123": {
+      "train_loss": 3.1669922389302934,
+      "train_runtime_sec": 177.85246801376343,
+      "train_peak_gpu_mem_mb": 77.37451171875,
+      "train_invalid_length_ratio": 0.0,
+      "train_avg_out_length": 655.88,
+      "train_avg_target_length": 192.49,
+      "train_avg_length_margin": 463.39,
+      "eval_peak_gpu_mem_mb": 53.0244140625,
+      "valid_peak_gpu_mem_mb": 53.0244140625,
+      "valid_wer": 1.0,
+      "valid_runtime_sec": 47.61399292945862,
+      "valid_samples_per_sec": 8.400891741900548,
+      "valid_blank_ratio": 1.0,
+      "valid_empty_pred_ratio": 1.0,
+      "valid_nonempty_pred_ratio": 0.0,
+      "valid_invalid_length_ratio": 0.0,
+      "valid_avg_out_length": 320.5875,
+      "valid_avg_target_length": 100.725,
+      "valid_avg_length_margin": 219.8625,
+      "valid_exact_match_ratio": 0.0,
+      "best_valid_wer": 1.0,
+      "finetune_total_params": 1520861.0,
+      "finetune_trainable_params": 1520861.0,
+      "seed": 123.0
+    }
+  },
+  "metrics": {
+    "train_loss": {
+      "mean": 4.224521501575198,
+      "std": 1.057529262644904
+    },
+    "train_runtime_sec": {
+      "mean": 177.8598462343216,
+      "std": 0.007378220558166504
+    },
+    "train_peak_gpu_mem_mb": {
+      "mean": 77.346923828125,
+      "std": 0.027587890625
+    },
+    "train_invalid_length_ratio": {
+      "mean": 0.0,
+      "std": 0.0
+    },
+    "train_avg_out_length": {
+      "mean": 649.325,
+      "std": 6.555000000000007
+    },
+    "train_avg_target_length": {
+      "mean": 190.57642857142858,
+      "std": 1.91357142857143
+    },
+    "train_avg_length_margin": {
+      "mean": 458.7485714285714,
+      "std": 4.641428571428577
+    },
+    "eval_peak_gpu_mem_mb": {
+      "mean": 52.9150390625,
+      "std": 0.109375
+    },
+    "valid_peak_gpu_mem_mb": {
+      "mean": 52.9150390625,
+      "std": 0.109375
+    },
+    "valid_wer": {
+      "mean": 1.0,
+      "std": 0.0
+    },
+    "valid_runtime_sec": {
+      "mean": 47.288039445877075,
+      "std": 0.32595348358154297
+    },
+    "valid_samples_per_sec": {
+      "mean": 8.459200479094683,
+      "std": 0.058308737194136206
+    },
+    "valid_blank_ratio": {
+      "mean": 0.5,
+      "std": 0.5
+    },
+    "valid_empty_pred_ratio": {
+      "mean": 0.5,
+      "std": 0.5
+    },
+    "valid_nonempty_pred_ratio": {
+      "mean": 0.5,
+      "std": 0.5
+    },
+    "valid_invalid_length_ratio": {
+      "mean": 0.0,
+      "std": 0.0
+    },
+    "valid_avg_out_length": {
+      "mean": 320.5875,
+      "std": 0.0
+    },
+    "valid_avg_target_length": {
+      "mean": 100.725,
+      "std": 0.0
+    },
+    "valid_avg_length_margin": {
+      "mean": 219.8625,
+      "std": 0.0
+    },
+    "valid_exact_match_ratio": {
+      "mean": 0.0,
+      "std": 0.0
+    },
+    "best_valid_wer": {
+      "mean": 1.0,
+      "std": 0.0
+    },
+    "finetune_total_params": {
+      "mean": 1520861.0,
+      "std": 0.0
+    },
+    "finetune_trainable_params": {
+      "mean": 1520861.0,
+      "std": 0.0
+    },
+    "seed": {
+      "mean": 82.5,
+      "std": 40.5
+    }
+  }
+}

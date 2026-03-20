@@ -1,0 +1,187 @@
+{
+  "model_name": "phase3_corrective_mae",
+  "architecture": "Audio Transformer Encoder + CTC",
+  "adaptation_technique": "MAE pretrain -> CTC fine-tune",
+  "runs": {
+    "42": {
+      "pretrain_loss": 46.09656443962684,
+      "pretrain_runtime_sec": 60.8858962059021,
+      "pretrain_peak_gpu_mem_mb": 72.78173828125,
+      "pretrain_total_params": 1661344.0,
+      "pretrain_trainable_params": 1661344.0,
+      "train_loss": 3.1505597134998866,
+      "train_runtime_sec": 175.82445573806763,
+      "train_peak_gpu_mem_mb": 77.3193359375,
+      "train_invalid_length_ratio": 0.0,
+      "train_avg_out_length": 642.77,
+      "train_avg_target_length": 188.66285714285715,
+      "train_avg_length_margin": 454.10714285714283,
+      "eval_peak_gpu_mem_mb": 52.8056640625,
+      "valid_peak_gpu_mem_mb": 52.8056640625,
+      "valid_wer": 1.0,
+      "valid_runtime_sec": 47.71464967727661,
+      "valid_samples_per_sec": 8.383169586394219,
+      "valid_blank_ratio": 1.0,
+      "valid_empty_pred_ratio": 1.0,
+      "valid_nonempty_pred_ratio": 0.0,
+      "valid_invalid_length_ratio": 0.0,
+      "valid_avg_out_length": 320.5875,
+      "valid_avg_target_length": 100.725,
+      "valid_avg_length_margin": 219.8625,
+      "valid_exact_match_ratio": 0.0,
+      "best_valid_wer": 1.0,
+      "finetune_total_params": 1520861.0,
+      "finetune_trainable_params": 1520861.0,
+      "seed": 42.0
+    },
+    "123": {
+      "pretrain_loss": 45.93555982296284,
+      "pretrain_runtime_sec": 62.714882135391235,
+      "pretrain_peak_gpu_mem_mb": 72.78173828125,
+      "pretrain_total_params": 1661344.0,
+      "pretrain_trainable_params": 1661344.0,
+      "train_loss": 3.744572575092316,
+      "train_runtime_sec": 177.82669734954834,
+      "train_peak_gpu_mem_mb": 77.37451171875,
+      "train_invalid_length_ratio": 0.0,
+      "train_avg_out_length": 655.88,
+      "train_avg_target_length": 192.49,
+      "train_avg_length_margin": 463.39,
+      "eval_peak_gpu_mem_mb": 53.0244140625,
+      "valid_peak_gpu_mem_mb": 53.0244140625,
+      "valid_wer": 1.0,
+      "valid_runtime_sec": 46.125553369522095,
+      "valid_samples_per_sec": 8.671982681606242,
+      "valid_blank_ratio": 0.24170468280890553,
+      "valid_empty_pred_ratio": 0.9975,
+      "valid_nonempty_pred_ratio": 0.0024999999999999467,
+      "valid_invalid_length_ratio": 0.0,
+      "valid_avg_out_length": 320.5875,
+      "valid_avg_target_length": 100.725,
+      "valid_avg_length_margin": 219.8625,
+      "valid_exact_match_ratio": 0.0,
+      "best_valid_wer": 1.0,
+      "finetune_total_params": 1520861.0,
+      "finetune_trainable_params": 1520861.0,
+      "seed": 123.0
+    }
+  },
+  "metrics": {
+    "pretrain_loss": {
+      "mean": 46.01606213129484,
+      "std": 0.0805023083320009
+    },
+    "pretrain_runtime_sec": {
+      "mean": 61.80038917064667,
+      "std": 0.9144929647445679
+    },
+    "pretrain_peak_gpu_mem_mb": {
+      "mean": 72.78173828125,
+      "std": 0.0
+    },
+    "pretrain_total_params": {
+      "mean": 1661344.0,
+      "std": 0.0
+    },
+    "pretrain_trainable_params": {
+      "mean": 1661344.0,
+      "std": 0.0
+    },
+    "train_loss": {
+      "mean": 3.4475661442961014,
+      "std": 0.2970064307962146
+    },
+    "train_runtime_sec": {
+      "mean": 176.82557654380798,
+      "std": 1.0011208057403564
+    },
+    "train_peak_gpu_mem_mb": {
+      "mean": 77.346923828125,
+      "std": 0.027587890625
+    },
+    "train_invalid_length_ratio": {
+      "mean": 0.0,
+      "std": 0.0
+    },
+    "train_avg_out_length": {
+      "mean": 649.325,
+      "std": 6.555000000000007
+    },
+    "train_avg_target_length": {
+      "mean": 190.57642857142858,
+      "std": 1.91357142857143
+    },
+    "train_avg_length_margin": {
+      "mean": 458.7485714285714,
+      "std": 4.641428571428577
+    },
+    "eval_peak_gpu_mem_mb": {
+      "mean": 52.9150390625,
+      "std": 0.109375
+    },
+    "valid_peak_gpu_mem_mb": {
+      "mean": 52.9150390625,
+      "std": 0.109375
+    },
+    "valid_wer": {
+      "mean": 1.0,
+      "std": 0.0
+    },
+    "valid_runtime_sec": {
+      "mean": 46.92010152339935,
+      "std": 0.7945481538772583
+    },
+    "valid_samples_per_sec": {
+      "mean": 8.527576134000231,
+      "std": 0.14440654760601124
+    },
+    "valid_blank_ratio": {
+      "mean": 0.6208523414044528,
+      "std": 0.3791476585955472
+    },
+    "valid_empty_pred_ratio": {
+      "mean": 0.99875,
+      "std": 0.0012499999999999734
+    },
+    "valid_nonempty_pred_ratio": {
+      "mean": 0.0012499999999999734,
+      "std": 0.0012499999999999734
+    },
+    "valid_invalid_length_ratio": {
+      "mean": 0.0,
+      "std": 0.0
+    },
+    "valid_avg_out_length": {
+      "mean": 320.5875,
+      "std": 0.0
+    },
+    "valid_avg_target_length": {
+      "mean": 100.725,
+      "std": 0.0
+    },
+    "valid_avg_length_margin": {
+      "mean": 219.8625,
+      "std": 0.0
+    },
+    "valid_exact_match_ratio": {
+      "mean": 0.0,
+      "std": 0.0
+    },
+    "best_valid_wer": {
+      "mean": 1.0,
+      "std": 0.0
+    },
+    "finetune_total_params": {
+      "mean": 1520861.0,
+      "std": 0.0
+    },
+    "finetune_trainable_params": {
+      "mean": 1520861.0,
+      "std": 0.0
+    },
+    "seed": {
+      "mean": 82.5,
+      "std": 40.5
+    }
+  }
+}
