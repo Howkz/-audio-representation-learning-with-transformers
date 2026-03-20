@@ -4,11 +4,11 @@
   "adaptation_technique": "CTC fine-tune + distillation (external:wav2vec2_ctc)",
   "runs": {
     "42": {
-      "train_loss": 7.61206090482076,
-      "train_ctc_loss": 3.476998961766561,
-      "train_kd_loss": 5.513415915489197,
+      "train_loss": 7.612044681866964,
+      "train_ctc_loss": 3.476984125296275,
+      "train_kd_loss": 5.513414063453674,
       "distillation_enabled": 1.0,
-      "train_runtime_sec": 386.54752230644226,
+      "train_runtime_sec": 372.9727420806885,
       "train_peak_gpu_mem_mb": 663.50732421875,
       "train_invalid_length_ratio": 0.0,
       "train_avg_out_length": 311.496,
@@ -19,8 +19,8 @@
       "valid_peak_gpu_mem_mb": 435.3359375,
       "valid_wer": 1.0,
       "valid_accuracy": 0.0005527915975677145,
-      "valid_runtime_sec": 11.658670425415039,
-      "valid_samples_per_sec": 8.57730739021556,
+      "valid_runtime_sec": 11.797107696533203,
+      "valid_samples_per_sec": 8.476653987772515,
       "valid_blank_ratio": 0.9996741609644836,
       "valid_empty_pred_ratio": 0.99,
       "valid_nonempty_pred_ratio": 0.010000000000000009,
@@ -39,11 +39,11 @@
       "seed": 42.0
     },
     "123": {
-      "train_loss": 8.325964763005574,
-      "train_ctc_loss": 3.9611451552708945,
-      "train_kd_loss": 5.819759484767914,
+      "train_loss": 8.325964804649352,
+      "train_ctc_loss": 3.961146671295166,
+      "train_kd_loss": 5.819757513682047,
       "distillation_enabled": 1.0,
-      "train_runtime_sec": 387.24085426330566,
+      "train_runtime_sec": 369.98297595977783,
       "train_peak_gpu_mem_mb": 684.96337890625,
       "train_invalid_length_ratio": 0.0,
       "train_avg_out_length": 311.02066666666667,
@@ -54,8 +54,8 @@
       "valid_peak_gpu_mem_mb": 455.12158203125,
       "valid_wer": 1.0,
       "valid_accuracy": 0.00027639579878391274,
-      "valid_runtime_sec": 11.171656131744385,
-      "valid_samples_per_sec": 8.951224314526554,
+      "valid_runtime_sec": 11.39391040802002,
+      "valid_samples_per_sec": 8.776618072195069,
       "valid_blank_ratio": 0.9999637956627204,
       "valid_empty_pred_ratio": 0.99,
       "valid_nonempty_pred_ratio": 0.010000000000000009,
@@ -76,24 +76,24 @@
   },
   "metrics": {
     "train_loss": {
-      "mean": 7.969012833913167,
-      "std": 0.356951929092407
+      "mean": 7.969004743258158,
+      "std": 0.3569600613911943
     },
     "train_ctc_loss": {
-      "mean": 3.719072058518728,
-      "std": 0.2420730967521667
+      "mean": 3.7190653982957205,
+      "std": 0.24208127299944548
     },
     "train_kd_loss": {
-      "mean": 5.666587700128556,
-      "std": 0.15317178463935877
+      "mean": 5.666585788567861,
+      "std": 0.15317172511418642
     },
     "distillation_enabled": {
       "mean": 1.0,
       "std": 0.0
     },
     "train_runtime_sec": {
-      "mean": 386.89418828487396,
-      "std": 0.34666597843170166
+      "mean": 371.47785902023315,
+      "std": 1.4948830604553223
     },
     "train_peak_gpu_mem_mb": {
       "mean": 674.2353515625,
@@ -136,12 +136,12 @@
       "std": 0.00013819789939190086
     },
     "valid_runtime_sec": {
-      "mean": 11.415163278579712,
-      "std": 0.24350714683532715
+      "mean": 11.595509052276611,
+      "std": 0.2015986442565918
     },
     "valid_samples_per_sec": {
-      "mean": 8.764265852371057,
-      "std": 0.18695846215549672
+      "mean": 8.626636029983793,
+      "std": 0.14998204221127676
     },
     "valid_blank_ratio": {
       "mean": 0.999818978313602,

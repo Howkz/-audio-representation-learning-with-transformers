@@ -5,8 +5,8 @@
   "metrics": {
     "wer": 1.0,
     "accuracy": 0.0,
-    "eval_runtime_sec": 1.5094518661499023,
-    "eval_samples_per_sec": 7.949905703590213,
+    "eval_runtime_sec": 1.162205696105957,
+    "eval_samples_per_sec": 10.325194619340408,
     "eval_peak_gpu_mem_mb": 411.2724609375,
     "blank_ratio": 1.0,
     "empty_pred_ratio": 1.0,

@@ -8,7 +8,7 @@
       "train_ctc_loss": 4.720369909286499,
       "train_kd_loss": 5.889990105628967,
       "distillation_enabled": 1.0,
-      "train_runtime_sec": 68.10387134552002,
+      "train_runtime_sec": 62.83341073989868,
       "train_peak_gpu_mem_mb": 608.72119140625,
       "train_invalid_length_ratio": 0.0,
       "train_avg_out_length": 240.488,
@@ -19,8 +19,8 @@
       "valid_peak_gpu_mem_mb": 411.421875,
       "valid_wer": 1.0,
       "valid_accuracy": 0.0,
-      "valid_runtime_sec": 1.2879486083984375,
-      "valid_samples_per_sec": 9.317141943203763,
+      "valid_runtime_sec": 1.4263057708740234,
+      "valid_samples_per_sec": 8.413343229093535,
       "valid_blank_ratio": 1.0,
       "valid_empty_pred_ratio": 1.0,
       "valid_nonempty_pred_ratio": 0.0,
@@ -57,7 +57,7 @@
       "std": 0.0
     },
     "train_runtime_sec": {
-      "mean": 68.10387134552002,
+      "mean": 62.83341073989868,
       "std": 0.0
     },
     "train_peak_gpu_mem_mb": {
@@ -101,11 +101,11 @@
       "std": 0.0
     },
     "valid_runtime_sec": {
-      "mean": 1.2879486083984375,
+      "mean": 1.4263057708740234,
       "std": 0.0
     },
     "valid_samples_per_sec": {
-      "mean": 9.317141943203763,
+      "mean": 8.413343229093535,
       "std": 0.0
     },
     "valid_blank_ratio": {
