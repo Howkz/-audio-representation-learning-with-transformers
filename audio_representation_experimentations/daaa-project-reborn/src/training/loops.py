@@ -117,6 +117,19 @@ def _maybe_warn_ctc(stage: str, metrics: Dict[str, Any], cfg: Dict[str, Any]) ->
         )
 
 
+def _checkpoint_selection_score(metrics: Dict[str, Any], cfg: Dict[str, Any]) -> float:
+    selection_cfg = cfg.get("checkpoint_selection", {})
+    if not isinstance(selection_cfg, dict):
+        selection_cfg = {}
+    empty_penalty = float(selection_cfg.get("empty_pred_penalty", 1.0))
+    blank_penalty = float(selection_cfg.get("blank_ratio_penalty", 0.0))
+    return (
+        float(metrics["wer"])
+        + empty_penalty * float(metrics.get("empty_pred_ratio", 0.0))
+        + blank_penalty * float(metrics.get("blank_ratio", 0.0))
+    )
+
+
 def _progress_speed_line(
     stage: str,
     seed: int,
@@ -579,14 +592,25 @@ def run_finetune_seed(
     start_step_in_epoch = 0
     global_step = 0
     best_wer: Optional[float] = None
+    best_score: Optional[float] = None
+    best_empty_pred_ratio: Optional[float] = None
     latest = find_latest_checkpoint(out_root) if force_continue_completed else None
     if latest is not None:
         payload = load_checkpoint(latest, model, optimizer, scheduler, scaler, map_location=device)
         start_epoch = int(payload["epoch"])
         start_step_in_epoch = int(payload["step_in_epoch"])
         global_step = int(payload["global_step"])
-        if payload.get("best_metric") is not None:
+        payload_extra = payload.get("extra") or {}
+        if payload_extra.get("best_valid_wer") is not None:
+            best_wer = float(payload_extra["best_valid_wer"])
+        elif payload.get("best_metric") is not None:
             best_wer = float(payload["best_metric"])
+        if payload_extra.get("best_selection_score") is not None:
+            best_score = float(payload_extra["best_selection_score"])
+        elif payload.get("best_metric") is not None:
+            best_score = float(payload["best_metric"])
+        if payload_extra.get("best_valid_empty_pred_ratio") is not None:
+            best_empty_pred_ratio = float(payload_extra["best_valid_empty_pred_ratio"])
 
     num_workers = int(cfg["data"]["num_workers"])
     grad_acc = int(training_cfg["grad_accum_steps"])
@@ -700,7 +724,7 @@ def run_finetune_seed(
                     epoch=epoch,
                     global_step=global_step,
                     step_in_epoch=batch_idx + 1,
-                    best_metric=best_wer,
+                    best_metric=best_score,
                     tag="step",
                     keep_last_checkpoints=keep_last,
                 )
@@ -732,21 +756,38 @@ def run_finetune_seed(
         )
         eval_peak_gpu_mem_mb = max(eval_peak_gpu_mem_mb, float(eval_metrics["eval_peak_gpu_mem_mb"]))
         current_wer = float(eval_metrics["wer"])
+        current_score = _checkpoint_selection_score(eval_metrics, cfg)
         print(
             f"[VALID] seed={seed} epoch={epoch} wer={current_wer:.4f} "
             f"accuracy={float(eval_metrics['accuracy']):.4f} "
             f"blank_ratio={float(eval_metrics['blank_ratio']):.3f} "
             f"empty_pred_ratio={float(eval_metrics['empty_pred_ratio']):.3f} "
-            f"invalid_length_ratio={float(eval_metrics['invalid_length_ratio']):.3f}"
+            f"invalid_length_ratio={float(eval_metrics['invalid_length_ratio']):.3f} "
+            f"selection_score={current_score:.4f}"
         )
         _maybe_warn_ctc(stage="VALID", metrics=eval_metrics, cfg=cfg)
-        if best_wer is None or current_wer < best_wer:
+        if (
+            best_score is None
+            or current_score < best_score
+            or (
+                math.isclose(current_score, best_score, rel_tol=0.0, abs_tol=1e-12)
+                and (best_wer is None or current_wer < best_wer)
+            )
+        ):
             best_wer = current_wer
+            best_score = current_score
+            best_empty_pred_ratio = float(eval_metrics["empty_pred_ratio"])
             torch.save(
                 {
                     "model_state_dict": model.state_dict(),
                     "vocab_size": tokenizer.vocab_size,
                     "blank_id": tokenizer.blank_id,
+                    "selection_score": float(current_score),
+                    "selection_components": {
+                        "wer": float(current_wer),
+                        "empty_pred_ratio": float(eval_metrics["empty_pred_ratio"]),
+                        "blank_ratio": float(eval_metrics["blank_ratio"]),
+                    },
                 },
                 out_root / "ctc_best.pt",
             )
@@ -760,8 +801,18 @@ def run_finetune_seed(
             epoch=epoch + 1,
             global_step=global_step,
             step_in_epoch=0,
-            best_metric=best_wer,
-            extra={"valid_wer": current_wer, "valid_accuracy": float(eval_metrics["accuracy"])},
+            best_metric=best_score,
+            extra={
+                "valid_wer": current_wer,
+                "valid_accuracy": float(eval_metrics["accuracy"]),
+                "valid_empty_pred_ratio": float(eval_metrics["empty_pred_ratio"]),
+                "valid_selection_score": float(current_score),
+                "best_valid_wer": None if best_wer is None else float(best_wer),
+                "best_valid_empty_pred_ratio": (
+                    None if best_empty_pred_ratio is None else float(best_empty_pred_ratio)
+                ),
+                "best_selection_score": None if best_score is None else float(best_score),
+            },
             tag="epoch",
             keep_last_checkpoints=keep_last,
         )
@@ -793,6 +844,7 @@ def run_finetune_seed(
     )
     eval_peak_gpu_mem_mb = max(eval_peak_gpu_mem_mb, float(final_valid["eval_peak_gpu_mem_mb"]))
     _maybe_warn_ctc(stage="VALID-FINAL", metrics=final_valid, cfg=cfg)
+    final_valid_score = _checkpoint_selection_score(final_valid, cfg)
     metrics = {
         "train_loss": float(running_loss / max(1, running_count)),
         "train_runtime_sec": float(time.time() - train_start_ts),
@@ -815,7 +867,12 @@ def run_finetune_seed(
         "valid_avg_target_length": float(final_valid["avg_target_length"]),
         "valid_avg_length_margin": float(final_valid["avg_length_margin"]),
         "valid_exact_match_ratio": float(final_valid["exact_match_ratio"]),
+        "valid_selection_score": float(final_valid_score),
         "best_valid_wer": float(best_wer if best_wer is not None else final_valid["wer"]),
+        "best_valid_score": float(best_score if best_score is not None else final_valid_score),
+        "best_valid_empty_pred_ratio": float(
+            best_empty_pred_ratio if best_empty_pred_ratio is not None else final_valid["empty_pred_ratio"]
+        ),
         **{f"finetune_{k}_params": float(v) for k, v in count_parameters(model).items()},
     }
     return final_model, metrics

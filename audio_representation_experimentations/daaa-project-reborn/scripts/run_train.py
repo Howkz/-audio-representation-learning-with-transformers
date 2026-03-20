@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import json
 import sys
 from pathlib import Path
 
@@ -45,6 +46,16 @@ def _clear_cuda_cache() -> None:
             torch.cuda.empty_cache()
     except Exception:
         return
+
+
+def _finetune_seed_completed(cfg, seed: int) -> bool:
+    root = Path(cfg["experiment"]["output_dir"]) / "checkpoints"
+    exp_id = cfg["experiment"].get("id")
+    if exp_id:
+        root = root / str(exp_id)
+    run_completed = root / "finetune" / f"seed_{seed}" / "run_completed.txt"
+    final_model = root / "finetune" / f"seed_{seed}" / "ctc_final.pt"
+    return run_completed.exists() and final_model.exists()
 
 
 def main() -> None:
@@ -97,6 +108,17 @@ def main() -> None:
     partial_path = benchmark_dir / f"train_audio_transformer{filename_suffix}_partial.json"
     final_path = benchmark_dir / f"train_audio_transformer{filename_suffix}_final.json"
     pretrain_enabled = bool(cfg["training"]["pretrain"].get("enabled", True))
+
+    if (not args.continue_completed) and all(_finetune_seed_completed(cfg, int(seed)) for seed in cfg["experiment"]["seeds"]):
+        print("[TRAIN] Tous les seeds sont déjà marqués comme terminés.")
+        print("[TRAIN] Aucun entraînement ne sera relancé. Supprimer outputs/results pour repartir de zéro.")
+        if final_path.exists():
+            with open(final_path, "r", encoding="utf-8") as handle:
+                final_data = json.load(handle)
+            print(f"[TRAIN] Final metric keys: {list(final_data.get('metrics', {}).keys())}")
+        else:
+            print(f"[TRAIN] Fichier final absent: {final_path}")
+        return
 
     print(f"[TRAIN] Experiment id: {exp_id if exp_id else 'N/A'}")
     print(f"[TRAIN] Pretraining enabled: {pretrain_enabled}")
