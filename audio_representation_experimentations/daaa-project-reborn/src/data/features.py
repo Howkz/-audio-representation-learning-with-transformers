@@ -219,6 +219,32 @@ def crop_or_pad(waveform: torch.Tensor, target_num_samples: int) -> torch.Tensor
     return waveform
 
 
+def pad_to_length(waveform: torch.Tensor, target_num_samples: int) -> torch.Tensor:
+    current = waveform.shape[-1]
+    if current < target_num_samples:
+        pad = target_num_samples - current
+        waveform = torch.nn.functional.pad(waveform, (0, pad))
+    return waveform
+
+
+def apply_length_policy(
+    waveform: torch.Tensor,
+    target_num_samples: int | None,
+    length_policy: str = "crop_or_pad",
+) -> torch.Tensor:
+    if target_num_samples is None or str(length_policy) == "none":
+        return waveform
+    if target_num_samples <= 0:
+        raise ValueError("target_num_samples must be > 0 when a length policy is active.")
+
+    policy = str(length_policy)
+    if policy == "crop_or_pad":
+        return crop_or_pad(waveform, int(target_num_samples))
+    if policy == "pad_only":
+        return pad_to_length(waveform, int(target_num_samples))
+    raise ValueError(f"Unsupported length_policy='{length_policy}'.")
+
+
 def extract_logmel(
     waveform: torch.Tensor,
     sr: int,

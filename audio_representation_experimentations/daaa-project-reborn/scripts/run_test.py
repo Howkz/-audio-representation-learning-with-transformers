@@ -113,14 +113,17 @@ def main() -> None:
         )
         return AudioFeatureDataset(ds, audio_cfg=local_audio_cfg, transcript_key=spec.get("transcript_key"))
 
-    audio_cfg = build_audio_preprocess_config(cfg)
     tokenizer = CharCTCTokenizer()
 
     tests = cfg["datasets"]["asr_tests"]
     test_datasets = {}
     for spec in tests:
         dataset_label = f"{spec['name']}:{spec['split']}"
-        test_datasets[dataset_label] = _load_audio_dataset(cfg, spec, audio_cfg)
+        test_datasets[dataset_label] = _load_audio_dataset(
+            cfg,
+            spec,
+            build_audio_preprocess_config(cfg, spec),
+        )
         print(f"[TEST] Loaded {dataset_label} with {len(test_datasets[dataset_label])} samples.")
 
     exp_id = cfg["experiment"].get("id")

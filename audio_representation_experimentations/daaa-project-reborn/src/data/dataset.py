@@ -33,10 +33,11 @@ TRANSCRIPT_CANDIDATES = [
 @dataclass
 class AudioPreprocessConfig:
     sample_rate: int
-    max_duration_sec: float
+    max_duration_sec: Optional[float]
     n_mels: int
     win_length: int
     hop_length: int
+    length_policy: str = "crop_or_pad"
 
 
 class InMemoryRowsDataset(TorchDataset):
@@ -178,18 +179,26 @@ class AudioFeatureDataset(TorchDataset):
         self.audio_cfg = audio_cfg
         sample = hf_dataset[0] if len(hf_dataset) > 0 else {}
         self.transcript_key = resolve_transcript_key(sample, transcript_key)
-        self.max_samples = int(audio_cfg.sample_rate * audio_cfg.max_duration_sec)
+        self.max_samples = (
+            int(audio_cfg.sample_rate * float(audio_cfg.max_duration_sec))
+            if audio_cfg.max_duration_sec is not None
+            else None
+        )
 
     def __len__(self) -> int:
         return len(self.ds)
 
     def __getitem__(self, index: int) -> Dict[str, Any]:
         # Lazy import to let dry-run execute even if audio deps are not installed yet.
-        from .features import crop_or_pad, decode_audio, extract_logmel
+        from .features import apply_length_policy, decode_audio, extract_logmel
 
         row = self.ds[index]
         waveform, sr = decode_audio(row["audio"], self.audio_cfg.sample_rate)
-        waveform = crop_or_pad(waveform, self.max_samples)
+        waveform = apply_length_policy(
+            waveform,
+            target_num_samples=self.max_samples,
+            length_policy=self.audio_cfg.length_policy,
+        )
         logmel = extract_logmel(
             waveform=waveform,
             sr=sr,
@@ -216,14 +225,21 @@ def collect_dataset_summary(dataset: Dataset, dataset_label: str) -> Dict[str, A
     }
 
 
-def build_audio_preprocess_config(cfg: Dict[str, Any]) -> AudioPreprocessConfig:
+def build_audio_preprocess_config(
+    cfg: Dict[str, Any],
+    dataset_spec: Optional[Dict[str, Any]] = None,
+) -> AudioPreprocessConfig:
     audio = cfg["audio"]
+    spec = dataset_spec or {}
+    max_duration = spec.get("max_duration_sec", audio.get("max_duration_sec"))
+    length_policy = spec.get("length_policy", audio.get("length_policy", "crop_or_pad"))
     return AudioPreprocessConfig(
         sample_rate=int(audio["sample_rate"]),
-        max_duration_sec=float(audio["max_duration_sec"]),
+        max_duration_sec=None if max_duration is None else float(max_duration),
         n_mels=int(audio["n_mels"]),
         win_length=int(audio["win_length"]),
         hop_length=int(audio["hop_length"]),
+        length_policy=str(length_policy),
     )
 
 

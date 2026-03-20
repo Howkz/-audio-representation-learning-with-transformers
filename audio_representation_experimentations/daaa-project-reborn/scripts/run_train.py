@@ -82,10 +82,9 @@ def main() -> None:
         )
         return AudioFeatureDataset(ds, audio_cfg=local_audio_cfg, transcript_key=spec.get("transcript_key"))
 
-    audio_cfg = build_audio_preprocess_config(cfg)
-    pretrain_ds = _build_dataset(cfg, cfg["datasets"]["pretrain"], audio_cfg)
-    asr_train_ds = _build_dataset(cfg, cfg["datasets"]["asr_train"], audio_cfg)
-    asr_valid_ds = _build_dataset(cfg, cfg["datasets"]["asr_valid"], audio_cfg)
+    pretrain_ds = _build_dataset(cfg, cfg["datasets"]["pretrain"], build_audio_preprocess_config(cfg, cfg["datasets"]["pretrain"]))
+    asr_train_ds = _build_dataset(cfg, cfg["datasets"]["asr_train"], build_audio_preprocess_config(cfg, cfg["datasets"]["asr_train"]))
+    asr_valid_ds = _build_dataset(cfg, cfg["datasets"]["asr_valid"], build_audio_preprocess_config(cfg, cfg["datasets"]["asr_valid"]))
     tokenizer = CharCTCTokenizer()
 
     exp_id = cfg["experiment"].get("id")

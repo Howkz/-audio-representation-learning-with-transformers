@@ -12,6 +12,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.config import ensure_project_dirs, load_config
+from src.data.dataset import build_audio_preprocess_config
 
 
 def parse_args() -> argparse.Namespace:
@@ -49,9 +50,11 @@ def main() -> None:
     if args.dry_run:
         print("[DATA] Dry-run enabled. Planned datasets:")
         for spec in dataset_specs_for_data_step(cfg):
+            local_audio_cfg = build_audio_preprocess_config(cfg, spec)
             print(
                 f"  - {spec['name']} | config={spec.get('config')} | split={spec['split']} "
-                f"| max={spec.get('max_samples')} | streaming={bool(spec.get('streaming', default_streaming))}"
+                f"| max={spec.get('max_samples')} | streaming={bool(spec.get('streaming', default_streaming))} "
+                f"| max_duration_sec={local_audio_cfg.max_duration_sec} | length_policy={local_audio_cfg.length_policy}"
             )
         return
 
@@ -65,6 +68,7 @@ def main() -> None:
             split = spec["split"]
             max_samples = spec.get("max_samples")
             streaming = bool(spec.get("streaming", default_streaming))
+            local_audio_cfg = build_audio_preprocess_config(cfg, spec)
             dataset_label = f"{dataset_name}:{split}"
             columns = ["audio"]
             transcript_key = spec.get("transcript_key")
@@ -79,11 +83,21 @@ def main() -> None:
                     "dataset_config": dataset_config,
                     "streaming": streaming,
                     "planned_only": True,
+                    "audio_preprocess": {
+                        "sample_rate": int(local_audio_cfg.sample_rate),
+                        "max_duration_sec": None if local_audio_cfg.max_duration_sec is None else float(local_audio_cfg.max_duration_sec),
+                        "length_policy": str(local_audio_cfg.length_policy),
+                        "n_mels": int(local_audio_cfg.n_mels),
+                        "win_length": int(local_audio_cfg.win_length),
+                        "hop_length": int(local_audio_cfg.hop_length),
+                    },
                 }
             )
             print(
                 f"[DATA] Planned dataset={dataset_name} config={dataset_config} "
-                f"split={split} max_samples={max_samples} streaming={streaming}"
+                f"split={split} max_samples={max_samples} streaming={streaming} "
+                f"max_duration_sec={local_audio_cfg.max_duration_sec} "
+                f"length_policy={local_audio_cfg.length_policy}"
             )
     else:
         # Import data loader lazily to avoid importing heavy dataset backends
@@ -114,6 +128,15 @@ def main() -> None:
             summary["dataset_config"] = dataset_config
             summary["streaming"] = streaming
             summary["planned_only"] = False
+            local_audio_cfg = build_audio_preprocess_config(cfg, spec)
+            summary["audio_preprocess"] = {
+                "sample_rate": int(local_audio_cfg.sample_rate),
+                "max_duration_sec": None if local_audio_cfg.max_duration_sec is None else float(local_audio_cfg.max_duration_sec),
+                "length_policy": str(local_audio_cfg.length_policy),
+                "n_mels": int(local_audio_cfg.n_mels),
+                "win_length": int(local_audio_cfg.win_length),
+                "hop_length": int(local_audio_cfg.hop_length),
+            }
             summaries.append(summary)
             print(f"[DATA] Prepared {dataset_label} with {len(ds)} samples.")
 
