@@ -144,6 +144,30 @@ def _progress_speed_line(
     )
 
 
+def _progress_postfix(
+    global_step: int,
+    total_steps: int,
+    start_ts: float,
+    effective_batch_size: int,
+) -> str:
+    elapsed = max(1e-9, time.time() - start_ts)
+    steps_per_sec = float(global_step / elapsed) if global_step > 0 else 0.0
+    samples_per_sec = float(steps_per_sec * max(1, effective_batch_size))
+    if total_steps > 0 and steps_per_sec > 0.0:
+        remaining = max(total_steps - global_step, 0)
+        eta_sec = float(remaining / steps_per_sec)
+        total_est_sec = float(elapsed + eta_sec)
+        return (
+            f"time={_format_hms(elapsed)}/{_format_hms(total_est_sec)} "
+            f"eta={_format_hms(eta_sec)} "
+            f"steps/s={steps_per_sec:.2f} samples/s={samples_per_sec:.2f}"
+        )
+    return (
+        f"time={_format_hms(elapsed)}/N/A eta=N/A "
+        f"steps/s={steps_per_sec:.2f} samples/s={samples_per_sec:.2f}"
+    )
+
+
 def _seeded_loader(
     dataset: torch.utils.data.Dataset,
     batch_size: int,
@@ -272,6 +296,15 @@ def run_pretrain_seed(
         f"effective_batch={effective_batch_size}"
     )
 
+    use_tqdm = _use_tqdm()
+    progress = tqdm(
+        total=total_steps,
+        initial=min(global_step, total_steps),
+        desc=f"pretrain seed={seed}",
+        leave=False,
+        mininterval=5.0,
+        disable=not use_tqdm,
+    )
     for epoch in range(start_epoch, int(training_cfg["epochs"])):
         loader = _seeded_loader(
             dataset=dataset,
@@ -282,18 +315,12 @@ def run_pretrain_seed(
             epoch=epoch,
             shuffle=True,
         )
-        use_tqdm = _use_tqdm()
-        progress = tqdm(
-            loader,
-            desc=f"pretrain seed={seed} epoch={epoch}",
-            leave=False,
-            mininterval=5.0,
-            disable=not use_tqdm,
-        )
+        if use_tqdm:
+            progress.set_description(f"pretrain seed={seed} epoch={epoch}")
         mae.train()
         optimizer.zero_grad(set_to_none=True)
 
-        for batch_idx, batch in enumerate(progress):
+        for batch_idx, batch in enumerate(loader):
             if epoch == start_epoch and batch_idx < start_step_in_epoch:
                 continue
             x = batch["x_logmel"].to(device, non_blocking=True)
@@ -318,6 +345,16 @@ def run_pretrain_seed(
             scaler.scale(loss_scaled).backward()
 
             global_step += 1
+            if use_tqdm:
+                progress.update(1)
+                progress.set_postfix_str(
+                    _progress_postfix(
+                        global_step=global_step,
+                        total_steps=total_steps,
+                        start_ts=start_ts,
+                        effective_batch_size=effective_batch_size,
+                    )
+                )
             total_loss += float(loss.item())
             total_count += 1
             pretrain_peak_gpu_mem_mb = max(pretrain_peak_gpu_mem_mb, peak_memory_mb())
@@ -350,7 +387,7 @@ def run_pretrain_seed(
                         stage="PRETRAIN",
                         seed=seed,
                         global_step=global_step,
-                        total_steps=int(training_cfg["max_steps"]),
+                        total_steps=total_steps,
                         start_ts=start_ts,
                         effective_batch_size=effective_batch_size,
                     )
@@ -374,6 +411,8 @@ def run_pretrain_seed(
         )
         if global_step >= int(training_cfg["max_steps"]):
             break
+    if use_tqdm:
+        progress.close()
 
     final_encoder = out_root / "encoder_final.pt"
     torch.save({"encoder_state_dict": mae.encoder.state_dict()}, final_encoder)
@@ -544,6 +583,15 @@ def run_finetune_seed(
         f"effective_batch={effective_batch_size}"
     )
 
+    use_tqdm = _use_tqdm()
+    progress = tqdm(
+        total=total_steps,
+        initial=min(global_step, total_steps),
+        desc=f"finetune seed={seed}",
+        leave=False,
+        mininterval=5.0,
+        disable=not use_tqdm,
+    )
     for epoch in range(start_epoch, int(training_cfg["epochs"])):
         loader = _seeded_loader(
             dataset=train_dataset,
@@ -554,18 +602,12 @@ def run_finetune_seed(
             epoch=epoch,
             shuffle=True,
         )
-        use_tqdm = _use_tqdm()
-        progress = tqdm(
-            loader,
-            desc=f"finetune seed={seed} epoch={epoch}",
-            leave=False,
-            mininterval=5.0,
-            disable=not use_tqdm,
-        )
+        if use_tqdm:
+            progress.set_description(f"finetune seed={seed} epoch={epoch}")
         model.train()
         optimizer.zero_grad(set_to_none=True)
 
-        for batch_idx, batch in enumerate(progress):
+        for batch_idx, batch in enumerate(loader):
             if epoch == start_epoch and batch_idx < start_step_in_epoch:
                 continue
 
@@ -582,6 +624,16 @@ def run_finetune_seed(
             scaler.scale(loss_scaled).backward()
 
             global_step += 1
+            if use_tqdm:
+                progress.update(1)
+                progress.set_postfix_str(
+                    _progress_postfix(
+                        global_step=global_step,
+                        total_steps=total_steps,
+                        start_ts=train_start_ts,
+                        effective_batch_size=effective_batch_size,
+                    )
+                )
             running_loss += float(loss.item())
             running_count += 1
             batch_size = int(target_lengths.shape[0])
@@ -631,7 +683,7 @@ def run_finetune_seed(
                         stage="FINETUNE",
                         seed=seed,
                         global_step=global_step,
-                        total_steps=int(training_cfg["max_steps"]),
+                        total_steps=total_steps,
                         start_ts=train_start_ts,
                         effective_batch_size=effective_batch_size,
                     )
@@ -687,6 +739,8 @@ def run_finetune_seed(
         )
         if global_step >= int(training_cfg["max_steps"]):
             break
+    if use_tqdm:
+        progress.close()
 
     final_model = out_root / "ctc_final.pt"
     torch.save(

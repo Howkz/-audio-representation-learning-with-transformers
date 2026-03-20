@@ -247,25 +247,80 @@ class AudioMAEPretrain(nn.Module):
         self.dec_norm = nn.LayerNorm(dec_dim)
         self.decoder_pred = nn.Linear(dec_dim, encoder.patch_embedding.patch_dim)
 
+    def _encode_visible_tokens(
+        self,
+        tokens: torch.Tensor,
+        valid_mask: torch.Tensor,
+        mask: torch.Tensor,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        bsz, seq_len, dim = tokens.shape
+        visible_mask = valid_mask & (~mask)
+        if not visible_mask.any(dim=1).all():
+            visible_mask = torch.where(
+                valid_mask.any(dim=1, keepdim=True),
+                visible_mask | (~visible_mask.any(dim=1, keepdim=True) & valid_mask),
+                visible_mask,
+            )
+
+        pos_embed = self.encoder._position_embedding(seq_len, tokens.device).expand(bsz, -1, -1)
+        visible_lengths = visible_mask.sum(dim=1).to(torch.long)
+        max_visible = int(max(1, visible_lengths.max().item()))
+
+        visible_tokens = tokens.new_zeros((bsz, max_visible, dim))
+        visible_padding_mask = torch.ones((bsz, max_visible), dtype=torch.bool, device=tokens.device)
+
+        for b in range(bsz):
+            idx = torch.nonzero(visible_mask[b], as_tuple=False).flatten()
+            count = int(idx.numel())
+            if count == 0:
+                continue
+            visible_tokens[b, :count] = tokens[b, idx] + pos_embed[b, idx]
+            visible_padding_mask[b, :count] = False
+
+        encoded_visible = self.encoder.encoder(
+            visible_tokens,
+            src_key_padding_mask=visible_padding_mask,
+        )
+        encoded_visible = self.encoder.norm(encoded_visible)
+        encoded_visible = encoded_visible.masked_fill(visible_padding_mask.unsqueeze(-1), 0.0)
+        return encoded_visible, visible_mask
+
     def forward(
         self,
         x_logmel: torch.Tensor,
         mask: torch.Tensor,
         lengths: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
-        encoded, patch_info = self.encoder(x_logmel, lengths=lengths, token_mask=mask)
-        dec_tokens = self.enc_to_dec(encoded)
+        tokens, patch_info = self.encoder.patch_embedding(x_logmel, lengths=lengths)
+        valid_mask = torch.ones_like(mask, dtype=torch.bool)
+        if patch_info.get("key_padding_mask") is not None:
+            valid_mask = ~patch_info["key_padding_mask"]
+
+        encoded_visible, visible_mask = self._encode_visible_tokens(tokens, valid_mask=valid_mask, mask=mask)
+        visible_dec_tokens = self.enc_to_dec(encoded_visible)
+
+        bsz, seq_len, _ = tokens.shape
+        mask_token_dec = self.enc_to_dec(self.encoder.mask_token).expand(bsz, seq_len, -1).clone()
+        full_dec_tokens = mask_token_dec
+        decoder_padding_mask = patch_info.get("key_padding_mask")
+
+        for b in range(bsz):
+            idx = torch.nonzero(visible_mask[b], as_tuple=False).flatten()
+            count = int(idx.numel())
+            if count == 0:
+                continue
+            full_dec_tokens[b, idx] = visible_dec_tokens[b, :count]
+
+        dec_pos = self.enc_to_dec(self.encoder._position_embedding(seq_len, tokens.device)).expand(bsz, -1, -1)
+        dec_tokens = full_dec_tokens + dec_pos
         dec_out = self.dec_norm(
             self.decoder(
                 dec_tokens,
-                src_key_padding_mask=patch_info.get("key_padding_mask"),
+                src_key_padding_mask=decoder_padding_mask,
             )
         )
         pred = self.decoder_pred(dec_out)
         target = patch_info["patches"]
-        valid_mask = torch.ones_like(mask, dtype=torch.bool)
-        if patch_info.get("key_padding_mask") is not None:
-            valid_mask = ~patch_info["key_padding_mask"]
 
         loss_mask = mask & valid_mask
         if loss_mask.any():

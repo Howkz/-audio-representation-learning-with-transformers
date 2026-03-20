@@ -3,6 +3,13 @@ from __future__ import annotations
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import torch
+try:
+    from torchmetrics.text import WordErrorRate
+except Exception:
+    try:
+        from torchmetrics.text.wer import WordErrorRate  # type: ignore
+    except Exception:
+        WordErrorRate = None  # type: ignore[assignment]
 
 from src.data.text import CharCTCTokenizer, normalize_transcript
 
@@ -161,6 +168,13 @@ def compute_wer(predictions: Iterable[str], references: Iterable[str]) -> float:
     refs = [normalize_transcript(x) for x in references]
     if len(preds) != len(refs):
         raise ValueError("Predictions and references must have the same length.")
+
+    if WordErrorRate is not None:
+        try:
+            metric = WordErrorRate()
+            return float(metric(preds, refs).item())
+        except Exception:
+            pass
 
     total_ref_words = 0
     total_errors = 0

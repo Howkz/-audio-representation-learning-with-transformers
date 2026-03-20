@@ -55,6 +55,74 @@ class InMemoryRowsDataset(TorchDataset):
         return self.rows[index]
 
 
+def _dataset_filter_keys() -> List[str]:
+    return [
+        "min_transcript_chars",
+        "max_transcript_chars",
+        "min_transcript_words",
+        "max_transcript_words",
+    ]
+
+
+def dataset_filter_config(spec: Dict[str, Any]) -> Dict[str, Any]:
+    return {key: spec[key] for key in _dataset_filter_keys() if key in spec and spec.get(key) is not None}
+
+
+def _row_matches_filters(
+    row: Dict[str, Any],
+    transcript_key: Optional[str],
+    filters: Dict[str, Any],
+) -> bool:
+    if not filters:
+        return True
+    resolved_key = resolve_transcript_key(row, transcript_key)
+    text = normalize_transcript(str(row.get(resolved_key, ""))) if resolved_key is not None else ""
+    num_chars = len(text)
+    num_words = len(text.split()) if text else 0
+
+    min_chars = filters.get("min_transcript_chars")
+    max_chars = filters.get("max_transcript_chars")
+    min_words = filters.get("min_transcript_words")
+    max_words = filters.get("max_transcript_words")
+
+    if min_chars is not None and num_chars < int(min_chars):
+        return False
+    if max_chars is not None and num_chars > int(max_chars):
+        return False
+    if min_words is not None and num_words < int(min_words):
+        return False
+    if max_words is not None and num_words > int(max_words):
+        return False
+    return True
+
+
+def apply_dataset_filters(
+    dataset: Dataset,
+    transcript_key: Optional[str],
+    spec: Optional[Dict[str, Any]] = None,
+) -> Dataset:
+    filters = dataset_filter_config(spec or {})
+    if not filters:
+        return dataset
+
+    if isinstance(dataset, InMemoryRowsDataset):
+        feature_keys = list(dataset.features.keys()) if hasattr(dataset.features, "keys") else None
+        rows = [row for row in dataset.rows if _row_matches_filters(row, transcript_key=transcript_key, filters=filters)]
+        return InMemoryRowsDataset(rows=rows, feature_keys=feature_keys)
+
+    selected_indices: List[int] = []
+    for idx in range(len(dataset)):
+        if _row_matches_filters(dataset[idx], transcript_key=transcript_key, filters=filters):
+            selected_indices.append(idx)
+
+    if hasattr(dataset, "select"):
+        return dataset.select(selected_indices)
+
+    rows = [dataset[idx] for idx in selected_indices]
+    feature_keys = list(getattr(dataset, "features", {}).keys()) if hasattr(getattr(dataset, "features", {}), "keys") else None
+    return InMemoryRowsDataset(rows=rows, feature_keys=feature_keys)
+
+
 def load_hf_audio_dataset(
     dataset_name: str,
     dataset_config: Optional[str],

@@ -12,7 +12,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.config import ensure_project_dirs, load_config
-from src.data.dataset import build_audio_preprocess_config
+from src.data.dataset import build_audio_preprocess_config, dataset_filter_config
 
 
 def parse_args() -> argparse.Namespace:
@@ -36,6 +36,13 @@ def dataset_specs_for_data_step(cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
     return specs
 
 
+def _format_dataset_filters(spec: Dict[str, Any]) -> str:
+    filters = dataset_filter_config(spec)
+    if not filters:
+        return "none"
+    return ",".join(f"{key}={value}" for key, value in filters.items())
+
+
 def main() -> None:
     args = parse_args()
     cfg = load_config(args.config)
@@ -55,7 +62,7 @@ def main() -> None:
                 f"  - {spec['name']} | config={spec.get('config')} | split={spec['split']} "
                 f"| max={spec.get('max_samples')} | streaming={bool(spec.get('streaming', default_streaming))} "
                 f"| max_duration_sec={local_audio_cfg.max_duration_sec} | length_policy={local_audio_cfg.length_policy} "
-                f"| feature_norm={local_audio_cfg.feature_norm}"
+                f"| feature_norm={local_audio_cfg.feature_norm} | filters={_format_dataset_filters(spec)}"
             )
         return
 
@@ -89,6 +96,7 @@ def main() -> None:
                         "max_duration_sec": None if local_audio_cfg.max_duration_sec is None else float(local_audio_cfg.max_duration_sec),
                         "length_policy": str(local_audio_cfg.length_policy),
                         "feature_norm": str(local_audio_cfg.feature_norm),
+                        "filters": dataset_filter_config(spec),
                         "n_mels": int(local_audio_cfg.n_mels),
                         "win_length": int(local_audio_cfg.win_length),
                         "hop_length": int(local_audio_cfg.hop_length),
@@ -100,12 +108,13 @@ def main() -> None:
                 f"split={split} max_samples={max_samples} streaming={streaming} "
                 f"max_duration_sec={local_audio_cfg.max_duration_sec} "
                 f"length_policy={local_audio_cfg.length_policy} "
-                f"feature_norm={local_audio_cfg.feature_norm}"
+                f"feature_norm={local_audio_cfg.feature_norm} "
+                f"filters={_format_dataset_filters(spec)}"
             )
     else:
         # Import data loader lazily to avoid importing heavy dataset backends
         # when DATA is used in plan-only mode.
-        from src.data.dataset import collect_dataset_summary, load_hf_audio_dataset
+        from src.data.dataset import apply_dataset_filters, collect_dataset_summary, load_hf_audio_dataset, resolve_transcript_key
 
         for spec in specs:
             dataset_name = spec["name"]
@@ -125,6 +134,8 @@ def main() -> None:
                 max_samples=max_samples,
                 streaming=streaming,
             )
+            transcript_key = resolve_transcript_key(ds[0], spec.get("transcript_key")) if len(ds) > 0 else spec.get("transcript_key")
+            ds = apply_dataset_filters(ds, transcript_key=transcript_key, spec=spec)
             dataset_label = f"{dataset_name}:{split}"
             summary = collect_dataset_summary(ds, dataset_label=dataset_label)
             summary["max_samples"] = max_samples
@@ -137,6 +148,7 @@ def main() -> None:
                 "max_duration_sec": None if local_audio_cfg.max_duration_sec is None else float(local_audio_cfg.max_duration_sec),
                 "length_policy": str(local_audio_cfg.length_policy),
                 "feature_norm": str(local_audio_cfg.feature_norm),
+                "filters": dataset_filter_config(spec),
                 "n_mels": int(local_audio_cfg.n_mels),
                 "win_length": int(local_audio_cfg.win_length),
                 "hop_length": int(local_audio_cfg.hop_length),
