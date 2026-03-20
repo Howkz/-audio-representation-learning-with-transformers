@@ -58,6 +58,17 @@ un pipeline ASR plus conforme au sujet et plus defensable pour le rendu :
   - change uniquement l'intensite de la hidden-state KD
   - objectif : tester si une KD un peu plus forte reduit la sous-emission
 
+- `configs/phase7/hidden_states_aug_librispeech.yaml`
+  - `P7A02`
+  - repart de `P7C01`
+  - ajoute une vraie augmentation legere sur `asr_train` :
+    gain aleatoire, bruit faible et SpecAugment leger
+
+- `configs/phase7/hidden_states_depth4_librispeech.yaml`
+  - `P7A03`
+  - ablation simple `depth=4` contre `depth=6`
+  - meme teacher, meme loss, meme dataset
+
 ## Choix techniques
 
 - Student :
@@ -104,6 +115,15 @@ un pipeline ASR plus conforme au sujet et plus defensable pour le rendu :
     - penalite de repetition
     - bonus d'accuracy un peu plus fort
   - l'objectif est de mieux choisir `ctc_best.pt` sans toucher a la loss
+
+- Augmentations :
+  - la phase 7 supporte maintenant des augmentations de train legeres par config
+  - elles s'appliquent uniquement au split `asr_train`
+  - support disponible :
+    - gain aleatoire sur waveform
+    - bruit additif faible via SNR cible
+    - SpecAugment leger sur log-Mel
+  - les splits validation/test restent strictement non augmentes
 
 ## Commandes
 
@@ -159,6 +179,18 @@ make test CONFIG=configs/phase7/hidden_states_selection_v2_librispeech.yaml
 make data CONFIG=configs/phase7/hidden_states_kd_stronger_librispeech.yaml
 make train CONFIG=configs/phase7/hidden_states_kd_stronger_librispeech.yaml
 make test CONFIG=configs/phase7/hidden_states_kd_stronger_librispeech.yaml
+```
+
+```bash
+make data CONFIG=configs/phase7/hidden_states_aug_librispeech.yaml
+make train CONFIG=configs/phase7/hidden_states_aug_librispeech.yaml
+make test CONFIG=configs/phase7/hidden_states_aug_librispeech.yaml
+```
+
+```bash
+make data CONFIG=configs/phase7/hidden_states_depth4_librispeech.yaml
+make train CONFIG=configs/phase7/hidden_states_depth4_librispeech.yaml
+make test CONFIG=configs/phase7/hidden_states_depth4_librispeech.yaml
 ```
 
 ## Criteres de validation

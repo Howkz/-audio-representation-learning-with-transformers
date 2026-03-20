@@ -293,3 +293,75 @@ def normalize_logmel(
         std = logmel.std(dim=0, keepdim=True, unbiased=False).clamp_min(float(eps))
         return (logmel - mean) / std
     raise ValueError(f"Unsupported feature_norm='{feature_norm}'.")
+
+
+def _mask_random_span(matrix: torch.Tensor, axis: int, max_width: int) -> torch.Tensor:
+    if max_width <= 0:
+        return matrix
+    size = int(matrix.shape[axis])
+    if size <= 1:
+        return matrix
+    width = int(torch.randint(low=0, high=max_width + 1, size=(1,)).item())
+    if width <= 0:
+        return matrix
+    start_max = max(1, size - width + 1)
+    start = int(torch.randint(low=0, high=start_max, size=(1,)).item())
+    masked = matrix.clone()
+    if axis == 0:
+        masked[start : start + width, :] = 0.0
+    else:
+        masked[:, start : start + width] = 0.0
+    return masked
+
+
+def apply_waveform_augmentations(
+    waveform: torch.Tensor,
+    augment_cfg: Dict[str, Any] | None,
+) -> torch.Tensor:
+    if not augment_cfg or not bool(augment_cfg.get("enabled", False)):
+        return waveform
+
+    augmented = waveform.clone()
+
+    gain_prob = float(augment_cfg.get("gain_prob", 0.0))
+    gain_db_max = float(augment_cfg.get("gain_db_max", 0.0))
+    if gain_prob > 0.0 and gain_db_max > 0.0 and torch.rand(1).item() < gain_prob:
+        gain_db = float(torch.empty(1).uniform_(-gain_db_max, gain_db_max).item())
+        gain = float(10.0 ** (gain_db / 20.0))
+        augmented = augmented * gain
+
+    noise_prob = float(augment_cfg.get("noise_prob", 0.0))
+    noise_snr_db_min = float(augment_cfg.get("noise_snr_db_min", 20.0))
+    noise_snr_db_max = float(augment_cfg.get("noise_snr_db_max", 35.0))
+    if noise_prob > 0.0 and torch.rand(1).item() < noise_prob:
+        snr_db = float(torch.empty(1).uniform_(noise_snr_db_min, noise_snr_db_max).item())
+        signal_rms = augmented.pow(2.0).mean().sqrt().clamp_min(1e-6)
+        noise_rms = signal_rms / float(10.0 ** (snr_db / 20.0))
+        noise = torch.randn_like(augmented) * noise_rms
+        augmented = augmented + noise
+
+    return augmented.clamp(min=-1.0, max=1.0)
+
+
+def apply_logmel_augmentations(
+    logmel: torch.Tensor,
+    augment_cfg: Dict[str, Any] | None,
+) -> torch.Tensor:
+    if not augment_cfg or not bool(augment_cfg.get("enabled", False)):
+        return logmel
+
+    specaugment_prob = float(augment_cfg.get("specaugment_prob", 0.0))
+    if specaugment_prob <= 0.0 or torch.rand(1).item() >= specaugment_prob:
+        return logmel
+
+    augmented = logmel.clone()
+    num_time_masks = int(augment_cfg.get("num_time_masks", 0))
+    max_time_mask_frames = int(augment_cfg.get("max_time_mask_frames", 0))
+    num_freq_masks = int(augment_cfg.get("num_freq_masks", 0))
+    max_freq_mask_bins = int(augment_cfg.get("max_freq_mask_bins", 0))
+
+    for _ in range(max(0, num_time_masks)):
+        augmented = _mask_random_span(augmented, axis=0, max_width=max_time_mask_frames)
+    for _ in range(max(0, num_freq_masks)):
+        augmented = _mask_random_span(augmented, axis=1, max_width=max_freq_mask_bins)
+    return augmented

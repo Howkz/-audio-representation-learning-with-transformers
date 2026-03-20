@@ -43,6 +43,25 @@ def _format_dataset_filters(spec: Dict[str, Any]) -> str:
     return ",".join(f"{key}={value}" for key, value in filters.items())
 
 
+def _format_augmentations(spec: Dict[str, Any]) -> str:
+    augment_cfg = spec.get("augmentations", {})
+    if not isinstance(augment_cfg, dict) or not bool(augment_cfg.get("enabled", False)):
+        return "none"
+    summary_keys = [
+        "gain_prob",
+        "gain_db_max",
+        "noise_prob",
+        "noise_snr_db_min",
+        "noise_snr_db_max",
+        "specaugment_prob",
+        "num_time_masks",
+        "max_time_mask_frames",
+        "num_freq_masks",
+        "max_freq_mask_bins",
+    ]
+    return ",".join(f"{key}={augment_cfg[key]}" for key in summary_keys if key in augment_cfg)
+
+
 def _strict_asr_consistency_enabled(cfg: Dict[str, Any], spec: Dict[str, Any]) -> bool:
     data_cfg = cfg.get("data", {})
     return bool(spec.get("strict_asr_consistency", data_cfg.get("strict_asr_consistency", False)))
@@ -80,7 +99,8 @@ def main() -> None:
                 f"  - {spec['name']} | config={spec.get('config')} | split={spec['split']} "
                 f"| max={spec.get('max_samples')} | streaming={bool(spec.get('streaming', default_streaming))} "
                 f"| max_duration_sec={local_audio_cfg.max_duration_sec} | length_policy={local_audio_cfg.length_policy} "
-                f"| feature_norm={local_audio_cfg.feature_norm} | filters={_format_dataset_filters(spec)}"
+                f"| feature_norm={local_audio_cfg.feature_norm} | filters={_format_dataset_filters(spec)} "
+                f"| augmentations={_format_augmentations(spec)}"
             )
         return
 
@@ -116,6 +136,7 @@ def main() -> None:
                         "length_policy": str(local_audio_cfg.length_policy),
                         "feature_norm": str(local_audio_cfg.feature_norm),
                         "filters": dataset_filter_config(spec),
+                        "augmentations": local_audio_cfg.augmentations,
                         "n_mels": int(local_audio_cfg.n_mels),
                         "win_length": int(local_audio_cfg.win_length),
                         "hop_length": int(local_audio_cfg.hop_length),
@@ -128,7 +149,8 @@ def main() -> None:
                 f"max_duration_sec={local_audio_cfg.max_duration_sec} "
                 f"length_policy={local_audio_cfg.length_policy} "
                 f"feature_norm={local_audio_cfg.feature_norm} "
-                f"filters={_format_dataset_filters(spec)}"
+                f"filters={_format_dataset_filters(spec)} "
+                f"augmentations={_format_augmentations(spec)}"
             )
     else:
         # Import data loader lazily to avoid importing heavy dataset backends
@@ -169,6 +191,7 @@ def main() -> None:
                 "length_policy": str(local_audio_cfg.length_policy),
                 "feature_norm": str(local_audio_cfg.feature_norm),
                 "filters": dataset_filter_config(spec),
+                "augmentations": local_audio_cfg.augmentations,
                 "n_mels": int(local_audio_cfg.n_mels),
                 "win_length": int(local_audio_cfg.win_length),
                 "hop_length": int(local_audio_cfg.hop_length),

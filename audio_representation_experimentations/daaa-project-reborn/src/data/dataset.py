@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import re
 from typing import Any, Dict, List, Optional
 
@@ -41,6 +41,7 @@ class AudioPreprocessConfig:
     hop_length: int
     length_policy: str = "crop_or_pad"
     feature_norm: str = "none"
+    augmentations: Dict[str, Any] = field(default_factory=dict)
 
 
 class InMemoryRowsDataset(TorchDataset):
@@ -276,9 +277,11 @@ class AudioFeatureDataset(TorchDataset):
         hf_dataset: Dataset,
         audio_cfg: AudioPreprocessConfig,
         transcript_key: Optional[str] = None,
+        enable_augmentations: bool = False,
     ) -> None:
         self.ds = hf_dataset
         self.audio_cfg = audio_cfg
+        self.enable_augmentations = bool(enable_augmentations)
         sample = hf_dataset[0] if len(hf_dataset) > 0 else {}
         self.transcript_key = resolve_transcript_key(sample, transcript_key)
         self.max_samples = (
@@ -292,7 +295,14 @@ class AudioFeatureDataset(TorchDataset):
 
     def __getitem__(self, index: int) -> Dict[str, Any]:
         # Lazy import to let dry-run execute even if audio deps are not installed yet.
-        from .features import apply_length_policy, decode_audio, extract_logmel, normalize_logmel
+        from .features import (
+            apply_length_policy,
+            apply_logmel_augmentations,
+            apply_waveform_augmentations,
+            decode_audio,
+            extract_logmel,
+            normalize_logmel,
+        )
 
         row = self.ds[index]
         waveform, sr = decode_audio(row["audio"], self.audio_cfg.sample_rate)
@@ -302,6 +312,8 @@ class AudioFeatureDataset(TorchDataset):
             length_policy=self.audio_cfg.length_policy,
         )
         waveform = waveform.to(torch.float32).contiguous()
+        if self.enable_augmentations:
+            waveform = apply_waveform_augmentations(waveform, self.audio_cfg.augmentations)
         logmel = extract_logmel(
             waveform=waveform,
             sr=sr,
@@ -310,6 +322,8 @@ class AudioFeatureDataset(TorchDataset):
             hop_length=self.audio_cfg.hop_length,
         )
         logmel = normalize_logmel(logmel, feature_norm=self.audio_cfg.feature_norm)
+        if self.enable_augmentations:
+            logmel = apply_logmel_augmentations(logmel, self.audio_cfg.augmentations)
         item = {
             "x_logmel": logmel,
             "length": int(logmel.shape[0]),
@@ -370,6 +384,7 @@ def build_audio_preprocess_config(
         hop_length=int(audio["hop_length"]),
         length_policy=str(length_policy),
         feature_norm=str(spec.get("feature_norm", audio.get("feature_norm", "none"))),
+        augmentations=dict(spec.get("augmentations", {})),
     )
 
 

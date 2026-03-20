@@ -146,7 +146,13 @@ def main() -> None:
                 f"Dataset vide après filtrage: {spec['name']}:{spec['split']}. "
                 "Assouplis les filtres de transcript/durée ou désactive le streaming pour ce split."
             )
-        return AudioFeatureDataset(ds, audio_cfg=local_audio_cfg, transcript_key=spec.get("transcript_key"))
+        is_training_split = spec is cfg["datasets"]["asr_train"]
+        return AudioFeatureDataset(
+            ds,
+            audio_cfg=local_audio_cfg,
+            transcript_key=spec.get("transcript_key"),
+            enable_augmentations=is_training_split,
+        )
 
     pretrain_enabled = _pretrain_enabled(cfg)
     pretrain_ds = None
