@@ -18,11 +18,11 @@
         "std": 0.0
       },
       "inference_runtime_sec": {
-        "mean": 1.3820815086364746,
+        "mean": 1.4191625118255615,
         "std": 0.0
       },
       "inference_samples_per_sec": {
-        "mean": 9.406102258632677,
+        "mean": 9.160332161872885,
         "std": 0.0
       },
       "inference_peak_gpu_mem_mb": {
@@ -38,7 +38,7 @@
         "std": 0.0
       },
       "blank_ratio": {
-        "mean": 0.5247459849229761,
+        "mean": 0.0514585381842019,
         "std": 0.0
       },
       "empty_pred_ratio": {
@@ -54,7 +54,7 @@
         "std": 0.0
       },
       "avg_pred_chars": {
-        "mean": 31.384615384615383,
+        "mean": 63.76923076923077,
         "std": 0.0
       },
       "avg_ref_chars": {
@@ -66,7 +66,7 @@
         "std": 0.0
       },
       "pred_to_ref_char_ratio": {
-        "mean": 1.457142857142857,
+        "mean": 2.9607142857142854,
         "std": 0.0
       },
       "short_pred_ratio": {
