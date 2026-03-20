@@ -1,0 +1,410 @@
+{
+  "experiment_id": "P7D01",
+  "primary_checkpoint_variant": "best",
+  "variants": {
+    "best": {
+      "paths": {
+        "partial": "results/phase7/experiments/P7D01/benchmark_results/asr_benchmark_P7D01_partial.json",
+        "final": "results/phase7/experiments/P7D01/benchmark_results/asr_benchmark_P7D01_final.json",
+        "dataset": "results/phase7/experiments/P7D01/benchmark_results/asr_benchmark_by_dataset_P7D01_final.json",
+        "diagnostics": "results/phase7/experiments/P7D01/benchmark_results/asr_diagnostics_by_dataset_P7D01_final.json",
+        "overall_table": "results/phase7/experiments/P7D01/tables/asr_overall_table_P7D01.md",
+        "dataset_table": "results/phase7/experiments/P7D01/tables/asr_dataset_breakdown_P7D01.md"
+      },
+      "overall": {
+        "model_name": "phase7_smoke_distill_external",
+        "architecture": "Audio Transformer Encoder + CTC",
+        "adaptation_technique": "CTC fine-tune + distillation (external:wav2vec2_ctc)",
+        "runs": {
+          "42": {
+            "seed": 42.0,
+            "wer": 1.0,
+            "accuracy": 0.0,
+            "eval_batch_size": 1.0,
+            "inference_runtime_sec": 1.570084810256958,
+            "inference_samples_per_sec": 8.279807507896619,
+            "inference_peak_gpu_mem_mb": 28.72802734375,
+            "model_total_params": 1505501.0,
+            "model_trainable_params": 1505501.0,
+            "blank_ratio": 0.5247459849229761,
+            "empty_pred_ratio": 0.0,
+            "nonempty_pred_ratio": 1.0,
+            "pred_to_ref_char_ratio": 1.457142857142857,
+            "short_pred_ratio": 0.0,
+            "invalid_length_ratio": 0.0,
+            "avg_out_length": 234.69230769230768,
+            "avg_target_length": 25.46153846153846,
+            "avg_length_margin": 209.23076923076923,
+            "checkpoint_variant": "best"
+          }
+        },
+        "metrics": {
+          "seed": {
+            "mean": 42.0,
+            "std": 0.0
+          },
+          "wer": {
+            "mean": 1.0,
+            "std": 0.0
+          },
+          "accuracy": {
+            "mean": 0.0,
+            "std": 0.0
+          },
+          "eval_batch_size": {
+            "mean": 1.0,
+            "std": 0.0
+          },
+          "inference_runtime_sec": {
+            "mean": 1.570084810256958,
+            "std": 0.0
+          },
+          "inference_samples_per_sec": {
+            "mean": 8.279807507896619,
+            "std": 0.0
+          },
+          "inference_peak_gpu_mem_mb": {
+            "mean": 28.72802734375,
+            "std": 0.0
+          },
+          "model_total_params": {
+            "mean": 1505501.0,
+            "std": 0.0
+          },
+          "model_trainable_params": {
+            "mean": 1505501.0,
+            "std": 0.0
+          },
+          "blank_ratio": {
+            "mean": 0.5247459849229761,
+            "std": 0.0
+          },
+          "empty_pred_ratio": {
+            "mean": 0.0,
+            "std": 0.0
+          },
+          "nonempty_pred_ratio": {
+            "mean": 1.0,
+            "std": 0.0
+          },
+          "pred_to_ref_char_ratio": {
+            "mean": 1.457142857142857,
+            "std": 0.0
+          },
+          "short_pred_ratio": {
+            "mean": 0.0,
+            "std": 0.0
+          },
+          "invalid_length_ratio": {
+            "mean": 0.0,
+            "std": 0.0
+          },
+          "avg_out_length": {
+            "mean": 234.69230769230768,
+            "std": 0.0
+          },
+          "avg_target_length": {
+            "mean": 25.46153846153846,
+            "std": 0.0
+          },
+          "avg_length_margin": {
+            "mean": 209.23076923076923,
+            "std": 0.0
+          }
+        }
+      },
+      "by_dataset": {
+        "metrics": {
+          "openslr/librispeech_asr:test.clean": {
+            "seed": {
+              "mean": 42.0,
+              "std": 0.0
+            },
+            "wer": {
+              "mean": 1.0,
+              "std": 0.0
+            },
+            "accuracy": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "eval_batch_size": {
+              "mean": 1.0,
+              "std": 0.0
+            },
+            "inference_runtime_sec": {
+              "mean": 1.570084810256958,
+              "std": 0.0
+            },
+            "inference_samples_per_sec": {
+              "mean": 8.279807507896619,
+              "std": 0.0
+            },
+            "inference_peak_gpu_mem_mb": {
+              "mean": 28.72802734375,
+              "std": 0.0
+            },
+            "model_total_params": {
+              "mean": 1505501.0,
+              "std": 0.0
+            },
+            "model_trainable_params": {
+              "mean": 1505501.0,
+              "std": 0.0
+            },
+            "blank_ratio": {
+              "mean": 0.5247459849229761,
+              "std": 0.0
+            },
+            "empty_pred_ratio": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "nonempty_pred_ratio": {
+              "mean": 1.0,
+              "std": 0.0
+            },
+            "exact_match_ratio": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "avg_pred_chars": {
+              "mean": 31.384615384615383,
+              "std": 0.0
+            },
+            "avg_ref_chars": {
+              "mean": 21.53846153846154,
+              "std": 0.0
+            },
+            "avg_out_length": {
+              "mean": 234.69230769230768,
+              "std": 0.0
+            },
+            "pred_to_ref_char_ratio": {
+              "mean": 1.457142857142857,
+              "std": 0.0
+            },
+            "short_pred_ratio": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "avg_target_length": {
+              "mean": 25.46153846153846,
+              "std": 0.0
+            },
+            "avg_length_margin": {
+              "mean": 209.23076923076923,
+              "std": 0.0
+            },
+            "invalid_length_ratio": {
+              "mean": 0.0,
+              "std": 0.0
+            }
+          }
+        }
+      }
+    },
+    "final": {
+      "paths": {
+        "partial": "results/phase7/experiments/P7D01/benchmark_results/asr_benchmark_final_P7D01_partial.json",
+        "final": "results/phase7/experiments/P7D01/benchmark_results/asr_benchmark_final_P7D01_final.json",
+        "dataset": "results/phase7/experiments/P7D01/benchmark_results/asr_benchmark_by_dataset_final_P7D01_final.json",
+        "diagnostics": "results/phase7/experiments/P7D01/benchmark_results/asr_diagnostics_by_dataset_final_P7D01_final.json",
+        "overall_table": "results/phase7/experiments/P7D01/tables/asr_overall_table_final_P7D01.md",
+        "dataset_table": "results/phase7/experiments/P7D01/tables/asr_dataset_breakdown_final_P7D01.md"
+      },
+      "overall": {
+        "model_name": "phase7_smoke_distill_external",
+        "architecture": "Audio Transformer Encoder + CTC",
+        "adaptation_technique": "CTC fine-tune + distillation (external:wav2vec2_ctc)",
+        "runs": {
+          "42": {
+            "seed": 42.0,
+            "wer": 1.0,
+            "accuracy": 0.0,
+            "eval_batch_size": 1.0,
+            "inference_runtime_sec": 1.3022866249084473,
+            "inference_samples_per_sec": 9.9824414620813,
+            "inference_peak_gpu_mem_mb": 28.72802734375,
+            "model_total_params": 1505501.0,
+            "model_trainable_params": 1505501.0,
+            "blank_ratio": 1.0,
+            "empty_pred_ratio": 1.0,
+            "nonempty_pred_ratio": 0.0,
+            "pred_to_ref_char_ratio": 0.0,
+            "short_pred_ratio": 1.0,
+            "invalid_length_ratio": 0.0,
+            "avg_out_length": 234.69230769230768,
+            "avg_target_length": 25.46153846153846,
+            "avg_length_margin": 209.23076923076923,
+            "checkpoint_variant": "final"
+          }
+        },
+        "metrics": {
+          "seed": {
+            "mean": 42.0,
+            "std": 0.0
+          },
+          "wer": {
+            "mean": 1.0,
+            "std": 0.0
+          },
+          "accuracy": {
+            "mean": 0.0,
+            "std": 0.0
+          },
+          "eval_batch_size": {
+            "mean": 1.0,
+            "std": 0.0
+          },
+          "inference_runtime_sec": {
+            "mean": 1.3022866249084473,
+            "std": 0.0
+          },
+          "inference_samples_per_sec": {
+            "mean": 9.9824414620813,
+            "std": 0.0
+          },
+          "inference_peak_gpu_mem_mb": {
+            "mean": 28.72802734375,
+            "std": 0.0
+          },
+          "model_total_params": {
+            "mean": 1505501.0,
+            "std": 0.0
+          },
+          "model_trainable_params": {
+            "mean": 1505501.0,
+            "std": 0.0
+          },
+          "blank_ratio": {
+            "mean": 1.0,
+            "std": 0.0
+          },
+          "empty_pred_ratio": {
+            "mean": 1.0,
+            "std": 0.0
+          },
+          "nonempty_pred_ratio": {
+            "mean": 0.0,
+            "std": 0.0
+          },
+          "pred_to_ref_char_ratio": {
+            "mean": 0.0,
+            "std": 0.0
+          },
+          "short_pred_ratio": {
+            "mean": 1.0,
+            "std": 0.0
+          },
+          "invalid_length_ratio": {
+            "mean": 0.0,
+            "std": 0.0
+          },
+          "avg_out_length": {
+            "mean": 234.69230769230768,
+            "std": 0.0
+          },
+          "avg_target_length": {
+            "mean": 25.46153846153846,
+            "std": 0.0
+          },
+          "avg_length_margin": {
+            "mean": 209.23076923076923,
+            "std": 0.0
+          }
+        }
+      },
+      "by_dataset": {
+        "metrics": {
+          "openslr/librispeech_asr:test.clean": {
+            "seed": {
+              "mean": 42.0,
+              "std": 0.0
+            },
+            "wer": {
+              "mean": 1.0,
+              "std": 0.0
+            },
+            "accuracy": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "eval_batch_size": {
+              "mean": 1.0,
+              "std": 0.0
+            },
+            "inference_runtime_sec": {
+              "mean": 1.3022866249084473,
+              "std": 0.0
+            },
+            "inference_samples_per_sec": {
+              "mean": 9.9824414620813,
+              "std": 0.0
+            },
+            "inference_peak_gpu_mem_mb": {
+              "mean": 28.72802734375,
+              "std": 0.0
+            },
+            "model_total_params": {
+              "mean": 1505501.0,
+              "std": 0.0
+            },
+            "model_trainable_params": {
+              "mean": 1505501.0,
+              "std": 0.0
+            },
+            "blank_ratio": {
+              "mean": 1.0,
+              "std": 0.0
+            },
+            "empty_pred_ratio": {
+              "mean": 1.0,
+              "std": 0.0
+            },
+            "nonempty_pred_ratio": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "exact_match_ratio": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "avg_pred_chars": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "avg_ref_chars": {
+              "mean": 21.53846153846154,
+              "std": 0.0
+            },
+            "avg_out_length": {
+              "mean": 234.69230769230768,
+              "std": 0.0
+            },
+            "pred_to_ref_char_ratio": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "short_pred_ratio": {
+              "mean": 1.0,
+              "std": 0.0
+            },
+            "avg_target_length": {
+              "mean": 25.46153846153846,
+              "std": 0.0
+            },
+            "avg_length_margin": {
+              "mean": 209.23076923076923,
+              "std": 0.0
+            },
+            "invalid_length_ratio": {
+              "mean": 0.0,
+              "std": 0.0
+            }
+          }
+        }
+      }
+    }
+  }
+}
