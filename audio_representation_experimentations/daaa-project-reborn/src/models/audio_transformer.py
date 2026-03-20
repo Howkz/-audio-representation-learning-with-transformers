@@ -337,11 +337,20 @@ class AudioTransformerCTC(nn.Module):
         self,
         encoder: AudioTransformerEncoder,
         vocab_size: int,
+        distill_projection_dim: Optional[int] = None,
     ) -> None:
         super().__init__()
         self.encoder = encoder
         self.classifier = nn.Linear(encoder.dim, int(vocab_size))
         self.dropout = nn.Dropout(0.1)
+        projection_dim = (
+            None if distill_projection_dim is None else int(distill_projection_dim)
+        )
+        self.distill_feature_dim = int(encoder.dim) if projection_dim is None else projection_dim
+        if projection_dim is None or projection_dim == int(encoder.dim):
+            self.distill_projection = nn.Identity()
+        else:
+            self.distill_projection = nn.Linear(int(encoder.dim), projection_dim)
 
     def encode_time_features(
         self,
@@ -371,6 +380,6 @@ class AudioTransformerCTC(nn.Module):
         logits = self.classifier(self.dropout(encoded))
         out_lengths = torch.clamp(out_lengths, max=logits.shape[1])
         if return_features:
-            return logits, out_lengths, encoded
+            return logits, out_lengths, self.distill_projection(encoded)
         return logits, out_lengths
 

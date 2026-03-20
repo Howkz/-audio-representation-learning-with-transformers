@@ -32,6 +32,21 @@ un pipeline ASR plus conforme au sujet et plus defensable pour le rendu :
   - self-distillation a partir d'un checkpoint student phase 7
   - le chemin `teacher.checkpoint_path` doit pointer vers un checkpoint deja produit par `P7B01`
 
+- `configs/phase7/hidden_states_librispeech.yaml`
+  - `P7C01`
+  - variante hidden-state distillation
+  - meme teacher externe Wav2Vec2
+
+- `configs/phase7/logits_anti_overemit_librispeech.yaml`
+  - `P7C02`
+  - conserve la KD logits
+  - ajoute une contrainte explicite contre la sur-emission non-blank
+
+- `configs/phase7/combined_hidden_anti_overemit_librispeech.yaml`
+  - `P7C03`
+  - combine hidden-state distillation et anti-overemit
+  - utile seulement apres les deux runs separes
+
 ## Choix techniques
 
 - Student :
@@ -42,13 +57,23 @@ un pipeline ASR plus conforme au sujet et plus defensable pour le rendu :
 
 - Distillation externe :
   - teacher utilise uniquement pendant l'entrainement
-  - cible principale : logits CTC Wav2Vec2 remappes sur le vocabulaire caractere du student
-  - perte : `lambda_ctc * CTC + lambda_kd * KL`
+  - deux cibles sont maintenant supportees :
+    - logits CTC Wav2Vec2 remappes sur le vocabulaire caractere du student
+    - hidden states du teacher, alignes temporellement et compares aux features du student
+  - pertes :
+    - logits KD : `lambda_ctc * CTC + lambda_kd * KL`
+    - hidden-state KD : `lambda_ctc * CTC + lambda_kd * MSE`
   - a partir du diagnostic intermediaire, la phase 7 utilise une KD plus conservative :
     - `lambda_kd` reduit
     - KD appliquee uniquement sur les frames teacher juges informatifs
     - un frame est considere informatif si la masse non-blank du teacher depasse un seuil
       et si l'argmax teacher n'est pas `blank`
+  - pour la hidden-state KD, le student projette ses features vers la dimension teacher
+    uniquement pour la distillation ; cette projection n'est pas utilisee a l'inference finale
+  - une contrainte `anti_overemit` est maintenant disponible :
+    - elle penalise une densite non-blank trop elevee par rapport au ratio cible
+      `target_lengths / out_lengths`
+    - elle est activee seulement dans les configs dediees
   - la phase 7 utilise aussi une optimisation plus prudente :
     - warmup explicite
     - LR fine-tune reduit
@@ -86,6 +111,26 @@ Ensuite seulement :
 make data CONFIG=configs/phase7/self_distill_librispeech.yaml
 make train CONFIG=configs/phase7/self_distill_librispeech.yaml
 make test CONFIG=configs/phase7/self_distill_librispeech.yaml
+```
+
+Variantes post-diagnostic :
+
+```bash
+make data CONFIG=configs/phase7/hidden_states_librispeech.yaml
+make train CONFIG=configs/phase7/hidden_states_librispeech.yaml
+make test CONFIG=configs/phase7/hidden_states_librispeech.yaml
+```
+
+```bash
+make data CONFIG=configs/phase7/logits_anti_overemit_librispeech.yaml
+make train CONFIG=configs/phase7/logits_anti_overemit_librispeech.yaml
+make test CONFIG=configs/phase7/logits_anti_overemit_librispeech.yaml
+```
+
+```bash
+make data CONFIG=configs/phase7/combined_hidden_anti_overemit_librispeech.yaml
+make train CONFIG=configs/phase7/combined_hidden_anti_overemit_librispeech.yaml
+make test CONFIG=configs/phase7/combined_hidden_anti_overemit_librispeech.yaml
 ```
 
 ## Criteres de validation

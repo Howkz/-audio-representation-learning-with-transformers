@@ -100,8 +100,17 @@ def main() -> None:
             teacher_cfg = cfg.get("teacher", {})
             print(
                 f"[TRAIN] Teacher source={teacher_cfg.get('source')} "
-                f"family={teacher_cfg.get('family')} model={teacher_cfg.get('model_name')} "
+                f"family={teacher_cfg.get('family')} target={teacher_cfg.get('target')} "
+                f"model={teacher_cfg.get('model_name')} "
                 f"checkpoint={teacher_cfg.get('checkpoint_path')}"
+            )
+        if bool(cfg.get("anti_overemit", {}).get("enabled", False)):
+            overemit_cfg = cfg.get("anti_overemit", {})
+            print(
+                f"[TRAIN] Anti-overemit enabled "
+                f"lambda={overemit_cfg.get('lambda')} "
+                f"density_scale={overemit_cfg.get('density_scale')} "
+                f"density_margin={overemit_cfg.get('density_margin')}"
             )
         print(f"[TRAIN] Pretrain dataset: {cfg['datasets']['pretrain']['name']}:{cfg['datasets']['pretrain']['split']}")
         print(f"[TRAIN] ASR train dataset: {cfg['datasets']['asr_train']['name']}:{cfg['datasets']['asr_train']['split']}")

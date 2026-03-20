@@ -141,6 +141,25 @@ def _distillation_enabled(cfg: Dict[str, Any]) -> bool:
     return bool(_distillation_cfg(cfg).get("enabled", False))
 
 
+def _overemit_cfg(cfg: Dict[str, Any]) -> Dict[str, Any]:
+    overemit_cfg = cfg.get("anti_overemit", {})
+    return overemit_cfg if isinstance(overemit_cfg, dict) else {}
+
+
+def _resolve_distill_projection_dim(
+    cfg: Dict[str, Any],
+    teacher: Optional[Any],
+) -> Optional[int]:
+    model_cfg = cfg.get("model", {})
+    if isinstance(model_cfg, dict) and model_cfg.get("distill_projection_dim") is not None:
+        return int(model_cfg.get("distill_projection_dim"))
+    if teacher is not None and getattr(teacher, "target_kind", "logits") == "hidden_states":
+        hidden_dim = getattr(teacher, "hidden_dim", None)
+        if hidden_dim is not None and int(hidden_dim) > 0:
+            return int(hidden_dim)
+    return None
+
+
 def _current_lr(optimizer: torch.optim.Optimizer) -> float:
     if not optimizer.param_groups:
         return 0.0
@@ -254,6 +273,47 @@ def _compute_distillation_loss(
         )
 
     raise ValueError(f"Unsupported teacher target_kind '{teacher_output.target_kind}'.")
+
+
+def _compute_overemit_loss(
+    *,
+    student_logits: torch.Tensor,
+    student_lengths: torch.Tensor,
+    target_lengths: torch.Tensor,
+    blank_id: int,
+    density_scale: float,
+    density_margin: float,
+    power: float,
+) -> Tuple[torch.Tensor, float, float]:
+    if student_logits.ndim != 3:
+        raise ValueError("student_logits must be [B, T, C].")
+    valid_mask = (
+        torch.arange(student_logits.shape[1], device=student_lengths.device, dtype=torch.long).unsqueeze(0)
+        < student_lengths.unsqueeze(1)
+    )
+    if not valid_mask.any():
+        return student_logits.new_zeros(()), 0.0, 0.0
+
+    probs = torch.softmax(student_logits, dim=-1)
+    nonblank_probs = 1.0 - probs[..., int(blank_id)]
+    mean_nonblank = (
+        (nonblank_probs * valid_mask.to(nonblank_probs.dtype)).sum(dim=1)
+        / student_lengths.clamp_min(1).to(nonblank_probs.dtype)
+    )
+    target_density = (
+        target_lengths.to(nonblank_probs.dtype)
+        / student_lengths.clamp_min(1).to(nonblank_probs.dtype)
+    ).clamp(min=0.0, max=1.0)
+    allowed_density = (
+        target_density * max(0.0, float(density_scale)) + max(0.0, float(density_margin))
+    ).clamp(max=1.0)
+    excess_density = torch.relu(mean_nonblank - allowed_density)
+    effective_power = max(1.0, float(power))
+    if math.isclose(effective_power, 1.0, rel_tol=0.0, abs_tol=1e-8):
+        penalty = excess_density
+    else:
+        penalty = excess_density.pow(effective_power)
+    return penalty.mean(), float(mean_nonblank.mean().item()), float(target_density.mean().item())
 
 
 def _checkpoint_selection_score(metrics: Dict[str, Any], cfg: Dict[str, Any]) -> float:
@@ -564,7 +624,6 @@ def run_pretrain_seed(
 
             global_step += 1
             accum_counter += 1
-            accum_counter += 1
             if use_tqdm:
                 progress.update(1)
                 progress.set_postfix_str(
@@ -750,11 +809,19 @@ def run_finetune_seed(
     keep_last = int(cfg["experiment"].get("keep_last_checkpoints", 2))
     amp_enabled = bool(global_cfg["amp"]) and torch.cuda.is_available()
 
+    teacher = build_teacher(cfg, tokenizer=tokenizer, device=device)
+    distill_projection_dim = _resolve_distill_projection_dim(cfg, teacher)
+    model_cfg_for_checkpoint = dict(cfg["model"])
+    if distill_projection_dim is not None:
+        model_cfg_for_checkpoint["distill_projection_dim"] = int(distill_projection_dim)
     encoder = build_encoder(cfg)
     if pretrain_encoder_path is not None:
         _load_encoder_from_pretrain(encoder, pretrain_encoder_path, device)
-    model = AudioTransformerCTC(encoder=encoder, vocab_size=tokenizer.vocab_size).to(device)
-    teacher = build_teacher(cfg, tokenizer=tokenizer, device=device)
+    model = AudioTransformerCTC(
+        encoder=encoder,
+        vocab_size=tokenizer.vocab_size,
+        distill_projection_dim=distill_projection_dim,
+    ).to(device)
     distill_cfg = _distillation_cfg(cfg)
     distill_enabled = teacher is not None
     lambda_ctc = float(distill_cfg.get("lambda_ctc", 1.0))
@@ -763,6 +830,12 @@ def run_finetune_seed(
     kd_informative_only = bool(distill_cfg.get("informative_only", False))
     kd_min_nonblank_prob = float(distill_cfg.get("min_nonblank_prob", 0.0))
     kd_require_nonblank_argmax = bool(distill_cfg.get("require_nonblank_argmax", True))
+    overemit_cfg = _overemit_cfg(cfg)
+    overemit_enabled = bool(overemit_cfg.get("enabled", False))
+    lambda_overemit = float(overemit_cfg.get("lambda", 0.0))
+    overemit_density_scale = float(overemit_cfg.get("density_scale", 1.0))
+    overemit_density_margin = float(overemit_cfg.get("density_margin", 0.0))
+    overemit_power = float(overemit_cfg.get("power", 2.0))
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=float(training_cfg["learning_rate"]),
@@ -837,6 +910,9 @@ def run_finetune_seed(
     running_ctc_loss = 0.0
     running_kd_loss = 0.0
     running_kd_active_ratio = 0.0
+    running_overemit_loss = 0.0
+    running_nonblank_density = 0.0
+    running_target_density = 0.0
     train_sample_count = 0
     train_invalid_length_count = 0
     train_out_length_sum = 0.0
@@ -853,6 +929,7 @@ def run_finetune_seed(
         f"distillation={distill_enabled} "
         f"lambda_ctc={lambda_ctc:.3f} lambda_kd={lambda_kd:.3f} "
         f"informative_only={kd_informative_only} min_nonblank_prob={kd_min_nonblank_prob:.3f} "
+        f"overemit={overemit_enabled} lambda_overemit={lambda_overemit:.3f} "
         f"optimizer_steps={optimizer_total_steps} warmup_steps={warmup_steps} "
         f"lr={float(training_cfg['learning_rate']):.6f} patience={early_stopping_patience}"
     )
@@ -898,6 +975,9 @@ def run_finetune_seed(
                 ctc_loss = ctc_loss_fn(log_probs, targets, out_lengths, target_lengths)
                 kd_loss = logits.new_zeros(())
                 kd_active_ratio = 0.0
+                overemit_loss = logits.new_zeros(())
+                mean_nonblank_density = 0.0
+                mean_target_density = 0.0
                 if distill_enabled and lambda_kd > 0.0:
                     teacher_output = teacher.forward_teacher(
                         x_logmel=x,
@@ -916,11 +996,22 @@ def run_finetune_seed(
                         min_nonblank_prob=kd_min_nonblank_prob,
                         require_nonblank_argmax=kd_require_nonblank_argmax,
                     )
-                loss = lambda_ctc * ctc_loss + lambda_kd * kd_loss
+                if overemit_enabled and lambda_overemit > 0.0:
+                    overemit_loss, mean_nonblank_density, mean_target_density = _compute_overemit_loss(
+                        student_logits=logits,
+                        student_lengths=out_lengths,
+                        target_lengths=target_lengths,
+                        blank_id=tokenizer.blank_id,
+                        density_scale=overemit_density_scale,
+                        density_margin=overemit_density_margin,
+                        power=overemit_power,
+                    )
+                loss = lambda_ctc * ctc_loss + lambda_kd * kd_loss + lambda_overemit * overemit_loss
                 loss_scaled = loss / grad_acc
             scaler.scale(loss_scaled).backward()
 
             global_step += 1
+            accum_counter += 1
             if use_tqdm:
                 progress.update(1)
                 progress.set_postfix_str(
@@ -935,6 +1026,9 @@ def run_finetune_seed(
             running_ctc_loss += float(ctc_loss.item())
             running_kd_loss += float(kd_loss.item()) if isinstance(kd_loss, torch.Tensor) else float(kd_loss)
             running_kd_active_ratio += float(kd_active_ratio)
+            running_overemit_loss += float(overemit_loss.item()) if isinstance(overemit_loss, torch.Tensor) else float(overemit_loss)
+            running_nonblank_density += float(mean_nonblank_density)
+            running_target_density += float(mean_target_density)
             running_count += 1
             batch_size = int(target_lengths.shape[0])
             invalid_length_mask = out_lengths < target_lengths
@@ -1037,7 +1131,7 @@ def run_finetune_seed(
                     "vocab_size": tokenizer.vocab_size,
                     "blank_id": tokenizer.blank_id,
                     "student_config": {
-                        "model": dict(cfg["model"]),
+                        "model": dict(model_cfg_for_checkpoint),
                         "audio": {"n_mels": int(cfg["audio"]["n_mels"])},
                     },
                     "selection_score": float(current_score),
@@ -1106,7 +1200,7 @@ def run_finetune_seed(
             "vocab_size": tokenizer.vocab_size,
             "blank_id": tokenizer.blank_id,
             "student_config": {
-                "model": dict(cfg["model"]),
+                "model": dict(model_cfg_for_checkpoint),
                 "audio": {"n_mels": int(cfg["audio"]["n_mels"])},
             },
         },
@@ -1132,6 +1226,9 @@ def run_finetune_seed(
         "train_ctc_loss": float(running_ctc_loss / max(1, running_count)),
         "train_kd_loss": float(running_kd_loss / max(1, running_count)),
         "train_kd_active_ratio": float(running_kd_active_ratio / max(1, running_count)),
+        "train_overemit_loss": float(running_overemit_loss / max(1, running_count)),
+        "train_nonblank_density": float(running_nonblank_density / max(1, running_count)),
+        "train_target_density": float(running_target_density / max(1, running_count)),
         "distillation_enabled": 1.0 if distill_enabled else 0.0,
         "train_runtime_sec": float(time.time() - train_start_ts),
         "train_peak_gpu_mem_mb": float(train_peak_gpu_mem_mb),
@@ -1184,9 +1281,26 @@ def evaluate_seed_on_dataset(
     artifact_path: Optional[Path] = None,
 ) -> Dict[str, Any]:
     device = _device()
-    encoder = build_encoder(cfg)
-    model = AudioTransformerCTC(encoder=encoder, vocab_size=tokenizer.vocab_size).to(device)
-    payload = torch.load(checkpoint_path, map_location=device)
+    payload = torch.load(checkpoint_path, map_location=device, weights_only=False)
+    student_cfg = payload.get("student_config", {})
+    model_cfg = dict(cfg["model"])
+    audio_cfg = {"n_mels": int(cfg["audio"]["n_mels"])}
+    if isinstance(student_cfg, dict):
+        if isinstance(student_cfg.get("model"), dict):
+            model_cfg.update(student_cfg["model"])
+        if isinstance(student_cfg.get("audio"), dict) and student_cfg["audio"].get("n_mels") is not None:
+            audio_cfg["n_mels"] = int(student_cfg["audio"]["n_mels"])
+    eval_cfg = {
+        **cfg,
+        "model": model_cfg,
+        "audio": {**cfg["audio"], **audio_cfg},
+    }
+    encoder = build_encoder(eval_cfg)
+    model = AudioTransformerCTC(
+        encoder=encoder,
+        vocab_size=tokenizer.vocab_size,
+        distill_projection_dim=model_cfg.get("distill_projection_dim"),
+    ).to(device)
     model.load_state_dict(payload["model_state_dict"])
     model.eval()
     param_counts = count_parameters(model)

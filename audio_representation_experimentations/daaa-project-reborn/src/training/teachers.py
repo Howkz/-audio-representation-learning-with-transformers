@@ -50,6 +50,7 @@ class BaseTeacher:
     target_kind: str = "logits"
     requires_waveform: bool = False
     family: str = "unknown"
+    hidden_dim: Optional[int] = None
 
     def forward_teacher(
         self,
@@ -69,11 +70,13 @@ class ExternalHFTeacher(BaseTeacher):
         *,
         family: str,
         model_name: str,
+        target: str,
         tokenizer: CharCTCTokenizer,
         device: torch.device,
     ) -> None:
         self.family = str(family)
         self.model_name = str(model_name)
+        self.requested_target = str(target)
         self.tokenizer = tokenizer
         self.device = device
 
@@ -88,15 +91,21 @@ class ExternalHFTeacher(BaseTeacher):
         if self.family == "wav2vec2_ctc":
             self.model = AutoModelForCTC.from_pretrained(self.model_name).to(self.device)
             self.model.eval()
-            self.target_kind = "logits"
             self.requires_waveform = True
-            self._vocab_mapping = self._build_vocab_mapping().to(self.device)
+            self.hidden_dim = int(getattr(self.model.config, "hidden_size", 0) or 0)
+            if self.requested_target == "hidden_states":
+                self.target_kind = "hidden_states"
+                self._vocab_mapping = None
+            else:
+                self.target_kind = "logits"
+                self._vocab_mapping = self._build_vocab_mapping().to(self.device)
         elif self.family == "hubert_features":
             self.model = AutoModel.from_pretrained(self.model_name).to(self.device)
             self.model.eval()
             self.target_kind = "hidden_states"
             self.requires_waveform = True
             self._vocab_mapping = None
+            self.hidden_dim = int(getattr(self.model.config, "hidden_size", 0) or 0)
         else:
             raise ValueError(f"Unsupported external teacher family '{self.family}'.")
 
@@ -164,7 +173,26 @@ class ExternalHFTeacher(BaseTeacher):
         input_values, attention_mask = self._waveform_inputs(waveforms, waveform_lengths)
         with torch.no_grad():
             if self.family == "wav2vec2_ctc":
-                outputs = self.model(input_values=input_values, attention_mask=attention_mask)
+                outputs = self.model(
+                    input_values=input_values,
+                    attention_mask=attention_mask,
+                    output_hidden_states=self.target_kind == "hidden_states",
+                )
+                if self.target_kind == "hidden_states":
+                    hidden_states = outputs.hidden_states
+                    if hidden_states is None or len(hidden_states) == 0:
+                        raise ValueError("Teacher did not return hidden states.")
+                    hidden = hidden_states[-1].float()
+                    teacher_lengths = self._output_lengths(
+                        waveform_lengths=attention_mask.sum(dim=1),
+                        output_time_steps=int(hidden.shape[1]),
+                    ).to(hidden.device)
+                    return TeacherOutput(
+                        target_kind="hidden_states",
+                        values=hidden.detach(),
+                        lengths=teacher_lengths.detach(),
+                        blank_id=int(self.tokenizer.blank_id),
+                    )
                 logits = outputs.logits.float()
                 teacher_lengths = self._output_lengths(
                     waveform_lengths=attention_mask.sum(dim=1),
@@ -202,11 +230,12 @@ class CheckpointTeacher(BaseTeacher):
         *,
         checkpoint_path: str | Path,
         fallback_cfg: Dict[str, Any],
+        target: str,
         tokenizer: CharCTCTokenizer,
         device: torch.device,
     ) -> None:
         self.family = "checkpoint"
-        self.target_kind = "logits"
+        self.target_kind = "hidden_states" if str(target) == "hidden_states" else "logits"
         self.requires_waveform = False
         self.device = device
         self.tokenizer = tokenizer
@@ -224,9 +253,15 @@ class CheckpointTeacher(BaseTeacher):
 
         encoder = _build_encoder_from_sections(student_cfg["model"], student_cfg["audio"])
         vocab_size = int(payload.get("vocab_size", tokenizer.vocab_size))
-        self.model = AudioTransformerCTC(encoder=encoder, vocab_size=vocab_size).to(self.device)
+        distill_projection_dim = student_cfg["model"].get("distill_projection_dim")
+        self.model = AudioTransformerCTC(
+            encoder=encoder,
+            vocab_size=vocab_size,
+            distill_projection_dim=distill_projection_dim,
+        ).to(self.device)
         self.model.load_state_dict(payload["model_state_dict"])
         self.model.eval()
+        self.hidden_dim = int(getattr(self.model, "distill_feature_dim", encoder.dim))
 
     def forward_teacher(
         self,
@@ -241,17 +276,30 @@ class CheckpointTeacher(BaseTeacher):
         if x_logmel is None or lengths is None:
             raise ValueError("Checkpoint teacher requires log-Mel inputs and frame lengths.")
         with torch.no_grad():
+            if self.target_kind == "hidden_states":
+                logits, out_lengths, features = self.model(
+                    x_logmel.to(self.device, non_blocking=True),
+                    lengths.to(self.device, non_blocking=True),
+                    return_features=True,
+                )
+                del logits
+                return TeacherOutput(
+                    target_kind="hidden_states",
+                    values=features.detach(),
+                    lengths=out_lengths.detach(),
+                    blank_id=int(self.tokenizer.blank_id),
+                )
             logits, out_lengths = self.model(
                 x_logmel.to(self.device, non_blocking=True),
                 lengths.to(self.device, non_blocking=True),
             )
             probs = torch.softmax(logits.float() / _normalize_temperature(temperature), dim=-1)
-        return TeacherOutput(
-            target_kind="logits",
-            values=probs.detach(),
-            lengths=out_lengths.detach(),
-            blank_id=int(self.tokenizer.blank_id),
-        )
+            return TeacherOutput(
+                target_kind="logits",
+                values=probs.detach(),
+                lengths=out_lengths.detach(),
+                blank_id=int(self.tokenizer.blank_id),
+            )
 
 
 def build_teacher(
@@ -268,12 +316,14 @@ def build_teacher(
         raise ValueError("teacher config must be a mapping when distillation is enabled.")
 
     source = str(teacher_cfg.get("source", "external"))
+    target = str(teacher_cfg.get("target", "logits"))
     if source == "external":
         family = str(teacher_cfg.get("family", "wav2vec2_ctc"))
         model_name = str(teacher_cfg.get("model_name", "facebook/wav2vec2-base-960h"))
         return ExternalHFTeacher(
             family=family,
             model_name=model_name,
+            target=target,
             tokenizer=tokenizer,
             device=device,
         )
@@ -284,6 +334,7 @@ def build_teacher(
         return CheckpointTeacher(
             checkpoint_path=checkpoint_path,
             fallback_cfg=cfg,
+            target=target,
             tokenizer=tokenizer,
             device=device,
         )
