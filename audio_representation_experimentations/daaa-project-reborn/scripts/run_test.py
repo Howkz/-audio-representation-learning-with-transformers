@@ -17,6 +17,30 @@ if str(PROJECT_ROOT) not in sys.path:
 from src.config import ensure_project_dirs, load_config
 
 
+def _pretrain_mode(cfg):
+    pretrain_cfg = cfg.get("pretrain", {})
+    if isinstance(pretrain_cfg, dict) and pretrain_cfg.get("mode") is not None:
+        return str(pretrain_cfg.get("mode", "none")).lower()
+    if bool(cfg["training"]["pretrain"].get("enabled", True)):
+        return "mae"
+    return "none"
+
+
+def _adaptation_label(cfg):
+    pretrain_mode = _pretrain_mode(cfg)
+    distill_cfg = cfg.get("distillation", {})
+    if isinstance(distill_cfg, dict) and bool(distill_cfg.get("enabled", False)):
+        teacher_cfg = cfg.get("teacher", {})
+        source = str(teacher_cfg.get("source", "external"))
+        family = str(teacher_cfg.get("family", source))
+        if pretrain_mode == "mae":
+            return f"MAE pretrain -> CTC fine-tune + distillation ({source}:{family})"
+        return f"CTC fine-tune + distillation ({source}:{family})"
+    if pretrain_mode == "mae":
+        return "MAE pretrain -> CTC fine-tune"
+    return "CTC fine-tune only (no MAE)"
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Evaluate ASR checkpoints and aggregate 5-seed results.")
     parser.add_argument("--config", type=str, required=True)
@@ -154,6 +178,8 @@ def main() -> None:
         print("[TEST] Dry-run enabled.")
         print(f"[TEST] Seeds: {cfg['experiment']['seeds']}")
         print(f"[TEST] Checkpoint variant mode: {args.checkpoint_variant}")
+        print(f"[TEST] Pretraining mode: {_pretrain_mode(cfg)}")
+        print(f"[TEST] Distillation enabled: {bool(cfg.get('distillation', {}).get('enabled', False))}")
         for spec in cfg["datasets"]["asr_tests"]:
             print(f"[TEST] Planned dataset: {spec['name']}:{spec['split']} max={spec.get('max_samples')}")
         return
@@ -204,8 +230,7 @@ def main() -> None:
     compare_path = benchmark_dir / f"asr_checkpoint_variants{filename_suffix}_final.json"
 
     print(f"[TEST] Experiment id: {exp_id if exp_id else 'N/A'}")
-    pretrain_enabled = bool(cfg["training"]["pretrain"].get("enabled", True))
-    adaptation_label = "MAE pretrain -> CTC fine-tune" if pretrain_enabled else "CTC fine-tune only (no MAE)"
+    adaptation_label = _adaptation_label(cfg)
     first_seed = int(cfg["experiment"]["seeds"][0])
     available_variants = _find_seed_checkpoints(cfg, first_seed)
     selected_variants = _resolve_checkpoint_variants(cfg, args.checkpoint_variant, available_variants)
@@ -260,19 +285,25 @@ def main() -> None:
                     f"[TEST] variant={variant} seed={seed} dataset={dataset_label} "
                     f"wer={metrics['wer']:.4f} accuracy={metrics['accuracy']:.4f} "
                     f"runtime={metrics['inference_runtime_sec']:.2f}s "
-                    f"blank_ratio={metrics['blank_ratio']:.3f} empty_pred_ratio={metrics['empty_pred_ratio']:.3f}"
+                    f"blank_ratio={metrics['blank_ratio']:.3f} empty_pred_ratio={metrics['empty_pred_ratio']:.3f} "
+                    f"pred_to_ref_char_ratio={metrics['pred_to_ref_char_ratio']:.3f}"
                 )
 
             overall = {
                 "seed": float(seed),
                 "wer": float(np.mean([m["wer"] for m in per_dataset_metrics])),
                 "accuracy": float(np.mean([m["accuracy"] for m in per_dataset_metrics])),
+                "eval_batch_size": float(np.mean([m["eval_batch_size"] for m in per_dataset_metrics])),
                 "inference_runtime_sec": float(np.mean([m["inference_runtime_sec"] for m in per_dataset_metrics])),
                 "inference_samples_per_sec": float(np.mean([m["inference_samples_per_sec"] for m in per_dataset_metrics])),
                 "inference_peak_gpu_mem_mb": float(np.max([m["inference_peak_gpu_mem_mb"] for m in per_dataset_metrics])),
+                "model_total_params": float(np.mean([m["model_total_params"] for m in per_dataset_metrics])),
+                "model_trainable_params": float(np.mean([m["model_trainable_params"] for m in per_dataset_metrics])),
                 "blank_ratio": float(np.mean([m["blank_ratio"] for m in per_dataset_metrics])),
                 "empty_pred_ratio": float(np.mean([m["empty_pred_ratio"] for m in per_dataset_metrics])),
                 "nonempty_pred_ratio": float(np.mean([m["nonempty_pred_ratio"] for m in per_dataset_metrics])),
+                "pred_to_ref_char_ratio": float(np.mean([m["pred_to_ref_char_ratio"] for m in per_dataset_metrics])),
+                "short_pred_ratio": float(np.mean([m["short_pred_ratio"] for m in per_dataset_metrics])),
                 "invalid_length_ratio": float(np.mean([m["invalid_length_ratio"] for m in per_dataset_metrics])),
                 "avg_out_length": float(np.mean([m["avg_out_length"] for m in per_dataset_metrics])),
                 "avg_target_length": float(np.mean([m["avg_target_length"] for m in per_dataset_metrics])),

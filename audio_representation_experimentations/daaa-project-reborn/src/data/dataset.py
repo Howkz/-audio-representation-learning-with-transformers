@@ -57,6 +57,8 @@ class InMemoryRowsDataset(TorchDataset):
 
 def _dataset_filter_keys() -> List[str]:
     return [
+        "min_duration_sec",
+        "max_duration_sec",
         "min_transcript_chars",
         "max_transcript_chars",
         "min_transcript_words",
@@ -84,6 +86,17 @@ def _row_matches_filters(
     max_chars = filters.get("max_transcript_chars")
     min_words = filters.get("min_transcript_words")
     max_words = filters.get("max_transcript_words")
+    min_duration = filters.get("min_duration_sec")
+    max_duration = filters.get("max_duration_sec")
+
+    if min_duration is not None or max_duration is not None:
+        duration_sec = _audio_duration_seconds(row.get("audio"))
+        if duration_sec is None:
+            return False
+        if min_duration is not None and duration_sec < float(min_duration):
+            return False
+        if max_duration is not None and duration_sec > float(max_duration):
+            return False
 
     if min_chars is not None and num_chars < int(min_chars):
         return False
@@ -101,7 +114,11 @@ def apply_dataset_filters(
     transcript_key: Optional[str],
     spec: Optional[Dict[str, Any]] = None,
 ) -> Dataset:
-    filters = dataset_filter_config(spec or {})
+    raw_filters = dataset_filter_config(spec or {})
+    filters = dict(raw_filters)
+    if spec is not None and str(spec.get("length_policy", "crop_or_pad")) != "none":
+        filters.pop("min_duration_sec", None)
+        filters.pop("max_duration_sec", None)
     if not filters:
         return dataset
 
@@ -237,6 +254,21 @@ def resolve_transcript_key(sample: Dict[str, Any], preferred: Optional[str]) -> 
     return None
 
 
+def _audio_duration_seconds(audio_value: Any) -> Optional[float]:
+    if not isinstance(audio_value, dict):
+        return None
+    array = audio_value.get("array")
+    sampling_rate = audio_value.get("sampling_rate")
+    if array is not None and sampling_rate:
+        try:
+            num_samples = len(array)
+            if num_samples > 0 and int(sampling_rate) > 0:
+                return float(num_samples) / float(sampling_rate)
+        except Exception:
+            return None
+    return None
+
+
 class AudioFeatureDataset(TorchDataset):
     def __init__(
         self,
@@ -268,6 +300,7 @@ class AudioFeatureDataset(TorchDataset):
             target_num_samples=self.max_samples,
             length_policy=self.audio_cfg.length_policy,
         )
+        waveform = waveform.to(torch.float32).contiguous()
         logmel = extract_logmel(
             waveform=waveform,
             sr=sr,
@@ -279,19 +312,44 @@ class AudioFeatureDataset(TorchDataset):
         item = {
             "x_logmel": logmel,
             "length": int(logmel.shape[0]),
+            "waveform": waveform.squeeze(0),
+            "waveform_length": int(waveform.shape[-1]),
         }
         if self.transcript_key is not None:
             item["transcript"] = normalize_transcript(str(row.get(self.transcript_key, "")))
         return item
 
 
-def collect_dataset_summary(dataset: Dataset, dataset_label: str) -> Dict[str, Any]:
+def collect_dataset_summary(
+    dataset: Dataset,
+    dataset_label: str,
+    transcript_key: Optional[str] = None,
+) -> Dict[str, Any]:
     features = getattr(dataset, "features", {})
     sample_keys = list(features.keys()) if hasattr(features, "keys") else []
+    durations: List[float] = []
+    transcript_chars: List[int] = []
+    transcript_words: List[int] = []
+    for idx in range(len(dataset)):
+        row = dataset[idx]
+        duration_sec = _audio_duration_seconds(row.get("audio"))
+        if duration_sec is not None:
+            durations.append(float(duration_sec))
+
+        resolved_key = resolve_transcript_key(row, transcript_key)
+        if resolved_key is not None:
+            text = normalize_transcript(str(row.get(resolved_key, "")))
+            transcript_chars.append(len(text))
+            transcript_words.append(len(text.split()) if text else 0)
+
     return {
         "dataset_label": dataset_label,
         "num_examples": int(len(dataset)),
         "columns": sample_keys,
+        "duration_avg_sec": float(sum(durations) / max(1, len(durations))) if durations else None,
+        "duration_max_sec": float(max(durations)) if durations else None,
+        "transcript_avg_chars": float(sum(transcript_chars) / max(1, len(transcript_chars))) if transcript_chars else None,
+        "transcript_avg_words": float(sum(transcript_words) / max(1, len(transcript_words))) if transcript_words else None,
     }
 
 

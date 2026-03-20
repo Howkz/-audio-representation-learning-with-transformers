@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
 import torch
+import torch.nn.functional as F
 from torch.cuda.amp import GradScaler as LegacyGradScaler
 from torch.nn.utils import clip_grad_norm_
 from torch.utils.data import DataLoader
@@ -34,6 +35,7 @@ from src.training.metrics import (
     finalize_ctc_diagnostics,
 )
 from src.training.results import write_json_artifact
+from src.training.teachers import TeacherOutput, build_teacher
 from src.training.utils import count_parameters, peak_memory_mb, reset_peak_memory
 
 
@@ -117,16 +119,131 @@ def _maybe_warn_ctc(stage: str, metrics: Dict[str, Any], cfg: Dict[str, Any]) ->
         )
 
 
+def _pretrain_mode(cfg: Dict[str, Any]) -> str:
+    pretrain_cfg = cfg.get("pretrain", {})
+    if isinstance(pretrain_cfg, dict) and pretrain_cfg.get("mode") is not None:
+        return str(pretrain_cfg.get("mode", "none")).lower()
+    if bool(cfg["training"]["pretrain"].get("enabled", True)):
+        return "mae"
+    return "none"
+
+
+def _pretrain_enabled(cfg: Dict[str, Any]) -> bool:
+    return _pretrain_mode(cfg) == "mae"
+
+
+def _distillation_cfg(cfg: Dict[str, Any]) -> Dict[str, Any]:
+    distill_cfg = cfg.get("distillation", {})
+    return distill_cfg if isinstance(distill_cfg, dict) else {}
+
+
+def _distillation_enabled(cfg: Dict[str, Any]) -> bool:
+    return bool(_distillation_cfg(cfg).get("enabled", False))
+
+
+def _adaptation_label(cfg: Dict[str, Any]) -> str:
+    pretrain_mode = _pretrain_mode(cfg)
+    if _distillation_enabled(cfg):
+        teacher_cfg = cfg.get("teacher", {})
+        source = str(teacher_cfg.get("source", "external"))
+        family = str(teacher_cfg.get("family", source))
+        if pretrain_mode == "mae":
+            return f"MAE pretrain -> CTC fine-tune + distillation ({source}:{family})"
+        return f"CTC fine-tune + distillation ({source}:{family})"
+    if pretrain_mode == "mae":
+        return "MAE pretrain -> CTC fine-tune"
+    return "CTC fine-tune only (no MAE)"
+
+
+def _align_teacher_values(
+    values: torch.Tensor,
+    source_lengths: torch.Tensor,
+    target_steps: int,
+    target_lengths: torch.Tensor,
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    if values.ndim != 3:
+        raise ValueError("Teacher values must be [B, T, C].")
+
+    if values.shape[1] == target_steps:
+        aligned_values = values
+    else:
+        aligned_values = F.interpolate(
+            values.transpose(1, 2),
+            size=int(target_steps),
+            mode="linear",
+            align_corners=False,
+        ).transpose(1, 2)
+
+    source_mask = (
+        torch.arange(values.shape[1], device=values.device, dtype=torch.long).unsqueeze(0)
+        < source_lengths.to(values.device).unsqueeze(1)
+    ).to(dtype=torch.float32)
+    if source_mask.shape[1] == target_steps:
+        aligned_mask = source_mask > 0.5
+    else:
+        aligned_mask = F.interpolate(
+            source_mask.unsqueeze(1),
+            size=int(target_steps),
+            mode="nearest",
+        ).squeeze(1) > 0.5
+    student_mask = (
+        torch.arange(target_steps, device=target_lengths.device, dtype=torch.long).unsqueeze(0)
+        < target_lengths.unsqueeze(1)
+    )
+    return aligned_values, aligned_mask & student_mask.to(aligned_mask.device)
+
+
+def _compute_distillation_loss(
+    *,
+    student_logits: torch.Tensor,
+    student_lengths: torch.Tensor,
+    student_features: torch.Tensor,
+    teacher_output: TeacherOutput,
+    temperature: float,
+) -> torch.Tensor:
+    temperature = max(1e-4, float(temperature))
+    aligned_values, valid_mask = _align_teacher_values(
+        values=teacher_output.values,
+        source_lengths=teacher_output.lengths,
+        target_steps=int(student_logits.shape[1]),
+        target_lengths=student_lengths,
+    )
+    if not valid_mask.any():
+        return student_logits.new_zeros(())
+
+    if teacher_output.target_kind == "logits":
+        teacher_probs = aligned_values / aligned_values.sum(dim=-1, keepdim=True).clamp_min(1e-8)
+        student_log_probs = F.log_softmax(student_logits / temperature, dim=-1)
+        token_kl = F.kl_div(student_log_probs, teacher_probs, reduction="none").sum(dim=-1)
+        loss = (token_kl * valid_mask.to(token_kl.dtype)).sum() / valid_mask.sum().clamp_min(1).to(token_kl.dtype)
+        return loss * (temperature ** 2)
+
+    if teacher_output.target_kind == "hidden_states":
+        if aligned_values.shape[-1] != student_features.shape[-1]:
+            raise ValueError(
+                "Teacher hidden-state distillation requires matching hidden dims. "
+                "Use a compatible student dim or add a projection layer."
+            )
+        mse = F.mse_loss(student_features, aligned_values, reduction="none").mean(dim=-1)
+        return (mse * valid_mask.to(mse.dtype)).sum() / valid_mask.sum().clamp_min(1).to(mse.dtype)
+
+    raise ValueError(f"Unsupported teacher target_kind '{teacher_output.target_kind}'.")
+
+
 def _checkpoint_selection_score(metrics: Dict[str, Any], cfg: Dict[str, Any]) -> float:
     selection_cfg = cfg.get("checkpoint_selection", {})
     if not isinstance(selection_cfg, dict):
         selection_cfg = {}
     empty_penalty = float(selection_cfg.get("empty_pred_penalty", 1.0))
     blank_penalty = float(selection_cfg.get("blank_ratio_penalty", 0.0))
+    short_penalty = float(selection_cfg.get("short_pred_penalty", 0.0))
+    accuracy_bonus = float(selection_cfg.get("accuracy_bonus", 0.0))
     return (
         float(metrics["wer"])
         + empty_penalty * float(metrics.get("empty_pred_ratio", 0.0))
         + blank_penalty * float(metrics.get("blank_ratio", 0.0))
+        + short_penalty * float(metrics.get("short_pred_ratio", 0.0))
+        - accuracy_bonus * float(metrics.get("accuracy", 0.0))
     )
 
 
@@ -571,6 +688,12 @@ def run_finetune_seed(
     if pretrain_encoder_path is not None:
         _load_encoder_from_pretrain(encoder, pretrain_encoder_path, device)
     model = AudioTransformerCTC(encoder=encoder, vocab_size=tokenizer.vocab_size).to(device)
+    teacher = build_teacher(cfg, tokenizer=tokenizer, device=device)
+    distill_cfg = _distillation_cfg(cfg)
+    distill_enabled = teacher is not None
+    lambda_ctc = float(distill_cfg.get("lambda_ctc", 1.0))
+    lambda_kd = float(distill_cfg.get("lambda_kd", 0.0))
+    temperature = float(distill_cfg.get("temperature", 1.0))
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=float(training_cfg["learning_rate"]),
@@ -621,6 +744,8 @@ def run_finetune_seed(
     reset_peak_memory()
     running_loss = 0.0
     running_count = 0
+    running_ctc_loss = 0.0
+    running_kd_loss = 0.0
     train_sample_count = 0
     train_invalid_length_count = 0
     train_out_length_sum = 0.0
@@ -632,7 +757,8 @@ def run_finetune_seed(
     print(
         f"[FINETUNE] seed={seed} max_steps={int(training_cfg['max_steps'])} "
         f"micro_batch={int(training_cfg['batch_size'])} grad_acc={grad_acc} "
-        f"effective_batch={effective_batch_size}"
+        f"effective_batch={effective_batch_size} "
+        f"distillation={distill_enabled}"
     )
 
     use_tqdm = _use_tqdm()
@@ -667,11 +793,30 @@ def run_finetune_seed(
             lengths = batch["lengths"].to(device, non_blocking=True)
             targets = batch["targets"].to(device, non_blocking=True)
             target_lengths = batch["target_lengths"].to(device, non_blocking=True)
+            waveforms = batch["waveforms"].to(device, non_blocking=True)
+            waveform_lengths = batch["waveform_lengths"].to(device, non_blocking=True)
 
             with _autocast_context(device=device, enabled=amp_enabled):
-                logits, out_lengths = model(x, lengths)
+                logits, out_lengths, student_features = model(x, lengths, return_features=True)
                 log_probs = logits.log_softmax(dim=-1).transpose(0, 1)
-                loss = ctc_loss_fn(log_probs, targets, out_lengths, target_lengths)
+                ctc_loss = ctc_loss_fn(log_probs, targets, out_lengths, target_lengths)
+                kd_loss = logits.new_zeros(())
+                if distill_enabled and lambda_kd > 0.0:
+                    teacher_output = teacher.forward_teacher(
+                        x_logmel=x,
+                        lengths=lengths,
+                        waveforms=waveforms if getattr(teacher, "requires_waveform", False) else None,
+                        waveform_lengths=waveform_lengths if getattr(teacher, "requires_waveform", False) else None,
+                        temperature=temperature,
+                    )
+                    kd_loss = _compute_distillation_loss(
+                        student_logits=logits,
+                        student_lengths=out_lengths,
+                        student_features=student_features,
+                        teacher_output=teacher_output,
+                        temperature=temperature,
+                    )
+                loss = lambda_ctc * ctc_loss + lambda_kd * kd_loss
                 loss_scaled = loss / grad_acc
             scaler.scale(loss_scaled).backward()
 
@@ -687,6 +832,8 @@ def run_finetune_seed(
                     )
                 )
             running_loss += float(loss.item())
+            running_ctc_loss += float(ctc_loss.item())
+            running_kd_loss += float(kd_loss.item()) if isinstance(kd_loss, torch.Tensor) else float(kd_loss)
             running_count += 1
             batch_size = int(target_lengths.shape[0])
             invalid_length_mask = out_lengths < target_lengths
@@ -762,6 +909,7 @@ def run_finetune_seed(
             f"accuracy={float(eval_metrics['accuracy']):.4f} "
             f"blank_ratio={float(eval_metrics['blank_ratio']):.3f} "
             f"empty_pred_ratio={float(eval_metrics['empty_pred_ratio']):.3f} "
+            f"pred_to_ref_char_ratio={float(eval_metrics['pred_to_ref_char_ratio']):.3f} "
             f"invalid_length_ratio={float(eval_metrics['invalid_length_ratio']):.3f} "
             f"selection_score={current_score:.4f}"
         )
@@ -782,11 +930,17 @@ def run_finetune_seed(
                     "model_state_dict": model.state_dict(),
                     "vocab_size": tokenizer.vocab_size,
                     "blank_id": tokenizer.blank_id,
+                    "student_config": {
+                        "model": dict(cfg["model"]),
+                        "audio": {"n_mels": int(cfg["audio"]["n_mels"])},
+                    },
                     "selection_score": float(current_score),
                     "selection_components": {
                         "wer": float(current_wer),
                         "empty_pred_ratio": float(eval_metrics["empty_pred_ratio"]),
                         "blank_ratio": float(eval_metrics["blank_ratio"]),
+                        "pred_to_ref_char_ratio": float(eval_metrics["pred_to_ref_char_ratio"]),
+                        "accuracy": float(eval_metrics["accuracy"]),
                     },
                 },
                 out_root / "ctc_best.pt",
@@ -827,6 +981,10 @@ def run_finetune_seed(
             "model_state_dict": model.state_dict(),
             "vocab_size": tokenizer.vocab_size,
             "blank_id": tokenizer.blank_id,
+            "student_config": {
+                "model": dict(cfg["model"]),
+                "audio": {"n_mels": int(cfg["audio"]["n_mels"])},
+            },
         },
         final_model,
     )
@@ -847,12 +1005,16 @@ def run_finetune_seed(
     final_valid_score = _checkpoint_selection_score(final_valid, cfg)
     metrics = {
         "train_loss": float(running_loss / max(1, running_count)),
+        "train_ctc_loss": float(running_ctc_loss / max(1, running_count)),
+        "train_kd_loss": float(running_kd_loss / max(1, running_count)),
+        "distillation_enabled": 1.0 if distill_enabled else 0.0,
         "train_runtime_sec": float(time.time() - train_start_ts),
         "train_peak_gpu_mem_mb": float(train_peak_gpu_mem_mb),
         "train_invalid_length_ratio": float(train_invalid_length_count / max(1, train_sample_count)),
         "train_avg_out_length": float(train_out_length_sum / max(1, train_sample_count)),
         "train_avg_target_length": float(train_target_length_sum / max(1, train_sample_count)),
         "train_avg_length_margin": float(train_length_margin_sum / max(1, train_sample_count)),
+        "finetune_effective_batch_size": float(effective_batch_size),
         "eval_peak_gpu_mem_mb": float(eval_peak_gpu_mem_mb),
         "valid_peak_gpu_mem_mb": float(eval_peak_gpu_mem_mb),
         "valid_wer": float(final_valid["wer"]),
@@ -862,6 +1024,7 @@ def run_finetune_seed(
         "valid_blank_ratio": float(final_valid["blank_ratio"]),
         "valid_empty_pred_ratio": float(final_valid["empty_pred_ratio"]),
         "valid_nonempty_pred_ratio": float(final_valid["nonempty_pred_ratio"]),
+        "valid_pred_to_ref_char_ratio": float(final_valid["pred_to_ref_char_ratio"]),
         "valid_invalid_length_ratio": float(final_valid["invalid_length_ratio"]),
         "valid_avg_out_length": float(final_valid["avg_out_length"]),
         "valid_avg_target_length": float(final_valid["avg_target_length"]),
@@ -937,6 +1100,7 @@ def evaluate_seed_on_dataset(
         "dataset": dataset_label,
         "wer": compute_wer(preds, refs),
         "accuracy": compute_char_accuracy(preds, refs),
+        "eval_batch_size": float(batch_size),
         "inference_runtime_sec": float(runtime),
         "inference_samples_per_sec": float(len(refs) / runtime),
         "inference_peak_gpu_mem_mb": peak_memory_mb(),

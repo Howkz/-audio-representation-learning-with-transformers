@@ -1,0 +1,139 @@
+experiment:
+  id: "P7D01"
+  name: "phase7_smoke_distill_external"
+  output_dir: "outputs/phase7"
+  results_dir: "results/phase7/experiments/P7D01"
+  cache_dir: "data/cache"
+  processed_dir: "data/processed/phase7/P7D01"
+  checkpoint_every_steps: 100
+  keep_last_checkpoints: 2
+  cleanup_pretrain_checkpoints_after_finetune: false
+  seeds: [42]
+
+pretrain:
+  mode: "none"
+
+distillation:
+  enabled: true
+  temperature: 2.0
+  lambda_ctc: 1.0
+  lambda_kd: 0.75
+
+teacher:
+  source: "external"
+  family: "wav2vec2_ctc"
+  model_name: "facebook/wav2vec2-base-960h"
+  target: "logits"
+
+audio:
+  sample_rate: 16000
+  max_duration_sec: 6.0
+  length_policy: "crop_or_pad"
+  feature_norm: "utterance"
+  n_mels: 80
+  win_length: 400
+  hop_length: 160
+
+model:
+  dim: 192
+  depth: 4
+  num_heads: 6
+  mlp_ratio: 3.0
+  dropout: 0.1
+  patch_strategy: "time"
+  patch_time: 1
+  patch_freq: 80
+  max_len: 2048
+  pos_embed: "sinusoidal"
+  mae_decoder_dim: 96
+  mae_decoder_depth: 1
+  mae_decoder_heads: 4
+  mae_mask_ratio: 0.6
+
+training:
+  amp: true
+  grad_clip_norm: 1.0
+  log_every_steps: 20
+  pretrain:
+    enabled: false
+    epochs: 1
+    batch_size: 4
+    grad_accum_steps: 2
+    learning_rate: 0.0001
+    weight_decay: 0.01
+    max_steps: 200
+  finetune:
+    epochs: 2
+    batch_size: 1
+    grad_accum_steps: 4
+    learning_rate: 0.0002
+    weight_decay: 0.01
+    max_steps: 250
+
+checkpoint_selection:
+  empty_pred_penalty: 1.0
+  blank_ratio_penalty: 0.1
+  short_pred_penalty: 0.75
+  accuracy_bonus: 0.25
+
+evaluation:
+  primary_checkpoint: "best"
+  checkpoint_variants: ["best", "final"]
+
+data:
+  num_workers: 0
+  precompute_feature_cache: false
+  streaming: false
+  strict_asr_consistency: true
+
+diagnostics:
+  enabled: true
+  max_saved_examples: 20
+  warn_blank_ratio: 0.98
+  warn_empty_pred_ratio: 0.80
+  warn_invalid_length_ratio: 0.00
+
+datasets:
+  pretrain:
+    name: "Codec-SUPERB/fluent_speech_commands_synth"
+    config: null
+    split: "train"
+    max_samples: 3000
+    transcript_key: null
+    feature_norm: "utterance"
+  asr_train:
+    name: "openslr/librispeech_asr"
+    config: "clean"
+    split: "train.clean.100"
+    max_samples: 1200
+    transcript_key: "text"
+    max_duration_sec: 6.0
+    length_policy: "none"
+    feature_norm: "utterance"
+    max_transcript_chars: 35
+    max_transcript_words: 7
+    strict_asr_consistency: true
+  asr_valid:
+    name: "openslr/librispeech_asr"
+    config: "clean"
+    split: "validation.clean"
+    max_samples: 200
+    transcript_key: "text"
+    max_duration_sec: 6.0
+    length_policy: "none"
+    feature_norm: "utterance"
+    max_transcript_chars: 35
+    max_transcript_words: 7
+    strict_asr_consistency: true
+  asr_tests:
+    - name: "openslr/librispeech_asr"
+      config: "clean"
+      split: "test.clean"
+      max_samples: 200
+      transcript_key: "text"
+      max_duration_sec: 6.0
+      length_policy: "none"
+      feature_norm: "utterance"
+      max_transcript_chars: 35
+      max_transcript_words: 7
+      strict_asr_consistency: true

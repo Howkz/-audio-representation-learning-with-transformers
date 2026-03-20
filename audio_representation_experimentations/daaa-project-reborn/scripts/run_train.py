@@ -14,6 +14,34 @@ if str(PROJECT_ROOT) not in sys.path:
 from src.config import ensure_project_dirs, load_config
 
 
+def _pretrain_mode(cfg):
+    pretrain_cfg = cfg.get("pretrain", {})
+    if isinstance(pretrain_cfg, dict) and pretrain_cfg.get("mode") is not None:
+        return str(pretrain_cfg.get("mode", "none")).lower()
+    if bool(cfg["training"]["pretrain"].get("enabled", True)):
+        return "mae"
+    return "none"
+
+
+def _pretrain_enabled(cfg):
+    return _pretrain_mode(cfg) == "mae"
+
+
+def _adaptation_label(cfg):
+    pretrain_mode = _pretrain_mode(cfg)
+    distill_cfg = cfg.get("distillation", {})
+    if isinstance(distill_cfg, dict) and bool(distill_cfg.get("enabled", False)):
+        teacher_cfg = cfg.get("teacher", {})
+        source = str(teacher_cfg.get("source", "external"))
+        family = str(teacher_cfg.get("family", source))
+        if pretrain_mode == "mae":
+            return f"MAE pretrain -> CTC fine-tune + distillation ({source}:{family})"
+        return f"CTC fine-tune + distillation ({source}:{family})"
+    if pretrain_mode == "mae":
+        return "MAE pretrain -> CTC fine-tune"
+    return "CTC fine-tune only (no MAE)"
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run MAE pretraining and CTC fine-tuning.")
     parser.add_argument("--config", type=str, required=True)
@@ -66,6 +94,15 @@ def main() -> None:
     if args.dry_run:
         print("[TRAIN] Dry-run enabled.")
         print(f"[TRAIN] Seeds: {cfg['experiment']['seeds']}")
+        print(f"[TRAIN] Pretraining mode: {_pretrain_mode(cfg)}")
+        print(f"[TRAIN] Distillation enabled: {bool(cfg.get('distillation', {}).get('enabled', False))}")
+        if bool(cfg.get("distillation", {}).get("enabled", False)):
+            teacher_cfg = cfg.get("teacher", {})
+            print(
+                f"[TRAIN] Teacher source={teacher_cfg.get('source')} "
+                f"family={teacher_cfg.get('family')} model={teacher_cfg.get('model_name')} "
+                f"checkpoint={teacher_cfg.get('checkpoint_path')}"
+            )
         print(f"[TRAIN] Pretrain dataset: {cfg['datasets']['pretrain']['name']}:{cfg['datasets']['pretrain']['split']}")
         print(f"[TRAIN] ASR train dataset: {cfg['datasets']['asr_train']['name']}:{cfg['datasets']['asr_train']['split']}")
         print(f"[TRAIN] ASR valid dataset: {cfg['datasets']['asr_valid']['name']}:{cfg['datasets']['asr_valid']['split']}")
@@ -107,7 +144,7 @@ def main() -> None:
     filename_suffix = f"_{exp_id}" if exp_id else ""
     partial_path = benchmark_dir / f"train_audio_transformer{filename_suffix}_partial.json"
     final_path = benchmark_dir / f"train_audio_transformer{filename_suffix}_final.json"
-    pretrain_enabled = bool(cfg["training"]["pretrain"].get("enabled", True))
+    pretrain_enabled = _pretrain_enabled(cfg)
 
     if (not args.continue_completed) and all(_finetune_seed_completed(cfg, int(seed)) for seed in cfg["experiment"]["seeds"]):
         print("[TRAIN] Tous les seeds sont déjà marqués comme terminés.")
@@ -121,8 +158,9 @@ def main() -> None:
         return
 
     print(f"[TRAIN] Experiment id: {exp_id if exp_id else 'N/A'}")
-    print(f"[TRAIN] Pretraining enabled: {pretrain_enabled}")
-    adaptation_label = "MAE pretrain -> CTC fine-tune" if pretrain_enabled else "CTC fine-tune only (no MAE)"
+    print(f"[TRAIN] Pretraining mode: {_pretrain_mode(cfg)}")
+    print(f"[TRAIN] Distillation enabled: {bool(cfg.get('distillation', {}).get('enabled', False))}")
+    adaptation_label = _adaptation_label(cfg)
 
     for seed in cfg["experiment"]["seeds"]:
         set_seed(int(seed))

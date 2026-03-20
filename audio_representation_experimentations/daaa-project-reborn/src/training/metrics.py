@@ -123,6 +123,10 @@ def finalize_ctc_diagnostics(totals: Dict[str, float]) -> Dict[str, float]:
         "avg_ref_chars": float(totals.get("sum_ref_chars", 0.0) / num_samples),
         "avg_out_length": float(totals.get("sum_out_lengths", 0.0) / num_samples),
     }
+    diagnostics["pred_to_ref_char_ratio"] = float(
+        diagnostics["avg_pred_chars"] / max(1e-6, diagnostics["avg_ref_chars"])
+    )
+    diagnostics["short_pred_ratio"] = float(max(0.0, 1.0 - diagnostics["pred_to_ref_char_ratio"]))
     if has_target_lengths:
         diagnostics.update(
             {

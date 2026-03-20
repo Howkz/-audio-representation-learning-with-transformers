@@ -343,7 +343,7 @@ class AudioTransformerCTC(nn.Module):
         self.classifier = nn.Linear(encoder.dim, int(vocab_size))
         self.dropout = nn.Dropout(0.1)
 
-    def forward(
+    def encode_time_features(
         self,
         x_logmel: torch.Tensor,
         lengths: torch.Tensor,
@@ -354,11 +354,23 @@ class AudioTransformerCTC(nn.Module):
         n_freq = patch_info["n_freq"]
         if n_freq > 1:
             encoded = encoded.view(bsz, n_time, n_freq, -1).mean(dim=2)
-        logits = self.classifier(self.dropout(encoded))
         out_lengths = patch_info.get("time_token_lengths")
         if out_lengths is None:
             patch_time = self.encoder.patch_embedding.patch_time
             out_lengths = torch.div(lengths + (patch_time - 1), patch_time, rounding_mode="floor")
+        out_lengths = torch.clamp(out_lengths, max=encoded.shape[1])
+        return encoded, out_lengths
+
+    def forward(
+        self,
+        x_logmel: torch.Tensor,
+        lengths: torch.Tensor,
+        return_features: bool = False,
+    ) -> Tuple[torch.Tensor, torch.Tensor] | Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        encoded, out_lengths = self.encode_time_features(x_logmel, lengths)
+        logits = self.classifier(self.dropout(encoded))
         out_lengths = torch.clamp(out_lengths, max=logits.shape[1])
+        if return_features:
+            return logits, out_lengths, encoded
         return logits, out_lengths
 

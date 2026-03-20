@@ -43,6 +43,23 @@ def _format_dataset_filters(spec: Dict[str, Any]) -> str:
     return ",".join(f"{key}={value}" for key, value in filters.items())
 
 
+def _strict_asr_consistency_enabled(cfg: Dict[str, Any], spec: Dict[str, Any]) -> bool:
+    data_cfg = cfg.get("data", {})
+    return bool(spec.get("strict_asr_consistency", data_cfg.get("strict_asr_consistency", False)))
+
+
+def _validate_asr_supervision_consistency(cfg: Dict[str, Any], spec: Dict[str, Any], local_audio_cfg) -> None:
+    transcript_key = spec.get("transcript_key")
+    if not transcript_key or not _strict_asr_consistency_enabled(cfg, spec):
+        return
+    if local_audio_cfg.length_policy != "none" and local_audio_cfg.max_duration_sec is not None:
+        raise ValueError(
+            f"ASR split {spec['name']}:{spec['split']} uses transcript_key='{transcript_key}' "
+            f"with length_policy='{local_audio_cfg.length_policy}' and max_duration_sec={local_audio_cfg.max_duration_sec}. "
+            "This may crop audio while keeping the full transcript."
+        )
+
+
 def main() -> None:
     args = parse_args()
     cfg = load_config(args.config)
@@ -58,6 +75,7 @@ def main() -> None:
         print("[DATA] Dry-run enabled. Planned datasets:")
         for spec in dataset_specs_for_data_step(cfg):
             local_audio_cfg = build_audio_preprocess_config(cfg, spec)
+            _validate_asr_supervision_consistency(cfg, spec, local_audio_cfg)
             print(
                 f"  - {spec['name']} | config={spec.get('config')} | split={spec['split']} "
                 f"| max={spec.get('max_samples')} | streaming={bool(spec.get('streaming', default_streaming))} "
@@ -77,6 +95,7 @@ def main() -> None:
             max_samples = spec.get("max_samples")
             streaming = bool(spec.get("streaming", default_streaming))
             local_audio_cfg = build_audio_preprocess_config(cfg, spec)
+            _validate_asr_supervision_consistency(cfg, spec, local_audio_cfg)
             dataset_label = f"{dataset_name}:{split}"
             columns = ["audio"]
             transcript_key = spec.get("transcript_key")
@@ -122,6 +141,8 @@ def main() -> None:
             split = spec["split"]
             max_samples = spec.get("max_samples")
             streaming = bool(spec.get("streaming", default_streaming))
+            local_audio_cfg = build_audio_preprocess_config(cfg, spec)
+            _validate_asr_supervision_consistency(cfg, spec, local_audio_cfg)
             print(
                 f"[DATA] Loading dataset={dataset_name} config={dataset_config} "
                 f"split={split} max_samples={max_samples} streaming={streaming}"
@@ -137,12 +158,11 @@ def main() -> None:
             transcript_key = resolve_transcript_key(ds[0], spec.get("transcript_key")) if len(ds) > 0 else spec.get("transcript_key")
             ds = apply_dataset_filters(ds, transcript_key=transcript_key, spec=spec)
             dataset_label = f"{dataset_name}:{split}"
-            summary = collect_dataset_summary(ds, dataset_label=dataset_label)
+            summary = collect_dataset_summary(ds, dataset_label=dataset_label, transcript_key=transcript_key)
             summary["max_samples"] = max_samples
             summary["dataset_config"] = dataset_config
             summary["streaming"] = streaming
             summary["planned_only"] = False
-            local_audio_cfg = build_audio_preprocess_config(cfg, spec)
             summary["audio_preprocess"] = {
                 "sample_rate": int(local_audio_cfg.sample_rate),
                 "max_duration_sec": None if local_audio_cfg.max_duration_sec is None else float(local_audio_cfg.max_duration_sec),
