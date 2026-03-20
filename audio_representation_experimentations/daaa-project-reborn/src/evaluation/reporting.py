@@ -21,6 +21,9 @@ def write_final_table(final_json_path: Path, table_md_path: Path, title: str) ->
         ("Blank ratio", _fmt(metrics.get("blank_ratio", {}))),
         ("Empty pred ratio", _fmt(metrics.get("empty_pred_ratio", {}))),
         ("Pred/ref char ratio", _fmt(metrics.get("pred_to_ref_char_ratio", {}))),
+        ("Length deviation ratio", _fmt(metrics.get("length_deviation_ratio", {}))),
+        ("Adjacent repeat ratio", _fmt(metrics.get("adjacent_repeat_ratio", {}))),
+        ("Dominant char ratio", _fmt(metrics.get("dominant_char_ratio", {}))),
         ("Inference runtime (sec)", _fmt(metrics.get("inference_runtime_sec", {}))),
         ("Samples/sec", _fmt(metrics.get("inference_samples_per_sec", {}))),
         ("Peak GPU mem (MB)", _fmt(metrics.get("inference_peak_gpu_mem_mb", {}))),
@@ -42,11 +45,12 @@ def write_dataset_breakdown_table(dataset_final_json_path: Path, table_md_path: 
     table_md_path.parent.mkdir(parents=True, exist_ok=True)
     with open(table_md_path, "w", encoding="utf-8") as handle:
         handle.write(f"# {title}\n\n")
-        handle.write("| Dataset | WER mean +- std | Accuracy mean +- std | Empty pred ratio | Pred/ref ratio |\n")
-        handle.write("|---|---|---|---|---|\n")
+        handle.write("| Dataset | WER mean +- std | Accuracy mean +- std | Empty pred ratio | Pred/ref ratio | Length deviation | Repeat ratio |\n")
+        handle.write("|---|---|---|---|---|---|---|\n")
         for dataset_name, payload in metrics.items():
             handle.write(
                 f"| {dataset_name} | {_fmt(payload.get('wer', {}))} | {_fmt(payload.get('accuracy', {}))} | "
-                f"{_fmt(payload.get('empty_pred_ratio', {}))} | {_fmt(payload.get('pred_to_ref_char_ratio', {}))} |\n"
+                f"{_fmt(payload.get('empty_pred_ratio', {}))} | {_fmt(payload.get('pred_to_ref_char_ratio', {}))} | "
+                f"{_fmt(payload.get('length_deviation_ratio', {}))} | {_fmt(payload.get('adjacent_repeat_ratio', {}))} |\n"
             )
 

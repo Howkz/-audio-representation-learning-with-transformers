@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import Counter
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import torch
@@ -12,6 +13,26 @@ except Exception:
         WordErrorRate = None  # type: ignore[assignment]
 
 from src.data.text import CharCTCTokenizer, normalize_transcript
+
+
+def _collapsed_char_sequence(text: str) -> str:
+    return "".join(ch for ch in text if ch != " ")
+
+
+def _adjacent_repeat_ratio(text: str) -> float:
+    chars = _collapsed_char_sequence(text)
+    if len(chars) <= 1:
+        return 0.0
+    repeated_pairs = sum(1 for left, right in zip(chars, chars[1:]) if left == right)
+    return float(repeated_pairs / max(1, len(chars) - 1))
+
+
+def _dominant_char_ratio(text: str) -> float:
+    chars = _collapsed_char_sequence(text)
+    if not chars:
+        return 0.0
+    counts = Counter(chars)
+    return float(max(counts.values()) / max(1, len(chars)))
 
 
 def greedy_decode_batch(
@@ -66,6 +87,8 @@ def collect_ctc_batch_diagnostics(
         "sum_out_lengths": 0.0,
         "sum_target_lengths": 0.0,
         "sum_length_margin": 0.0,
+        "sum_adjacent_repeat_ratio": 0.0,
+        "sum_dominant_char_ratio": 0.0,
     }
 
     max_len = int(argmax_ids.shape[1])
@@ -89,6 +112,8 @@ def collect_ctc_batch_diagnostics(
         totals["sum_out_lengths"] += float(out_len)
         totals["sum_pred_chars"] += float(len(pred.replace(" ", "")))
         totals["sum_ref_chars"] += float(len(ref.replace(" ", "")))
+        totals["sum_adjacent_repeat_ratio"] += _adjacent_repeat_ratio(pred)
+        totals["sum_dominant_char_ratio"] += _dominant_char_ratio(pred)
         if not pred:
             totals["empty_predictions"] += 1.0
         if pred == ref:
@@ -127,6 +152,10 @@ def finalize_ctc_diagnostics(totals: Dict[str, float]) -> Dict[str, float]:
         diagnostics["avg_pred_chars"] / max(1e-6, diagnostics["avg_ref_chars"])
     )
     diagnostics["short_pred_ratio"] = float(max(0.0, 1.0 - diagnostics["pred_to_ref_char_ratio"]))
+    diagnostics["long_pred_ratio"] = float(max(0.0, diagnostics["pred_to_ref_char_ratio"] - 1.0))
+    diagnostics["length_deviation_ratio"] = float(abs(1.0 - diagnostics["pred_to_ref_char_ratio"]))
+    diagnostics["adjacent_repeat_ratio"] = float(totals.get("sum_adjacent_repeat_ratio", 0.0) / num_samples)
+    diagnostics["dominant_char_ratio"] = float(totals.get("sum_dominant_char_ratio", 0.0) / num_samples)
     if has_target_lengths:
         diagnostics.update(
             {

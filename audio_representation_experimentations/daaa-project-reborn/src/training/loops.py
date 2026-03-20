@@ -323,12 +323,20 @@ def _checkpoint_selection_score(metrics: Dict[str, Any], cfg: Dict[str, Any]) ->
     empty_penalty = float(selection_cfg.get("empty_pred_penalty", 1.0))
     blank_penalty = float(selection_cfg.get("blank_ratio_penalty", 0.0))
     short_penalty = float(selection_cfg.get("short_pred_penalty", 0.0))
+    long_penalty = float(selection_cfg.get("long_pred_penalty", 0.0))
+    length_deviation_penalty = float(selection_cfg.get("length_deviation_penalty", 0.0))
+    repeat_penalty = float(selection_cfg.get("repeat_ratio_penalty", 0.0))
+    dominant_penalty = float(selection_cfg.get("dominant_char_penalty", 0.0))
     accuracy_bonus = float(selection_cfg.get("accuracy_bonus", 0.0))
     return (
         float(metrics["wer"])
         + empty_penalty * float(metrics.get("empty_pred_ratio", 0.0))
         + blank_penalty * float(metrics.get("blank_ratio", 0.0))
         + short_penalty * float(metrics.get("short_pred_ratio", 0.0))
+        + long_penalty * float(metrics.get("long_pred_ratio", 0.0))
+        + length_deviation_penalty * float(metrics.get("length_deviation_ratio", 0.0))
+        + repeat_penalty * float(metrics.get("adjacent_repeat_ratio", 0.0))
+        + dominant_penalty * float(metrics.get("dominant_char_ratio", 0.0))
         - accuracy_bonus * float(metrics.get("accuracy", 0.0))
     )
 
@@ -1140,6 +1148,11 @@ def run_finetune_seed(
                         "empty_pred_ratio": float(eval_metrics["empty_pred_ratio"]),
                         "blank_ratio": float(eval_metrics["blank_ratio"]),
                         "pred_to_ref_char_ratio": float(eval_metrics["pred_to_ref_char_ratio"]),
+                        "short_pred_ratio": float(eval_metrics.get("short_pred_ratio", 0.0)),
+                        "long_pred_ratio": float(eval_metrics.get("long_pred_ratio", 0.0)),
+                        "length_deviation_ratio": float(eval_metrics.get("length_deviation_ratio", 0.0)),
+                        "adjacent_repeat_ratio": float(eval_metrics.get("adjacent_repeat_ratio", 0.0)),
+                        "dominant_char_ratio": float(eval_metrics.get("dominant_char_ratio", 0.0)),
                         "accuracy": float(eval_metrics["accuracy"]),
                     },
                 },

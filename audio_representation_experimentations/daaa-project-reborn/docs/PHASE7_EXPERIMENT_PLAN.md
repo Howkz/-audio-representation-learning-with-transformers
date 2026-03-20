@@ -47,6 +47,11 @@ un pipeline ASR plus conforme au sujet et plus defensable pour le rendu :
   - combine hidden-state distillation et anti-overemit
   - utile seulement apres les deux runs separes
 
+- `configs/phase7/hidden_states_selection_v2_librispeech.yaml`
+  - `P7C04`
+  - reprend strictement l'objectif de `P7C01`
+  - change uniquement le `checkpoint_selection` pour tester si un meilleur `ctc_best.pt` existe deja
+
 ## Choix techniques
 
 - Student :
@@ -88,6 +93,11 @@ un pipeline ASR plus conforme au sujet et plus defensable pour le rendu :
   - penalite `empty_pred_ratio`
   - penalite de predictions trop courtes
   - bonus d'`accuracy`
+  - une variante `selection v2` est maintenant disponible pour `P7C04` :
+    - penalite symetrique sur les ecarts de longueur
+    - penalite de repetition
+    - bonus d'accuracy un peu plus fort
+  - l'objectif est de mieux choisir `ctc_best.pt` sans toucher a la loss
 
 ## Commandes
 
@@ -131,6 +141,12 @@ make test CONFIG=configs/phase7/logits_anti_overemit_librispeech.yaml
 make data CONFIG=configs/phase7/combined_hidden_anti_overemit_librispeech.yaml
 make train CONFIG=configs/phase7/combined_hidden_anti_overemit_librispeech.yaml
 make test CONFIG=configs/phase7/combined_hidden_anti_overemit_librispeech.yaml
+```
+
+```bash
+make data CONFIG=configs/phase7/hidden_states_selection_v2_librispeech.yaml
+make train CONFIG=configs/phase7/hidden_states_selection_v2_librispeech.yaml
+make test CONFIG=configs/phase7/hidden_states_selection_v2_librispeech.yaml
 ```
 
 ## Criteres de validation
