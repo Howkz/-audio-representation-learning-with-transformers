@@ -141,6 +141,12 @@ def _distillation_enabled(cfg: Dict[str, Any]) -> bool:
     return bool(_distillation_cfg(cfg).get("enabled", False))
 
 
+def _current_lr(optimizer: torch.optim.Optimizer) -> float:
+    if not optimizer.param_groups:
+        return 0.0
+    return float(optimizer.param_groups[0].get("lr", 0.0))
+
+
 def _adaptation_label(cfg: Dict[str, Any]) -> str:
     pretrain_mode = _pretrain_mode(cfg)
     if _distillation_enabled(cfg):
@@ -340,6 +346,10 @@ def _planned_training_schedule(
     return steps_per_epoch, total_steps, effective_epochs
 
 
+def _optimizer_total_steps(total_micro_steps: int, grad_acc: int) -> int:
+    return max(1, math.ceil(max(1, int(total_micro_steps)) / max(1, int(grad_acc))))
+
+
 def _seeded_loader(
     dataset: torch.utils.data.Dataset,
     batch_size: int,
@@ -381,9 +391,33 @@ def build_encoder(cfg: Dict[str, Any]) -> AudioTransformerEncoder:
     )
 
 
-def _build_scheduler(optimizer: torch.optim.Optimizer, total_steps: int):
-    total_steps = max(1, total_steps)
-    return torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=total_steps)
+def _build_scheduler(
+    optimizer: torch.optim.Optimizer,
+    total_steps: int,
+    warmup_steps: int = 0,
+    warmup_start_factor: float = 0.1,
+    min_lr_ratio: float = 0.0,
+):
+    total_steps = max(1, int(total_steps))
+    warmup_steps = max(0, min(int(warmup_steps), total_steps - 1))
+    warmup_start_factor = float(max(1e-4, min(1.0, warmup_start_factor)))
+    min_lr_ratio = float(max(0.0, min(1.0, min_lr_ratio)))
+
+    def lr_lambda(step_idx: int) -> float:
+        step_idx = max(0, int(step_idx))
+        if warmup_steps > 0 and step_idx < warmup_steps:
+            if warmup_steps == 1:
+                return 1.0
+            progress = float(step_idx + 1) / float(warmup_steps)
+            return warmup_start_factor + progress * (1.0 - warmup_start_factor)
+
+        cosine_steps = max(1, total_steps - warmup_steps)
+        progress = float(step_idx - warmup_steps + 1) / float(cosine_steps)
+        progress = max(0.0, min(1.0, progress))
+        cosine = 0.5 * (1.0 + math.cos(math.pi * progress))
+        return min_lr_ratio + (1.0 - min_lr_ratio) * cosine
+
+    return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lr_lambda)
 
 
 def _checkpoint_root(cfg: Dict[str, Any], stage: str, seed: int) -> Path:
@@ -440,7 +474,14 @@ def run_pretrain_seed(
         stage="PRETRAIN",
         seed=seed,
     )
-    scheduler = _build_scheduler(optimizer, total_steps=total_steps)
+    optimizer_total_steps = _optimizer_total_steps(total_steps, grad_acc=int(training_cfg["grad_accum_steps"]))
+    scheduler = _build_scheduler(
+        optimizer,
+        total_steps=optimizer_total_steps,
+        warmup_steps=int(training_cfg.get("warmup_steps", 0)),
+        warmup_start_factor=float(training_cfg.get("warmup_start_factor", 0.1)),
+        min_lr_ratio=float(training_cfg.get("min_lr_ratio", 0.0)),
+    )
     scaler = _build_grad_scaler(device=device, enabled=amp_enabled)
 
     start_epoch = 0
@@ -465,10 +506,12 @@ def run_pretrain_seed(
     start_ts = time.time()
     reset_peak_memory()
     pretrain_peak_gpu_mem_mb = 0.0
+    accum_counter = 0
     print(
         f"[PRETRAIN] seed={seed} max_steps={int(training_cfg['max_steps'])} "
         f"micro_batch={int(training_cfg['batch_size'])} grad_acc={grad_acc} "
-        f"effective_batch={effective_batch_size}"
+        f"effective_batch={effective_batch_size} "
+        f"optimizer_steps={optimizer_total_steps} warmup_steps={int(training_cfg.get('warmup_steps', 0))}"
     )
 
     use_tqdm = _use_tqdm()
@@ -520,6 +563,8 @@ def run_pretrain_seed(
             scaler.scale(loss_scaled).backward()
 
             global_step += 1
+            accum_counter += 1
+            accum_counter += 1
             if use_tqdm:
                 progress.update(1)
                 progress.set_postfix_str(
@@ -534,13 +579,14 @@ def run_pretrain_seed(
             total_count += 1
             pretrain_peak_gpu_mem_mb = max(pretrain_peak_gpu_mem_mb, peak_memory_mb())
 
-            if global_step % grad_acc == 0:
+            if accum_counter >= grad_acc or global_step >= int(training_cfg["max_steps"]):
                 scaler.unscale_(optimizer)
                 clip_grad_norm_(mae.parameters(), grad_clip)
                 scaler.step(optimizer)
                 scaler.update()
                 optimizer.zero_grad(set_to_none=True)
                 scheduler.step()
+                accum_counter = 0
 
             if global_step % checkpoint_every == 0:
                 save_checkpoint(
@@ -730,7 +776,17 @@ def run_finetune_seed(
         stage="FINETUNE",
         seed=seed,
     )
-    scheduler = _build_scheduler(optimizer, total_steps=total_steps)
+    optimizer_total_steps = _optimizer_total_steps(total_steps, grad_acc=int(training_cfg["grad_accum_steps"]))
+    warmup_steps = int(training_cfg.get("warmup_steps", 0))
+    warmup_start_factor = float(training_cfg.get("warmup_start_factor", 0.1))
+    min_lr_ratio = float(training_cfg.get("min_lr_ratio", 0.0))
+    scheduler = _build_scheduler(
+        optimizer,
+        total_steps=optimizer_total_steps,
+        warmup_steps=warmup_steps,
+        warmup_start_factor=warmup_start_factor,
+        min_lr_ratio=min_lr_ratio,
+    )
     scaler = _build_grad_scaler(device=device, enabled=amp_enabled)
     ctc_loss_fn = torch.nn.CTCLoss(blank=tokenizer.blank_id, zero_infinity=True)
 
@@ -740,6 +796,13 @@ def run_finetune_seed(
     best_wer: Optional[float] = None
     best_score: Optional[float] = None
     best_empty_pred_ratio: Optional[float] = None
+    best_epoch: Optional[int] = None
+    epochs_without_improvement = 0
+    early_stopping_patience = int(training_cfg.get("early_stopping_patience", 0))
+    early_stopping_min_epochs = int(training_cfg.get("early_stopping_min_epochs", 0))
+    early_stopping_min_delta = float(training_cfg.get("early_stopping_min_delta", 0.0))
+    early_stopped = False
+    early_stop_epoch: Optional[int] = None
     latest = find_latest_checkpoint(out_root) if force_continue_completed else None
     if latest is not None:
         payload = load_checkpoint(latest, model, optimizer, scheduler, scaler, map_location=device)
@@ -757,6 +820,10 @@ def run_finetune_seed(
             best_score = float(payload["best_metric"])
         if payload_extra.get("best_valid_empty_pred_ratio") is not None:
             best_empty_pred_ratio = float(payload_extra["best_valid_empty_pred_ratio"])
+        if payload_extra.get("best_valid_epoch") is not None:
+            best_epoch = int(payload_extra["best_valid_epoch"])
+        if payload_extra.get("epochs_without_improvement") is not None:
+            epochs_without_improvement = int(payload_extra["epochs_without_improvement"])
 
     num_workers = int(cfg["data"]["num_workers"])
     grad_acc = int(training_cfg["grad_accum_steps"])
@@ -778,13 +845,16 @@ def run_finetune_seed(
     train_peak_gpu_mem_mb = 0.0
     eval_peak_gpu_mem_mb = 0.0
     emitted_invalid_length_warning = False
+    accum_counter = 0
     print(
         f"[FINETUNE] seed={seed} max_steps={int(training_cfg['max_steps'])} "
         f"micro_batch={int(training_cfg['batch_size'])} grad_acc={grad_acc} "
         f"effective_batch={effective_batch_size} "
         f"distillation={distill_enabled} "
         f"lambda_ctc={lambda_ctc:.3f} lambda_kd={lambda_kd:.3f} "
-        f"informative_only={kd_informative_only} min_nonblank_prob={kd_min_nonblank_prob:.3f}"
+        f"informative_only={kd_informative_only} min_nonblank_prob={kd_min_nonblank_prob:.3f} "
+        f"optimizer_steps={optimizer_total_steps} warmup_steps={warmup_steps} "
+        f"lr={float(training_cfg['learning_rate']):.6f} patience={early_stopping_patience}"
     )
 
     use_tqdm = _use_tqdm()
@@ -884,13 +954,14 @@ def run_finetune_seed(
                     f"out_lengths < target_lengths (min_margin={min_margin})."
                 )
 
-            if global_step % grad_acc == 0:
+            if accum_counter >= grad_acc or global_step >= int(training_cfg["max_steps"]):
                 scaler.unscale_(optimizer)
                 clip_grad_norm_(model.parameters(), grad_clip)
                 scaler.step(optimizer)
                 scaler.update()
                 optimizer.zero_grad(set_to_none=True)
                 scheduler.step()
+                accum_counter = 0
 
             if global_step % checkpoint_every == 0:
                 save_checkpoint(
@@ -942,20 +1013,24 @@ def run_finetune_seed(
             f"empty_pred_ratio={float(eval_metrics['empty_pred_ratio']):.3f} "
             f"pred_to_ref_char_ratio={float(eval_metrics['pred_to_ref_char_ratio']):.3f} "
             f"invalid_length_ratio={float(eval_metrics['invalid_length_ratio']):.3f} "
-            f"selection_score={current_score:.4f}"
+            f"selection_score={current_score:.4f} lr={_current_lr(optimizer):.6f}"
         )
         _maybe_warn_ctc(stage="VALID", metrics=eval_metrics, cfg=cfg)
-        if (
+        improved = (
             best_score is None
-            or current_score < best_score
+            or current_score < (float(best_score) - early_stopping_min_delta)
             or (
-                math.isclose(current_score, best_score, rel_tol=0.0, abs_tol=1e-12)
+                best_score is not None
+                and math.isclose(current_score, best_score, rel_tol=0.0, abs_tol=max(1e-12, early_stopping_min_delta))
                 and (best_wer is None or current_wer < best_wer)
             )
-        ):
+        )
+        if improved:
             best_wer = current_wer
             best_score = current_score
             best_empty_pred_ratio = float(eval_metrics["empty_pred_ratio"])
+            best_epoch = int(epoch)
+            epochs_without_improvement = 0
             torch.save(
                 {
                     "model_state_dict": model.state_dict(),
@@ -976,6 +1051,9 @@ def run_finetune_seed(
                 },
                 out_root / "ctc_best.pt",
             )
+        else:
+            if (epoch + 1) >= max(1, early_stopping_min_epochs):
+                epochs_without_improvement += 1
 
         save_checkpoint(
             checkpoint_dir=out_root,
@@ -997,10 +1075,25 @@ def run_finetune_seed(
                     None if best_empty_pred_ratio is None else float(best_empty_pred_ratio)
                 ),
                 "best_selection_score": None if best_score is None else float(best_score),
+                "best_valid_epoch": None if best_epoch is None else int(best_epoch),
+                "epochs_without_improvement": int(epochs_without_improvement),
             },
             tag="epoch",
             keep_last_checkpoints=keep_last,
         )
+        if (
+            early_stopping_patience > 0
+            and (epoch + 1) >= max(1, early_stopping_min_epochs)
+            and epochs_without_improvement >= early_stopping_patience
+        ):
+            early_stopped = True
+            early_stop_epoch = int(epoch)
+            print(
+                f"[FINETUNE][EARLY-STOP] seed={seed} epoch={epoch} "
+                f"best_epoch={best_epoch} best_score={float(best_score):.4f} "
+                f"patience={early_stopping_patience}"
+            )
+            break
         if global_step >= int(training_cfg["max_steps"]):
             break
     if use_tqdm:
@@ -1047,6 +1140,13 @@ def run_finetune_seed(
         "train_avg_target_length": float(train_target_length_sum / max(1, train_sample_count)),
         "train_avg_length_margin": float(train_length_margin_sum / max(1, train_sample_count)),
         "finetune_effective_batch_size": float(effective_batch_size),
+        "finetune_optimizer_steps": float(optimizer_total_steps),
+        "finetune_warmup_steps": float(warmup_steps),
+        "finetune_warmup_start_factor": float(warmup_start_factor),
+        "finetune_min_lr_ratio": float(min_lr_ratio),
+        "finetune_early_stopped": 1.0 if early_stopped else 0.0,
+        "finetune_early_stop_epoch": float(-1 if early_stop_epoch is None else early_stop_epoch),
+        "best_valid_epoch": float(-1 if best_epoch is None else best_epoch),
         "eval_peak_gpu_mem_mb": float(eval_peak_gpu_mem_mb),
         "valid_peak_gpu_mem_mb": float(eval_peak_gpu_mem_mb),
         "valid_wer": float(final_valid["wer"]),

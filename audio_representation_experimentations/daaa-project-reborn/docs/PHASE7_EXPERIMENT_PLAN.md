@@ -49,6 +49,10 @@ un pipeline ASR plus conforme au sujet et plus defensable pour le rendu :
     - KD appliquee uniquement sur les frames teacher juges informatifs
     - un frame est considere informatif si la masse non-blank du teacher depasse un seuil
       et si l'argmax teacher n'est pas `blank`
+  - la phase 7 utilise aussi une optimisation plus prudente :
+    - warmup explicite
+    - LR fine-tune reduit
+    - early stopping base sur le `selection_score`
 
 - Distillation interne :
   - meme interface teacher
