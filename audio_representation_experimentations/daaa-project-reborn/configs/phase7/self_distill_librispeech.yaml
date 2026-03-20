@@ -17,7 +17,10 @@ distillation:
   enabled: true
   temperature: 2.0
   lambda_ctc: 1.0
-  lambda_kd: 0.75
+  lambda_kd: 0.25
+  informative_only: true
+  min_nonblank_prob: 0.20
+  require_nonblank_argmax: true
 
 teacher:
   source: "checkpoint"

@@ -43,6 +43,7 @@ class TeacherOutput:
     target_kind: str
     values: torch.Tensor
     lengths: torch.Tensor
+    blank_id: int = 0
 
 
 class BaseTeacher:
@@ -178,6 +179,7 @@ class ExternalHFTeacher(BaseTeacher):
                     target_kind="logits",
                     values=mapped.detach(),
                     lengths=teacher_lengths.detach(),
+                    blank_id=int(self.tokenizer.blank_id),
                 )
 
             outputs = self.model(input_values=input_values, attention_mask=attention_mask)
@@ -190,6 +192,7 @@ class ExternalHFTeacher(BaseTeacher):
                 target_kind="hidden_states",
                 values=hidden.detach(),
                 lengths=teacher_lengths.detach(),
+                blank_id=int(self.tokenizer.blank_id),
             )
 
 
@@ -247,6 +250,7 @@ class CheckpointTeacher(BaseTeacher):
             target_kind="logits",
             values=probs.detach(),
             lengths=out_lengths.detach(),
+            blank_id=int(self.tokenizer.blank_id),
         )
 
 

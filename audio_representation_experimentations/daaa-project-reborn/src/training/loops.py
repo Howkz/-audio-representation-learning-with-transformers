@@ -200,7 +200,10 @@ def _compute_distillation_loss(
     student_features: torch.Tensor,
     teacher_output: TeacherOutput,
     temperature: float,
-) -> torch.Tensor:
+    informative_only: bool = False,
+    min_nonblank_prob: float = 0.0,
+    require_nonblank_argmax: bool = True,
+) -> Tuple[torch.Tensor, float]:
     temperature = max(1e-4, float(temperature))
     aligned_values, valid_mask = _align_teacher_values(
         values=teacher_output.values,
@@ -209,14 +212,27 @@ def _compute_distillation_loss(
         target_lengths=student_lengths,
     )
     if not valid_mask.any():
-        return student_logits.new_zeros(())
+        return student_logits.new_zeros(()), 0.0
 
     if teacher_output.target_kind == "logits":
         teacher_probs = aligned_values / aligned_values.sum(dim=-1, keepdim=True).clamp_min(1e-8)
+        kd_mask = valid_mask
+        if informative_only:
+            blank_id = int(getattr(teacher_output, "blank_id", 0))
+            blank_probs = teacher_probs[..., blank_id]
+            informative_mask = (1.0 - blank_probs) >= max(0.0, float(min_nonblank_prob))
+            if require_nonblank_argmax:
+                informative_mask = informative_mask & (teacher_probs.argmax(dim=-1) != blank_id)
+            kd_mask = kd_mask & informative_mask
+            if not kd_mask.any():
+                return student_logits.new_zeros(()), 0.0
         student_log_probs = F.log_softmax(student_logits / temperature, dim=-1)
         token_kl = F.kl_div(student_log_probs, teacher_probs, reduction="none").sum(dim=-1)
-        loss = (token_kl * valid_mask.to(token_kl.dtype)).sum() / valid_mask.sum().clamp_min(1).to(token_kl.dtype)
-        return loss * (temperature ** 2)
+        loss = (token_kl * kd_mask.to(token_kl.dtype)).sum() / kd_mask.sum().clamp_min(1).to(token_kl.dtype)
+        active_ratio = float(
+            kd_mask.sum().item() / max(1.0, float(valid_mask.sum().item()))
+        )
+        return loss * (temperature ** 2), active_ratio
 
     if teacher_output.target_kind == "hidden_states":
         if aligned_values.shape[-1] != student_features.shape[-1]:
@@ -225,7 +241,11 @@ def _compute_distillation_loss(
                 "Use a compatible student dim or add a projection layer."
             )
         mse = F.mse_loss(student_features, aligned_values, reduction="none").mean(dim=-1)
-        return (mse * valid_mask.to(mse.dtype)).sum() / valid_mask.sum().clamp_min(1).to(mse.dtype)
+        active_ratio = float(valid_mask.sum().item() / max(1.0, float(valid_mask.sum().item())))
+        return (
+            (mse * valid_mask.to(mse.dtype)).sum() / valid_mask.sum().clamp_min(1).to(mse.dtype),
+            active_ratio,
+        )
 
     raise ValueError(f"Unsupported teacher target_kind '{teacher_output.target_kind}'.")
 
@@ -694,6 +714,9 @@ def run_finetune_seed(
     lambda_ctc = float(distill_cfg.get("lambda_ctc", 1.0))
     lambda_kd = float(distill_cfg.get("lambda_kd", 0.0))
     temperature = float(distill_cfg.get("temperature", 1.0))
+    kd_informative_only = bool(distill_cfg.get("informative_only", False))
+    kd_min_nonblank_prob = float(distill_cfg.get("min_nonblank_prob", 0.0))
+    kd_require_nonblank_argmax = bool(distill_cfg.get("require_nonblank_argmax", True))
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=float(training_cfg["learning_rate"]),
@@ -746,6 +769,7 @@ def run_finetune_seed(
     running_count = 0
     running_ctc_loss = 0.0
     running_kd_loss = 0.0
+    running_kd_active_ratio = 0.0
     train_sample_count = 0
     train_invalid_length_count = 0
     train_out_length_sum = 0.0
@@ -758,7 +782,9 @@ def run_finetune_seed(
         f"[FINETUNE] seed={seed} max_steps={int(training_cfg['max_steps'])} "
         f"micro_batch={int(training_cfg['batch_size'])} grad_acc={grad_acc} "
         f"effective_batch={effective_batch_size} "
-        f"distillation={distill_enabled}"
+        f"distillation={distill_enabled} "
+        f"lambda_ctc={lambda_ctc:.3f} lambda_kd={lambda_kd:.3f} "
+        f"informative_only={kd_informative_only} min_nonblank_prob={kd_min_nonblank_prob:.3f}"
     )
 
     use_tqdm = _use_tqdm()
@@ -801,6 +827,7 @@ def run_finetune_seed(
                 log_probs = logits.log_softmax(dim=-1).transpose(0, 1)
                 ctc_loss = ctc_loss_fn(log_probs, targets, out_lengths, target_lengths)
                 kd_loss = logits.new_zeros(())
+                kd_active_ratio = 0.0
                 if distill_enabled and lambda_kd > 0.0:
                     teacher_output = teacher.forward_teacher(
                         x_logmel=x,
@@ -809,12 +836,15 @@ def run_finetune_seed(
                         waveform_lengths=waveform_lengths if getattr(teacher, "requires_waveform", False) else None,
                         temperature=temperature,
                     )
-                    kd_loss = _compute_distillation_loss(
+                    kd_loss, kd_active_ratio = _compute_distillation_loss(
                         student_logits=logits,
                         student_lengths=out_lengths,
                         student_features=student_features,
                         teacher_output=teacher_output,
                         temperature=temperature,
+                        informative_only=kd_informative_only,
+                        min_nonblank_prob=kd_min_nonblank_prob,
+                        require_nonblank_argmax=kd_require_nonblank_argmax,
                     )
                 loss = lambda_ctc * ctc_loss + lambda_kd * kd_loss
                 loss_scaled = loss / grad_acc
@@ -834,6 +864,7 @@ def run_finetune_seed(
             running_loss += float(loss.item())
             running_ctc_loss += float(ctc_loss.item())
             running_kd_loss += float(kd_loss.item()) if isinstance(kd_loss, torch.Tensor) else float(kd_loss)
+            running_kd_active_ratio += float(kd_active_ratio)
             running_count += 1
             batch_size = int(target_lengths.shape[0])
             invalid_length_mask = out_lengths < target_lengths
@@ -1007,6 +1038,7 @@ def run_finetune_seed(
         "train_loss": float(running_loss / max(1, running_count)),
         "train_ctc_loss": float(running_ctc_loss / max(1, running_count)),
         "train_kd_loss": float(running_kd_loss / max(1, running_count)),
+        "train_kd_active_ratio": float(running_kd_active_ratio / max(1, running_count)),
         "distillation_enabled": 1.0 if distill_enabled else 0.0,
         "train_runtime_sec": float(time.time() - train_start_ts),
         "train_peak_gpu_mem_mb": float(train_peak_gpu_mem_mb),

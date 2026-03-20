@@ -44,6 +44,11 @@ un pipeline ASR plus conforme au sujet et plus defensable pour le rendu :
   - teacher utilise uniquement pendant l'entrainement
   - cible principale : logits CTC Wav2Vec2 remappes sur le vocabulaire caractere du student
   - perte : `lambda_ctc * CTC + lambda_kd * KL`
+  - a partir du diagnostic intermediaire, la phase 7 utilise une KD plus conservative :
+    - `lambda_kd` reduit
+    - KD appliquee uniquement sur les frames teacher juges informatifs
+    - un frame est considere informatif si la masse non-blank du teacher depasse un seuil
+      et si l'argmax teacher n'est pas `blank`
 
 - Distillation interne :
   - meme interface teacher
