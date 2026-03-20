@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import json
 import re
 import sys
 from pathlib import Path
@@ -169,6 +170,38 @@ def _aggregate_by_dataset(dataset_runs: Dict[str, Dict[str, Dict[str, float]]]) 
     return aggregated
 
 
+def _safe_read_json(path: Path) -> Dict[str, Any]:
+    if not path.exists():
+        return {}
+    with open(path, "r", encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def _aggregate_numeric_runs(runs: Dict[str, Dict[str, Any]]) -> Dict[str, Dict[str, float]]:
+    aggregated: Dict[str, Dict[str, float]] = {}
+    values: Dict[str, list[float]] = {}
+    for payload in runs.values():
+        metrics = payload.get("metrics", payload) if isinstance(payload, dict) else {}
+        if not isinstance(metrics, dict):
+            continue
+        for key, value in metrics.items():
+            if isinstance(value, (int, float)):
+                values.setdefault(key, []).append(float(value))
+    for key, series in values.items():
+        aggregated[key] = {
+            "mean": float(np.mean(series)),
+            "std": float(np.std(series)),
+        }
+    return aggregated
+
+
+def _aggregate_forensic_records(records: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
+    return {
+        "per_seed": records,
+        "metrics": _aggregate_numeric_runs(records),
+    }
+
+
 def main() -> None:
     args = parse_args()
     cfg = load_config(args.config)
@@ -180,6 +213,12 @@ def main() -> None:
         print(f"[TEST] Checkpoint variant mode: {args.checkpoint_variant}")
         print(f"[TEST] Pretraining mode: {_pretrain_mode(cfg)}")
         print(f"[TEST] Distillation enabled: {bool(cfg.get('distillation', {}).get('enabled', False))}")
+        diagnostics_cfg = cfg.get("diagnostics", {})
+        if bool(diagnostics_cfg.get("forensics_enabled", False)):
+            print(
+                f"[TEST] Forensics enabled max_examples={diagnostics_cfg.get('max_saved_examples')} "
+                f"max_frames={diagnostics_cfg.get('max_saved_frames')} topk={diagnostics_cfg.get('topk_tokens')}"
+            )
         for spec in cfg["datasets"]["asr_tests"]:
             print(f"[TEST] Planned dataset: {spec['name']}:{spec['split']} max={spec.get('max_samples')}")
         return
@@ -192,7 +231,13 @@ def main() -> None:
         resolve_transcript_key,
     )
     from src.data.text import CharCTCTokenizer
-    from src.evaluation.reporting import write_dataset_breakdown_table, write_final_table
+    from src.evaluation.reporting import (
+        write_dataset_breakdown_table,
+        write_final_table,
+        write_forensics_alignment_table,
+        write_forensics_overview_table,
+        write_forensics_teacher_student_table,
+    )
     from src.training.loops import evaluate_seed_on_dataset
     from src.training.results import aggregate_partial_to_final, write_json_artifact, write_run_partial
 
@@ -213,7 +258,13 @@ def main() -> None:
                 f"Dataset vide après filtrage: {spec['name']}:{spec['split']}. "
                 "Assouplis les filtres de transcript/durée ou désactive le streaming pour ce split."
             )
-        return AudioFeatureDataset(ds, audio_cfg=local_audio_cfg, transcript_key=spec.get("transcript_key"))
+        return AudioFeatureDataset(
+            ds,
+            audio_cfg=local_audio_cfg,
+            transcript_key=spec.get("transcript_key"),
+            source_dataset=spec.get("name"),
+            source_split=spec.get("split"),
+        )
 
     tokenizer = CharCTCTokenizer()
 
@@ -232,7 +283,10 @@ def main() -> None:
     filename_suffix = f"_{exp_id}" if exp_id else ""
     benchmark_dir = Path(cfg["experiment"]["results_dir"]) / "benchmark_results"
     tables_dir = Path(cfg["experiment"]["results_dir"]) / "tables"
+    diagnostics_dir = Path(cfg["experiment"]["results_dir"]) / "diagnostics"
     compare_path = benchmark_dir / f"asr_checkpoint_variants{filename_suffix}_final.json"
+    forensic_path = benchmark_dir / f"asr_forensics{filename_suffix}_final.json"
+    forensics_enabled = bool(cfg.get("diagnostics", {}).get("forensics_enabled", False))
 
     print(f"[TEST] Experiment id: {exp_id if exp_id else 'N/A'}")
     adaptation_label = _adaptation_label(cfg)
@@ -269,9 +323,17 @@ def main() -> None:
                             tokenizer=tokenizer,
                             checkpoint_path=ckpt_path,
                             dataset_label=dataset_label,
-                            artifact_path=Path(cfg["experiment"]["results_dir"])
-                            / "diagnostics"
+                            artifact_path=diagnostics_dir
                             / f"test_seed_{seed}_{variant}_{re.sub(r'[^A-Za-z0-9_.-]+', '_', dataset_label)}.json",
+                            extra_artifact_paths=(
+                                [
+                                    diagnostics_dir
+                                    / f"forensics_test_seed_{seed}_{variant}_{re.sub(r'[^A-Za-z0-9_.-]+', '_', dataset_label)}.json"
+                                ]
+                                if forensics_enabled
+                                else []
+                            ),
+                            stage_label=f"test_{variant}",
                         )
                         break
                     except RuntimeError as exc:
@@ -315,6 +377,24 @@ def main() -> None:
                 "avg_length_margin": float(np.mean([m["avg_length_margin"] for m in per_dataset_metrics])),
                 "checkpoint_variant": variant,
             }
+            numeric_keys = sorted(
+                {
+                    key
+                    for metrics in per_dataset_metrics
+                    for key, value in metrics.items()
+                    if isinstance(value, (int, float))
+                }
+            )
+            for key in numeric_keys:
+                if key in overall or key in {"seed"}:
+                    continue
+                series = [float(metrics[key]) for metrics in per_dataset_metrics if isinstance(metrics.get(key), (int, float))]
+                if not series:
+                    continue
+                if key.endswith("_peak_gpu_mem_mb"):
+                    overall[key] = float(np.max(series))
+                else:
+                    overall[key] = float(np.mean(series))
             write_run_partial(
                 partial_path=paths["partial"],
                 run_id=str(seed),
@@ -364,6 +444,67 @@ def main() -> None:
         },
     )
     print(f"[TEST] Checkpoint comparison file: {compare_path}")
+
+    if forensics_enabled:
+        train_probe_records: Dict[str, Dict[str, Any]] = {}
+        validation_records: Dict[str, Dict[str, Any]] = {}
+        for seed in cfg["experiment"]["seeds"]:
+            train_probe_path = diagnostics_dir / f"forensics_train_probe_seed_{seed}.json"
+            valid_path = diagnostics_dir / f"forensics_valid_seed_{seed}.json"
+            train_probe_payload = _safe_read_json(train_probe_path)
+            valid_payload = _safe_read_json(valid_path)
+            if train_probe_payload:
+                train_probe_payload["artifact_path"] = str(train_probe_path)
+                train_probe_records[str(seed)] = train_probe_payload
+            if valid_payload:
+                valid_payload["artifact_path"] = str(valid_path)
+                validation_records[str(seed)] = valid_payload
+
+        test_payload: Dict[str, Any] = {}
+        for variant in selected_variants:
+            by_dataset: Dict[str, Any] = {}
+            for dataset_label in test_datasets.keys():
+                dataset_slug = re.sub(r"[^A-Za-z0-9_.-]+", "_", dataset_label)
+                records: Dict[str, Dict[str, Any]] = {}
+                for seed in cfg["experiment"]["seeds"]:
+                    path = diagnostics_dir / f"forensics_test_seed_{seed}_{variant}_{dataset_slug}.json"
+                    payload = _safe_read_json(path)
+                    if payload:
+                        payload["artifact_path"] = str(path)
+                        records[str(seed)] = payload
+                by_dataset[dataset_label] = _aggregate_forensic_records(records)
+            test_payload[variant] = {
+                "overall": {
+                    "per_seed": variant_payloads[variant]["overall"].get("runs", {}),
+                    "metrics": variant_payloads[variant]["overall"].get("metrics", {}),
+                },
+                "by_dataset": by_dataset,
+            }
+
+        forensic_payload = {
+            "experiment_id": exp_id,
+            "primary_checkpoint_variant": primary_variant,
+            "train_probe": _aggregate_forensic_records(train_probe_records),
+            "validation": _aggregate_forensic_records(validation_records),
+            "test": test_payload,
+        }
+        write_json_artifact(forensic_path, forensic_payload)
+        write_forensics_overview_table(
+            final_json_path=forensic_path,
+            table_md_path=tables_dir / f"asr_forensics_overview{filename_suffix}.md",
+            title="ASR Forensics Overview",
+        )
+        write_forensics_alignment_table(
+            final_json_path=forensic_path,
+            table_md_path=tables_dir / f"asr_forensics_alignment{filename_suffix}.md",
+            title="ASR Forensics Alignment",
+        )
+        write_forensics_teacher_student_table(
+            final_json_path=forensic_path,
+            table_md_path=tables_dir / f"asr_forensics_teacher_student{filename_suffix}.md",
+            title="ASR Forensics Teacher-Student",
+        )
+        print(f"[TEST] Forensics bundle: {forensic_path}")
 
 
 if __name__ == "__main__":

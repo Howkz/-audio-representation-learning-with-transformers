@@ -278,10 +278,14 @@ class AudioFeatureDataset(TorchDataset):
         audio_cfg: AudioPreprocessConfig,
         transcript_key: Optional[str] = None,
         enable_augmentations: bool = False,
+        source_dataset: Optional[str] = None,
+        source_split: Optional[str] = None,
     ) -> None:
         self.ds = hf_dataset
         self.audio_cfg = audio_cfg
         self.enable_augmentations = bool(enable_augmentations)
+        self.source_dataset = None if source_dataset is None else str(source_dataset)
+        self.source_split = None if source_split is None else str(source_split)
         sample = hf_dataset[0] if len(hf_dataset) > 0 else {}
         self.transcript_key = resolve_transcript_key(sample, transcript_key)
         self.max_samples = (
@@ -289,6 +293,15 @@ class AudioFeatureDataset(TorchDataset):
             if audio_cfg.max_duration_sec is not None
             else None
         )
+
+    def _sample_id(self, row: Dict[str, Any], index: int) -> str:
+        for key in ("id", "utterance_id", "audio_id", "file", "path"):
+            value = row.get(key)
+            if isinstance(value, (str, int, float)) and str(value).strip():
+                return str(value)
+        dataset_name = self.source_dataset or "dataset"
+        split_name = self.source_split or "split"
+        return f"{dataset_name}:{split_name}:{int(index)}"
 
     def __len__(self) -> int:
         return len(self.ds)
@@ -329,6 +342,9 @@ class AudioFeatureDataset(TorchDataset):
             "length": int(logmel.shape[0]),
             "waveform": waveform.squeeze(0),
             "waveform_length": int(waveform.shape[-1]),
+            "sample_id": self._sample_id(row, index=index),
+            "source_dataset": self.source_dataset,
+            "source_split": self.source_split,
         }
         if self.transcript_key is not None:
             item["transcript"] = normalize_transcript(str(row.get(self.transcript_key, "")))

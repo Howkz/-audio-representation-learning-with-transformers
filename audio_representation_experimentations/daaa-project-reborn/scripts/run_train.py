@@ -96,6 +96,14 @@ def main() -> None:
         print(f"[TRAIN] Seeds: {cfg['experiment']['seeds']}")
         print(f"[TRAIN] Pretraining mode: {_pretrain_mode(cfg)}")
         print(f"[TRAIN] Distillation enabled: {bool(cfg.get('distillation', {}).get('enabled', False))}")
+        diagnostics_cfg = cfg.get("diagnostics", {})
+        if bool(diagnostics_cfg.get("forensics_enabled", False)):
+            print(
+                f"[TRAIN] Forensics enabled train_probe_size={diagnostics_cfg.get('train_probe_size')} "
+                f"max_examples={diagnostics_cfg.get('max_saved_examples')} "
+                f"max_frames={diagnostics_cfg.get('max_saved_frames')} "
+                f"topk={diagnostics_cfg.get('topk_tokens')}"
+            )
         if bool(cfg.get("distillation", {}).get("enabled", False)):
             teacher_cfg = cfg.get("teacher", {})
             print(
@@ -161,6 +169,8 @@ def main() -> None:
             audio_cfg=local_audio_cfg,
             transcript_key=spec.get("transcript_key"),
             enable_augmentations=is_training_split,
+            source_dataset=spec.get("name"),
+            source_split=spec.get("split"),
         )
 
     pretrain_enabled = _pretrain_enabled(cfg)

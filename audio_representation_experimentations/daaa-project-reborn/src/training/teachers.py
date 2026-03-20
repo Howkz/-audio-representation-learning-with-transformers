@@ -44,6 +44,7 @@ class TeacherOutput:
     values: torch.Tensor
     lengths: torch.Tensor
     blank_id: int = 0
+    distribution_values: Optional[torch.Tensor] = None
 
 
 class BaseTeacher:
@@ -93,12 +94,11 @@ class ExternalHFTeacher(BaseTeacher):
             self.model.eval()
             self.requires_waveform = True
             self.hidden_dim = int(getattr(self.model.config, "hidden_size", 0) or 0)
+            self._vocab_mapping = self._build_vocab_mapping().to(self.device)
             if self.requested_target == "hidden_states":
                 self.target_kind = "hidden_states"
-                self._vocab_mapping = None
             else:
                 self.target_kind = "logits"
-                self._vocab_mapping = self._build_vocab_mapping().to(self.device)
         elif self.family == "hubert_features":
             self.model = AutoModel.from_pretrained(self.model_name).to(self.device)
             self.model.eval()
@@ -178,21 +178,6 @@ class ExternalHFTeacher(BaseTeacher):
                     attention_mask=attention_mask,
                     output_hidden_states=self.target_kind == "hidden_states",
                 )
-                if self.target_kind == "hidden_states":
-                    hidden_states = outputs.hidden_states
-                    if hidden_states is None or len(hidden_states) == 0:
-                        raise ValueError("Teacher did not return hidden states.")
-                    hidden = hidden_states[-1].float()
-                    teacher_lengths = self._output_lengths(
-                        waveform_lengths=attention_mask.sum(dim=1),
-                        output_time_steps=int(hidden.shape[1]),
-                    ).to(hidden.device)
-                    return TeacherOutput(
-                        target_kind="hidden_states",
-                        values=hidden.detach(),
-                        lengths=teacher_lengths.detach(),
-                        blank_id=int(self.tokenizer.blank_id),
-                    )
                 logits = outputs.logits.float()
                 teacher_lengths = self._output_lengths(
                     waveform_lengths=attention_mask.sum(dim=1),
@@ -203,11 +188,24 @@ class ExternalHFTeacher(BaseTeacher):
                 mapping = self._vocab_mapping.view(1, 1, -1).expand(logits.shape[0], logits.shape[1], -1)
                 mapped.scatter_add_(2, mapping, probs)
                 mapped = mapped / mapped.sum(dim=-1, keepdim=True).clamp_min(1e-8)
+                if self.target_kind == "hidden_states":
+                    hidden_states = outputs.hidden_states
+                    if hidden_states is None or len(hidden_states) == 0:
+                        raise ValueError("Teacher did not return hidden states.")
+                    hidden = hidden_states[-1].float()
+                    return TeacherOutput(
+                        target_kind="hidden_states",
+                        values=hidden.detach(),
+                        lengths=teacher_lengths.detach(),
+                        blank_id=int(self.tokenizer.blank_id),
+                        distribution_values=mapped.detach(),
+                    )
                 return TeacherOutput(
                     target_kind="logits",
                     values=mapped.detach(),
                     lengths=teacher_lengths.detach(),
                     blank_id=int(self.tokenizer.blank_id),
+                    distribution_values=mapped.detach(),
                 )
 
             outputs = self.model(input_values=input_values, attention_mask=attention_mask)
@@ -282,12 +280,13 @@ class CheckpointTeacher(BaseTeacher):
                     lengths.to(self.device, non_blocking=True),
                     return_features=True,
                 )
-                del logits
+                probs = torch.softmax(logits.float() / _normalize_temperature(temperature), dim=-1)
                 return TeacherOutput(
                     target_kind="hidden_states",
                     values=features.detach(),
                     lengths=out_lengths.detach(),
                     blank_id=int(self.tokenizer.blank_id),
+                    distribution_values=probs.detach(),
                 )
             logits, out_lengths = self.model(
                 x_logmel.to(self.device, non_blocking=True),
@@ -299,6 +298,7 @@ class CheckpointTeacher(BaseTeacher):
                 values=probs.detach(),
                 lengths=out_lengths.detach(),
                 blank_id=int(self.tokenizer.blank_id),
+                distribution_values=probs.detach(),
             )
 
 

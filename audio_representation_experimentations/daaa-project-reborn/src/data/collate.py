@@ -19,6 +19,9 @@ def pad_collate(batch: List[Dict[str, Any]]) -> Dict[str, torch.Tensor]:
     waveform_lengths = torch.zeros((bsz,), dtype=torch.long)
 
     transcripts = []
+    sample_ids = []
+    source_datasets = []
+    source_splits = []
     for i, item in enumerate(batch):
         t = item["x_logmel"].shape[0]
         x[i, :t] = item["x_logmel"]
@@ -29,6 +32,9 @@ def pad_collate(batch: List[Dict[str, Any]]) -> Dict[str, torch.Tensor]:
             waveforms[i, :waveform_len] = waveform[:waveform_len]
             waveform_lengths[i] = waveform_len
         transcripts.append(item.get("transcript", ""))
+        sample_ids.append(str(item.get("sample_id", f"sample_{i}")))
+        source_datasets.append(item.get("source_dataset"))
+        source_splits.append(item.get("source_split"))
 
     return {
         "x_logmel": x,
@@ -36,6 +42,9 @@ def pad_collate(batch: List[Dict[str, Any]]) -> Dict[str, torch.Tensor]:
         "waveforms": waveforms,
         "waveform_lengths": waveform_lengths,
         "transcripts": transcripts,
+        "sample_ids": sample_ids,
+        "source_datasets": source_datasets,
+        "source_splits": source_splits,
     }
 
 

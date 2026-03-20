@@ -6,13 +6,13 @@ import sys
 import time
 from functools import partial
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import torch
 import torch.nn.functional as F
 from torch.cuda.amp import GradScaler as LegacyGradScaler
 from torch.nn.utils import clip_grad_norm_
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Subset
 from tqdm.auto import tqdm
 
 from src.data.collate import ctc_collate, pad_collate
@@ -71,9 +71,33 @@ def _diagnostics_cfg(cfg: Dict[str, Any]) -> Dict[str, Any]:
     return diagnostics if isinstance(diagnostics, dict) else {}
 
 
+def _forensics_enabled(cfg: Dict[str, Any]) -> bool:
+    return bool(_diagnostics_cfg(cfg).get("forensics_enabled", False))
+
+
 def _diagnostics_examples_limit(cfg: Dict[str, Any]) -> int:
     diagnostics = _diagnostics_cfg(cfg)
     return max(0, int(diagnostics.get("max_saved_examples", 8)))
+
+
+def _diagnostics_frames_limit(cfg: Dict[str, Any]) -> int:
+    diagnostics = _diagnostics_cfg(cfg)
+    return max(1, int(diagnostics.get("max_saved_frames", 96)))
+
+
+def _diagnostics_topk_tokens(cfg: Dict[str, Any]) -> int:
+    diagnostics = _diagnostics_cfg(cfg)
+    return max(1, int(diagnostics.get("topk_tokens", 5)))
+
+
+def _train_probe_size(cfg: Dict[str, Any]) -> int:
+    diagnostics = _diagnostics_cfg(cfg)
+    return max(0, int(diagnostics.get("train_probe_size", 0)))
+
+
+def _train_probe_seed(cfg: Dict[str, Any]) -> int:
+    diagnostics = _diagnostics_cfg(cfg)
+    return int(diagnostics.get("train_probe_seed", 1337))
 
 
 def _safe_slug(value: str) -> str:
@@ -93,7 +117,14 @@ def _diagnostics_artifact_path(
 
 def _merge_diagnostic_totals(target: Dict[str, float], update: Dict[str, float]) -> None:
     for key, value in update.items():
-        target[key] = float(target.get(key, 0.0)) + float(value)
+        if isinstance(value, dict):
+            nested = target.get(key)
+            if not isinstance(nested, dict):
+                nested = {}
+                target[key] = nested
+            _merge_diagnostic_totals(nested, value)
+        else:
+            target[key] = float(target.get(key, 0.0)) + float(value)
 
 
 def _maybe_warn_ctc(stage: str, metrics: Dict[str, Any], cfg: Dict[str, Any]) -> None:
@@ -221,6 +252,68 @@ def _align_teacher_values(
         < target_lengths.unsqueeze(1)
     )
     return aligned_values, aligned_mask & student_mask.to(aligned_mask.device)
+
+
+def _prepare_teacher_forensics(
+    *,
+    student_logits: torch.Tensor,
+    student_lengths: torch.Tensor,
+    student_features: torch.Tensor,
+    teacher_output: TeacherOutput,
+) -> Dict[str, Any]:
+    prepared: Dict[str, Any] = {
+        "raw_lengths": teacher_output.lengths.detach(),
+    }
+    if teacher_output.target_kind == "hidden_states":
+        aligned_features, feature_valid_mask = _align_teacher_values(
+            values=teacher_output.values,
+            source_lengths=teacher_output.lengths,
+            target_steps=int(student_logits.shape[1]),
+            target_lengths=student_lengths,
+        )
+        prepared["features"] = aligned_features.detach()
+        prepared["feature_valid_mask"] = feature_valid_mask.detach()
+    distribution_values = getattr(teacher_output, "distribution_values", None)
+    if isinstance(distribution_values, torch.Tensor):
+        aligned_distribution, distribution_valid_mask = _align_teacher_values(
+            values=distribution_values,
+            source_lengths=teacher_output.lengths,
+            target_steps=int(student_logits.shape[1]),
+            target_lengths=student_lengths,
+        )
+        prepared["distribution"] = aligned_distribution.detach()
+        prepared["distribution_valid_mask"] = distribution_valid_mask.detach()
+    return prepared
+
+
+def _write_json_artifacts(
+    primary_path: Optional[Path],
+    payload: Dict[str, Any],
+    extra_paths: Sequence[Path] = (),
+) -> None:
+    seen: set[str] = set()
+    for path in [primary_path, *list(extra_paths)]:
+        if path is None:
+            continue
+        key = str(path)
+        if key in seen:
+            continue
+        seen.add(key)
+        write_json_artifact(path, payload)
+
+
+def _make_train_probe_subset(
+    dataset: torch.utils.data.Dataset,
+    cfg: Dict[str, Any],
+) -> Optional[Subset]:
+    probe_size = min(len(dataset), _train_probe_size(cfg))
+    if probe_size <= 0:
+        return None
+    generator = torch.Generator()
+    generator.manual_seed(_train_probe_seed(cfg))
+    indices = torch.randperm(len(dataset), generator=generator)[:probe_size].tolist()
+    indices.sort()
+    return Subset(dataset, indices)
 
 
 def _compute_distillation_loss(
@@ -618,6 +711,8 @@ def run_pretrain_seed(
     grad_clip = float(cfg["training"]["grad_clip_norm"])
     mask_ratio = float(cfg["model"]["mae_mask_ratio"])
     effective_batch_size = int(training_cfg["batch_size"]) * max(1, grad_acc)
+    train_probe_dataset = _make_train_probe_subset(train_dataset, cfg) if _forensics_enabled(cfg) else None
+    optimizer_steps_completed = 0
     log_every_steps = int(cfg["training"].get("log_every_steps", 25))
 
     total_loss = 0.0
@@ -774,6 +869,119 @@ def _load_encoder_from_pretrain(encoder: AudioTransformerEncoder, pretrain_encod
 
 
 @torch.no_grad()
+def _run_ctc_diagnostic_pass(
+    *,
+    model: AudioTransformerCTC,
+    dataset: torch.utils.data.Dataset,
+    tokenizer: CharCTCTokenizer,
+    cfg: Dict[str, Any],
+    seed: int,
+    loader_epoch: int,
+    stage_label: str,
+    artifact_path: Optional[Path] = None,
+    extra_artifact_paths: Sequence[Path] = (),
+    teacher: Optional[Any] = None,
+    dataset_label: Optional[str] = None,
+    checkpoint_path: Optional[Path] = None,
+    batch_size: Optional[int] = None,
+    payload_metadata: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    device = _device()
+    num_workers = int(cfg["data"]["num_workers"])
+    effective_batch_size = int(batch_size or cfg["training"]["finetune"]["batch_size"])
+    loader = _seeded_loader(
+        dataset=dataset,
+        batch_size=effective_batch_size,
+        num_workers=num_workers,
+        collate_fn=partial(ctc_collate, tokenizer=tokenizer),
+        seed=seed,
+        epoch=loader_epoch,
+        shuffle=False,
+    )
+    model.eval()
+    predictions: List[str] = []
+    references: List[str] = []
+    diagnostic_totals: Dict[str, Any] = {}
+    diagnostic_examples: List[Dict[str, Any]] = []
+    max_examples = _diagnostics_examples_limit(cfg)
+    max_frames = _diagnostics_frames_limit(cfg)
+    topk_tokens = _diagnostics_topk_tokens(cfg)
+    start_ts = time.time()
+    reset_peak_memory()
+    for batch in loader:
+        x = batch["x_logmel"].to(device, non_blocking=True)
+        lengths = batch["lengths"].to(device, non_blocking=True)
+        waveforms = batch["waveforms"].to(device, non_blocking=True)
+        waveform_lengths = batch["waveform_lengths"].to(device, non_blocking=True)
+        logits, out_lengths, student_features = model(x, lengths, return_features=True)
+        teacher_forensics = None
+        if teacher is not None:
+            teacher_output = teacher.forward_teacher(
+                x_logmel=x,
+                lengths=lengths,
+                waveforms=waveforms if getattr(teacher, "requires_waveform", False) else None,
+                waveform_lengths=waveform_lengths if getattr(teacher, "requires_waveform", False) else None,
+                temperature=float(_distillation_cfg(cfg).get("temperature", 1.0)),
+            )
+            teacher_forensics = _prepare_teacher_forensics(
+                student_logits=logits,
+                student_lengths=out_lengths,
+                student_features=student_features,
+                teacher_output=teacher_output,
+            )
+        batch_predictions, batch_totals, batch_examples = collect_ctc_batch_diagnostics(
+            logits=logits,
+            out_lengths=out_lengths,
+            target_lengths=batch.get("target_lengths"),
+            references=batch["transcripts"],
+            tokenizer=tokenizer,
+            max_examples=max(0, max_examples - len(diagnostic_examples)),
+            max_frames=max_frames,
+            topk_tokens=topk_tokens,
+            sample_ids=batch.get("sample_ids"),
+            source_datasets=batch.get("source_datasets"),
+            source_splits=batch.get("source_splits"),
+            waveform_lengths=batch.get("waveform_lengths"),
+            sample_rate=int(cfg["audio"]["sample_rate"]),
+            student_features=student_features,
+            teacher_forensics=teacher_forensics,
+        )
+        predictions.extend(batch_predictions)
+        references.extend(batch["transcripts"])
+        _merge_diagnostic_totals(diagnostic_totals, batch_totals)
+        diagnostic_examples.extend(batch_examples)
+    runtime = max(1e-9, time.time() - start_ts)
+    diagnostic_metrics = finalize_ctc_diagnostics(
+        diagnostic_totals,
+        tokenizer=tokenizer,
+        expected_num_unique_samples=len(dataset),
+    )
+    result: Dict[str, Any] = {
+        "wer": compute_wer(predictions, references),
+        "accuracy": compute_char_accuracy(predictions, references),
+        "eval_runtime_sec": float(runtime),
+        "eval_samples_per_sec": float(len(references) / runtime),
+        "eval_peak_gpu_mem_mb": peak_memory_mb(),
+        **diagnostic_metrics,
+    }
+    if artifact_path is not None or extra_artifact_paths:
+        payload: Dict[str, Any] = {
+            "seed": int(seed),
+            "stage": stage_label,
+            "metrics": result,
+            "examples": diagnostic_examples,
+        }
+        if dataset_label is not None:
+            payload["dataset"] = dataset_label
+        if checkpoint_path is not None:
+            payload["checkpoint"] = str(checkpoint_path)
+        if payload_metadata:
+            payload.update(payload_metadata)
+        _write_json_artifacts(artifact_path, payload, extra_artifact_paths=extra_artifact_paths)
+    return result
+
+
+@torch.no_grad()
 def evaluate_ctc(
     model: AudioTransformerCTC,
     dataset: torch.utils.data.Dataset,
@@ -782,64 +990,25 @@ def evaluate_ctc(
     seed: int,
     epoch: int,
     artifact_path: Optional[Path] = None,
-) -> Dict[str, float]:
-    device = _device()
-    num_workers = int(cfg["data"]["num_workers"])
-    batch_size = int(cfg["training"]["finetune"]["batch_size"])
-    loader = _seeded_loader(
+    *,
+    teacher: Optional[Any] = None,
+    stage_label: str = "validation",
+    extra_artifact_paths: Sequence[Path] = (),
+) -> Dict[str, Any]:
+    result = _run_ctc_diagnostic_pass(
+        model=model,
         dataset=dataset,
-        batch_size=batch_size,
-        num_workers=num_workers,
-        collate_fn=partial(ctc_collate, tokenizer=tokenizer),
+        tokenizer=tokenizer,
+        cfg=cfg,
         seed=seed,
-        epoch=epoch + 10_000,
-        shuffle=False,
+        loader_epoch=epoch + 10_000,
+        stage_label=stage_label,
+        artifact_path=artifact_path,
+        extra_artifact_paths=extra_artifact_paths,
+        teacher=teacher,
+        payload_metadata={"epoch": int(epoch)},
     )
-    model.eval()
-    predictions = []
-    references = []
-    diagnostic_totals: Dict[str, float] = {}
-    diagnostic_examples = []
-    max_examples = _diagnostics_examples_limit(cfg)
-    start_ts = time.time()
-    reset_peak_memory()
-    for batch in loader:
-        x = batch["x_logmel"].to(device, non_blocking=True)
-        lengths = batch["lengths"].to(device, non_blocking=True)
-        logits, out_lengths = model(x, lengths)
-        batch_predictions, batch_totals, batch_examples = collect_ctc_batch_diagnostics(
-            logits=logits,
-            out_lengths=out_lengths,
-            target_lengths=batch["target_lengths"],
-            references=batch["transcripts"],
-            tokenizer=tokenizer,
-            max_examples=max(0, max_examples - len(diagnostic_examples)),
-        )
-        predictions.extend(batch_predictions)
-        references.extend(batch["transcripts"])
-        _merge_diagnostic_totals(diagnostic_totals, batch_totals)
-        diagnostic_examples.extend(batch_examples)
-    runtime = max(1e-9, time.time() - start_ts)
-    diagnostic_metrics = finalize_ctc_diagnostics(diagnostic_totals)
-    result = {
-        "wer": compute_wer(predictions, references),
-        "accuracy": compute_char_accuracy(predictions, references),
-        "eval_runtime_sec": float(runtime),
-        "eval_samples_per_sec": float(len(references) / runtime),
-        "eval_peak_gpu_mem_mb": peak_memory_mb(),
-        **diagnostic_metrics,
-    }
-    if artifact_path is not None:
-        write_json_artifact(
-            artifact_path,
-            {
-                "seed": int(seed),
-                "epoch": int(epoch),
-                "stage": "validation",
-                "metrics": result,
-                "examples": diagnostic_examples,
-            },
-        )
+    result["epoch"] = float(epoch)
     return result
 
 
@@ -1142,6 +1311,7 @@ def run_finetune_seed(
                 optimizer.zero_grad(set_to_none=True)
                 scheduler.step()
                 accum_counter = 0
+                optimizer_steps_completed += 1
 
             if global_step % checkpoint_every == 0:
                 save_checkpoint(
@@ -1308,10 +1478,31 @@ def run_finetune_seed(
         seed=seed,
         epoch=99_999,
         artifact_path=_diagnostics_artifact_path(cfg, "validation", seed, "final"),
+        teacher=teacher if _forensics_enabled(cfg) else None,
+        extra_artifact_paths=(
+            [
+                Path(cfg["experiment"]["results_dir"]) / "diagnostics" / f"forensics_valid_seed_{seed}.json"
+            ]
+            if _forensics_enabled(cfg)
+            else []
+        ),
     )
     eval_peak_gpu_mem_mb = max(eval_peak_gpu_mem_mb, float(final_valid["eval_peak_gpu_mem_mb"]))
     _maybe_warn_ctc(stage="VALID-FINAL", metrics=final_valid, cfg=cfg)
     final_valid_score = _checkpoint_selection_score(final_valid, cfg)
+    train_probe_metrics: Dict[str, Any] = {}
+    if train_probe_dataset is not None:
+        train_probe_metrics = evaluate_ctc(
+            model,
+            train_probe_dataset,
+            tokenizer,
+            cfg,
+            seed=seed,
+            epoch=99_998,
+            artifact_path=Path(cfg["experiment"]["results_dir"]) / "diagnostics" / f"forensics_train_probe_seed_{seed}.json",
+            teacher=teacher,
+            stage_label="train_probe",
+        )
     metrics = {
         "train_loss": float(running_loss / max(1, running_count)),
         "train_ctc_loss": float(running_ctc_loss / max(1, running_count)),
@@ -1328,8 +1519,19 @@ def run_finetune_seed(
         "train_avg_out_length": float(train_out_length_sum / max(1, train_sample_count)),
         "train_avg_target_length": float(train_target_length_sum / max(1, train_sample_count)),
         "train_avg_length_margin": float(train_length_margin_sum / max(1, train_sample_count)),
+        "train_micro_steps_completed": float(global_step),
+        "train_optimizer_steps_completed": float(optimizer_steps_completed),
+        "train_examples_seen": float(train_sample_count),
+        "train_effective_epochs_completed": float(train_sample_count / max(1, len(train_dataset))),
+        "train_dataset_size_after_filters": float(len(train_dataset)),
+        "train_examples_seen_over_dataset_size": float(train_sample_count / max(1, len(train_dataset))),
+        "train_max_steps_interpreted_as_micro_steps": 1.0,
+        "train_grad_accum_steps": float(grad_acc),
+        "train_micro_batch_size": float(training_cfg["batch_size"]),
+        "train_effective_batch_size": float(effective_batch_size),
         "finetune_effective_batch_size": float(effective_batch_size),
-        "finetune_optimizer_steps": float(optimizer_total_steps),
+        "finetune_optimizer_steps": float(optimizer_steps_completed),
+        "finetune_optimizer_steps_planned": float(optimizer_total_steps),
         "finetune_warmup_steps": float(warmup_steps),
         "finetune_warmup_start_factor": float(warmup_start_factor),
         "finetune_min_lr_ratio": float(min_lr_ratio),
@@ -1357,6 +1559,12 @@ def run_finetune_seed(
         "best_valid_empty_pred_ratio": float(
             best_empty_pred_ratio if best_empty_pred_ratio is not None else final_valid["empty_pred_ratio"]
         ),
+        "train_probe_size": float(0 if train_probe_dataset is None else len(train_probe_dataset)),
+        "train_probe_unique_sample_ids_seen": float(train_probe_metrics.get("unique_sample_ids_seen", 0.0)),
+        "train_probe_sample_coverage_ratio": float(train_probe_metrics.get("sample_coverage_ratio", 0.0)),
+        "train_probe_sample_revisit_ratio": float(train_probe_metrics.get("sample_revisit_ratio", 0.0)),
+        "train_probe_pred_to_ref_char_ratio": float(train_probe_metrics.get("pred_to_ref_char_ratio", 0.0)),
+        "train_probe_blank_ratio": float(train_probe_metrics.get("blank_ratio", 0.0)),
         **{f"finetune_{k}_params": float(v) for k, v in count_parameters(model).items()},
     }
     return final_model, metrics
@@ -1371,6 +1579,9 @@ def evaluate_seed_on_dataset(
     checkpoint_path: Path,
     dataset_label: str,
     artifact_path: Optional[Path] = None,
+    *,
+    extra_artifact_paths: Sequence[Path] = (),
+    stage_label: str = "test",
 ) -> Dict[str, Any]:
     device = _device()
     payload = torch.load(checkpoint_path, map_location=device, weights_only=False)
@@ -1398,64 +1609,34 @@ def evaluate_seed_on_dataset(
     param_counts = count_parameters(model)
 
     batch_size = int(cfg["training"]["finetune"]["batch_size"])
-    loader = _seeded_loader(
+    teacher = build_teacher(eval_cfg, tokenizer=tokenizer, device=device) if _forensics_enabled(cfg) else None
+    result = _run_ctc_diagnostic_pass(
+        model=model,
         dataset=dataset,
-        batch_size=batch_size,
-        num_workers=int(cfg["data"]["num_workers"]),
-        collate_fn=partial(ctc_collate, tokenizer=tokenizer),
+        tokenizer=tokenizer,
+        cfg=eval_cfg,
         seed=seed,
-        epoch=123456,
-        shuffle=False,
+        loader_epoch=123456,
+        stage_label=stage_label,
+        artifact_path=artifact_path,
+        extra_artifact_paths=extra_artifact_paths,
+        teacher=teacher,
+        dataset_label=dataset_label,
+        checkpoint_path=checkpoint_path,
+        batch_size=batch_size,
     )
-
-    refs = []
-    preds = []
-    diagnostic_totals: Dict[str, float] = {}
-    diagnostic_examples = []
-    max_examples = _diagnostics_examples_limit(cfg)
-    reset_peak_memory()
-    start_ts = time.time()
-    for batch in loader:
-        x = batch["x_logmel"].to(device, non_blocking=True)
-        lengths = batch["lengths"].to(device, non_blocking=True)
-        logits, out_lengths = model(x, lengths)
-        batch_predictions, batch_totals, batch_examples = collect_ctc_batch_diagnostics(
-            logits=logits,
-            out_lengths=out_lengths,
-            target_lengths=batch["target_lengths"],
-            references=batch["transcripts"],
-            tokenizer=tokenizer,
-            max_examples=max(0, max_examples - len(diagnostic_examples)),
-        )
-        preds.extend(batch_predictions)
-        refs.extend(batch["transcripts"])
-        _merge_diagnostic_totals(diagnostic_totals, batch_totals)
-        diagnostic_examples.extend(batch_examples)
-
-    runtime = max(1e-9, time.time() - start_ts)
-    result: Dict[str, Any] = {
+    result.update(
+        {
         "seed": float(seed),
         "dataset": dataset_label,
-        "wer": compute_wer(preds, refs),
-        "accuracy": compute_char_accuracy(preds, refs),
         "eval_batch_size": float(batch_size),
-        "inference_runtime_sec": float(runtime),
-        "inference_samples_per_sec": float(len(refs) / runtime),
-        "inference_peak_gpu_mem_mb": peak_memory_mb(),
+        "inference_runtime_sec": float(result.get("eval_runtime_sec", 0.0)),
+        "inference_samples_per_sec": float(result.get("eval_samples_per_sec", 0.0)),
+        "inference_peak_gpu_mem_mb": float(result.get("eval_peak_gpu_mem_mb", 0.0)),
         "model_total_params": float(param_counts["total"]),
         "model_trainable_params": float(param_counts["trainable"]),
-        **finalize_ctc_diagnostics(diagnostic_totals),
-    }
+        }
+    )
     if artifact_path is not None:
-        write_json_artifact(
-            artifact_path,
-            {
-                "seed": int(seed),
-                "dataset": dataset_label,
-                "checkpoint": str(checkpoint_path),
-                "metrics": result,
-                "examples": diagnostic_examples,
-            },
-        )
         result["diagnostics_artifact"] = str(artifact_path)
     return result
