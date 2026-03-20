@@ -711,8 +711,6 @@ def run_pretrain_seed(
     grad_clip = float(cfg["training"]["grad_clip_norm"])
     mask_ratio = float(cfg["model"]["mae_mask_ratio"])
     effective_batch_size = int(training_cfg["batch_size"]) * max(1, grad_acc)
-    train_probe_dataset = _make_train_probe_subset(train_dataset, cfg) if _forensics_enabled(cfg) else None
-    optimizer_steps_completed = 0
     log_every_steps = int(cfg["training"].get("log_every_steps", 25))
 
     total_loss = 0.0
@@ -1137,6 +1135,8 @@ def run_finetune_seed(
     grad_acc = int(training_cfg["grad_accum_steps"])
     grad_clip = float(cfg["training"]["grad_clip_norm"])
     effective_batch_size = int(training_cfg["batch_size"]) * max(1, grad_acc)
+    train_probe_dataset = _make_train_probe_subset(train_dataset, cfg) if _forensics_enabled(cfg) else None
+    optimizer_steps_completed = 0
     log_every_steps = int(cfg["training"].get("log_every_steps", 25))
     train_start_ts = time.time()
     reset_peak_memory()
