@@ -1,6 +1,7 @@
 # DAAA Audio Transformer - Guide Rapide
 
 Ce projet implemente un pipeline audio conforme au TP:
+
 - pretrain MAE
 - finetune CTC
 - evaluation WER
@@ -52,6 +53,7 @@ La suite suit ce protocole:
 4. `E09..E11`: final Top-3 en 5 seeds.
 
 Politique de donnees:
+
 - screening: sous-echantillon fixe (comparabilite interne forte, cout borne),
 - final: sous-echantillon elargi pour renforcer la validite sans depasser le budget temps 24h.
 

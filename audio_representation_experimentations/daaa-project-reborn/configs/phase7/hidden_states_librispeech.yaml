@@ -5,10 +5,10 @@ experiment:
   results_dir: "results/phase7/experiments/P7C01"
   cache_dir: "data/cache"
   processed_dir: "data/processed/phase7/P7C01"
-  checkpoint_every_steps: 150
+  checkpoint_every_steps: 1000
   keep_last_checkpoints: 2
   cleanup_pretrain_checkpoints_after_finetune: false
-  seeds: [42, 123]
+  seeds: [42]
 
 pretrain:
   mode: "none"
@@ -51,7 +51,7 @@ model:
   mlp_ratio: 4.0
   dropout: 0.1
   patch_strategy: "time"
-  patch_time: 1
+  patch_time: 2
   patch_freq: 80
   max_len: 2048
   pos_embed: "sinusoidal"
@@ -73,17 +73,17 @@ training:
     weight_decay: 0.01
     max_steps: 400
   finetune:
-    epochs: 4
+    epochs: 60
     batch_size: 1
     grad_accum_steps: 8
     learning_rate: 0.0001
     weight_decay: 0.01
-    max_steps: 1500
-    warmup_steps: 20
+    max_steps: 100000
+    warmup_steps: 2000
     warmup_start_factor: 0.1
     min_lr_ratio: 0.05
-    early_stopping_patience: 2
-    early_stopping_min_epochs: 2
+    early_stopping_patience: 8
+    early_stopping_min_epochs: 10
     early_stopping_min_delta: 0.001
 
 checkpoint_selection:
@@ -121,7 +121,7 @@ datasets:
     name: "openslr/librispeech_asr"
     config: "clean"
     split: "train.clean.100"
-    max_samples: 5000
+    max_samples: null
     transcript_key: "text"
     max_duration_sec: 8.0
     length_policy: "none"
