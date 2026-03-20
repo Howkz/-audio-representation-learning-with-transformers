@@ -1,0 +1,49 @@
+{
+  "model_name": "phase7_clean_distill_librispeech",
+  "architecture": "Audio Transformer Encoder + CTC",
+  "adaptation_technique": "CTC fine-tune + distillation (external:wav2vec2_ctc)",
+  "runs": {
+    "42": {
+      "seed": 42.0,
+      "wer": 1.0,
+      "accuracy": 0.001612036539494932,
+      "eval_batch_size": 1.0,
+      "inference_runtime_sec": 10.781320333480835,
+      "inference_samples_per_sec": 10.110078972563882,
+      "inference_peak_gpu_mem_mb": 43.767578125,
+      "model_total_params": 2690909.0,
+      "model_trainable_params": 2690909.0,
+      "blank_ratio": 0.9996148538049234,
+      "empty_pred_ratio": 0.944954128440367,
+      "nonempty_pred_ratio": 0.05504587155963303,
+      "pred_to_ref_char_ratio": 0.0019348597226701066,
+      "short_pred_ratio": 0.9980651402773298,
+      "invalid_length_ratio": 0.0,
+      "avg_out_length": 285.8440366972477,
+      "avg_target_length": 34.14678899082569,
+      "avg_length_margin": 251.69724770642202,
+      "checkpoint_variant": "best"
+    },
+    "123": {
+      "seed": 123.0,
+      "wer": 1.0,
+      "accuracy": 0.07925846319183238,
+      "eval_batch_size": 1.0,
+      "inference_runtime_sec": 10.444233655929565,
+      "inference_samples_per_sec": 10.436380838542117,
+      "inference_peak_gpu_mem_mb": 43.767578125,
+      "model_total_params": 2690909.0,
+      "model_trainable_params": 2690909.0,
+      "blank_ratio": 0.6256378983855956,
+      "empty_pred_ratio": 0.0,
+      "nonempty_pred_ratio": 1.0,
+      "pred_to_ref_char_ratio": 0.35536923573040957,
+      "short_pred_ratio": 0.6446307642695904,
+      "invalid_length_ratio": 0.0,
+      "avg_out_length": 285.8440366972477,
+      "avg_target_length": 34.14678899082569,
+      "avg_length_margin": 251.69724770642202,
+      "checkpoint_variant": "best"
+    }
+  }
+}
