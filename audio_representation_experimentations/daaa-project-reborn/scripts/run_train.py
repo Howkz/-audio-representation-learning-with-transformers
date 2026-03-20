@@ -132,6 +132,11 @@ def main() -> None:
         )
         transcript_key = resolve_transcript_key(ds[0], spec.get("transcript_key")) if len(ds) > 0 else spec.get("transcript_key")
         ds = apply_dataset_filters(ds, transcript_key=transcript_key, spec=spec)
+        if len(ds) == 0:
+            raise ValueError(
+                f"Dataset vide après filtrage: {spec['name']}:{spec['split']}. "
+                "Assouplis les filtres de transcript/durée ou désactive le streaming pour ce split."
+            )
         return AudioFeatureDataset(ds, audio_cfg=local_audio_cfg, transcript_key=spec.get("transcript_key"))
 
     pretrain_enabled = _pretrain_enabled(cfg)

@@ -91,12 +91,11 @@ def _row_matches_filters(
 
     if min_duration is not None or max_duration is not None:
         duration_sec = _audio_duration_seconds(row.get("audio"))
-        if duration_sec is None:
-            return False
-        if min_duration is not None and duration_sec < float(min_duration):
-            return False
-        if max_duration is not None and duration_sec > float(max_duration):
-            return False
+        if duration_sec is not None:
+            if min_duration is not None and duration_sec < float(min_duration):
+                return False
+            if max_duration is not None and duration_sec > float(max_duration):
+                return False
 
     if min_chars is not None and num_chars < int(min_chars):
         return False
