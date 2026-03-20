@@ -1,0 +1,34 @@
+{
+  "model_name": "phase4_diagnostic_padding_mask",
+  "architecture": "Audio Transformer Encoder + CTC",
+  "adaptation_technique": "CTC fine-tune only (no MAE)",
+  "runs": {
+    "42": {
+      "train_loss": 3.1229346601168313,
+      "train_runtime_sec": 149.7152738571167,
+      "train_peak_gpu_mem_mb": 77.96875,
+      "train_invalid_length_ratio": 0.0,
+      "train_avg_out_length": 643.18,
+      "train_avg_target_length": 188.16833333333332,
+      "train_avg_length_margin": 455.01166666666666,
+      "eval_peak_gpu_mem_mb": 181.3720703125,
+      "valid_peak_gpu_mem_mb": 181.3720703125,
+      "valid_wer": 1.0,
+      "valid_accuracy": 0.0,
+      "valid_runtime_sec": 37.45406174659729,
+      "valid_samples_per_sec": 8.00981218084458,
+      "valid_blank_ratio": 1.0,
+      "valid_empty_pred_ratio": 1.0,
+      "valid_nonempty_pred_ratio": 0.0,
+      "valid_invalid_length_ratio": 0.0,
+      "valid_avg_out_length": 318.15,
+      "valid_avg_target_length": 99.62333333333333,
+      "valid_avg_length_margin": 218.52666666666667,
+      "valid_exact_match_ratio": 0.0,
+      "best_valid_wer": 1.0,
+      "finetune_total_params": 1520861.0,
+      "finetune_trainable_params": 1520861.0,
+      "seed": 42.0
+    }
+  }
+}
