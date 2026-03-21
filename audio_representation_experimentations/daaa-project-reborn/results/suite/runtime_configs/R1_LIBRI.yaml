@@ -1,0 +1,197 @@
+experiment:
+  id: R1_LIBRI
+  name: tp5_core_librispeech_R1_LIBRI
+  output_dir: outputs
+  results_dir: results/experiments/R1_LIBRI
+  cache_dir: data/cache
+  processed_dir: data/processed
+  checkpoint_every_steps: 200
+  keep_last_checkpoints: 2
+  cleanup_pretrain_checkpoints_after_finetune: false
+  seeds:
+  - 456
+  - 789
+  - 1024
+pretrain:
+  mode: mae
+distillation:
+  enabled: false
+  temperature: 2.0
+  lambda_ctc: 1.0
+  lambda_kd: 0.1
+  warmup_steps: 800
+  warmup_start_factor: 0.0
+  informative_only: false
+  min_nonblank_prob: 0.0
+  require_nonblank_argmax: false
+teacher:
+  source: external
+  family: wav2vec2_ctc
+  model_name: facebook/wav2vec2-base-960h
+  target: hidden_states
+audio:
+  sample_rate: 16000
+  max_duration_sec: 6.0
+  length_policy: none
+  feature_type: logmel
+  feature_norm: utterance
+  n_mels: 80
+  win_length: 400
+  hop_length: 160
+model:
+  dim: 192
+  depth: 4
+  num_heads: 6
+  mlp_ratio: 3.0
+  dropout: 0.1
+  patch_strategy: time
+  patch_time: 4
+  patch_freq: 80
+  max_len: 1536
+  pos_embed: sinusoidal
+  mae_decoder_dim: 96
+  mae_decoder_depth: 1
+  mae_decoder_heads: 4
+  mae_mask_ratio: 0.6
+training:
+  amp: true
+  grad_clip_norm: 1.0
+  log_every_steps: 25
+  pretrain:
+    enabled: true
+    epochs: 12
+    batch_size: 16
+    grad_accum_steps: 1
+    learning_rate: 0.0002
+    weight_decay: 0.01
+    max_steps: 6000
+  finetune:
+    epochs: 12
+    batch_size: 8
+    grad_accum_steps: 2
+    learning_rate: 0.0002
+    weight_decay: 0.01
+    max_steps: 8000
+    warmup_steps: 200
+    warmup_start_factor: 0.1
+    min_lr_ratio: 0.1
+    early_stopping_patience: 4
+    early_stopping_min_epochs: 8
+    early_stopping_min_delta: 0.001
+checkpoint_selection:
+  empty_pred_penalty: 1.0
+  blank_ratio_penalty: 0.1
+  short_pred_penalty: 0.75
+  accuracy_bonus: 0.25
+evaluation:
+  primary_checkpoint: best
+  checkpoint_variants:
+  - best
+  - final
+probe:
+  enabled: false
+  encoder_source: pretrain_if_available_else_finetune
+  freeze_encoder: true
+  label_key: intent_class
+  epochs: 20
+  batch_size: 32
+  eval_batch_size: 32
+  grad_accum_steps: 1
+  learning_rate: 0.001
+  weight_decay: 0.0
+  max_steps: 2000
+  warmup_steps: 0
+  warmup_start_factor: 0.1
+  min_lr_ratio: 0.0
+  early_stopping_patience: 5
+  early_stopping_min_epochs: 5
+  early_stopping_min_delta: 0.0
+  checkpoint_every_steps: 100
+  dropout: 0.1
+data:
+  num_workers: 2
+  precompute_feature_cache: false
+  streaming: true
+  strict_asr_consistency: true
+diagnostics:
+  enabled: true
+  forensics_enabled: false
+  train_probe_size: 64
+  train_probe_seed: 1337
+  max_saved_examples: 12
+  max_saved_frames: 64
+  topk_tokens: 5
+datasets:
+  pretrain:
+    name: Codec-SUPERB/fluent_speech_commands_synth
+    config: null
+    split: original
+    streaming: true
+    max_samples: 4000
+    transcript_key: null
+    max_duration_sec: 4.0
+    length_policy: crop_or_pad
+    feature_norm: utterance
+  asr_train:
+    name: openslr/librispeech_asr
+    config: clean
+    split: train.clean.100
+    max_samples: 5000
+    transcript_key: text
+    max_duration_sec: 6.0
+    length_policy: none
+    feature_norm: utterance
+    max_transcript_chars: 90
+    max_transcript_words: 16
+    strict_asr_consistency: true
+  asr_valid:
+    name: openslr/librispeech_asr
+    config: clean
+    split: validation.clean
+    max_samples: 500
+    transcript_key: text
+    max_duration_sec: 6.0
+    length_policy: none
+    feature_norm: utterance
+    max_transcript_chars: 90
+    max_transcript_words: 16
+    strict_asr_consistency: true
+  asr_tests:
+  - name: openslr/librispeech_asr
+    config: clean
+    split: test.clean
+    max_samples: 500
+    transcript_key: text
+    max_duration_sec: 6.0
+    length_policy: none
+    feature_norm: utterance
+    max_transcript_chars: 90
+    max_transcript_words: 16
+    strict_asr_consistency: true
+  probe_train:
+    name: Codec-SUPERB/fluent_speech_commands_synth
+    config: null
+    split: train
+    streaming: false
+    max_samples: 2000
+    max_duration_sec: 4.0
+    length_policy: crop_or_pad
+    feature_norm: utterance
+  probe_valid:
+    name: Codec-SUPERB/fluent_speech_commands_synth
+    config: null
+    split: validation
+    streaming: false
+    max_samples: 500
+    max_duration_sec: 4.0
+    length_policy: crop_or_pad
+    feature_norm: utterance
+  probe_tests:
+  - name: Codec-SUPERB/fluent_speech_commands_synth
+    config: null
+    split: test
+    streaming: false
+    max_samples: 500
+    max_duration_sec: 4.0
+    length_policy: crop_or_pad
+    feature_norm: utterance

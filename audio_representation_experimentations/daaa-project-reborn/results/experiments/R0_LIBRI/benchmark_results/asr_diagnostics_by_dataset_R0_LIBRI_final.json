@@ -1,0 +1,1037 @@
+{
+  "experiment_id": "R0_LIBRI",
+  "checkpoint_variant": "best",
+  "datasets": {
+    "openslr/librispeech_asr:test.clean": {
+      "456": {
+        "wer": 1.032379150390625,
+        "accuracy": 0.338657861859718,
+        "eval_runtime_sec": 9.934282064437866,
+        "eval_samples_per_sec": 22.246197416834203,
+        "eval_peak_gpu_mem_mb": 51.34375,
+        "blank_ratio": 0.47057717616093253,
+        "empty_pred_ratio": 0.0,
+        "nonempty_pred_ratio": 1.0,
+        "exact_match_ratio": 0.0,
+        "avg_pred_chars": 28.443438914027148,
+        "avg_ref_chars": 42.06334841628959,
+        "avg_out_length": 96.27149321266968,
+        "pred_to_ref_char_ratio": 0.6762048192771084,
+        "short_pred_ratio": 0.3237951807228916,
+        "long_pred_ratio": 0.0,
+        "length_deviation_ratio": 0.3237951807228916,
+        "adjacent_repeat_ratio": 0.04785907968334578,
+        "dominant_char_ratio": 0.20645270148263273,
+        "unique_char_ratio": 0.4583912095349208,
+        "collapsed_repeat_ratio": 0.04785907968334578,
+        "collapsed_dominant_char_ratio": 0.20645270148263273,
+        "collapsed_unique_char_ratio": 0.4583912095349208,
+        "collapse_compression_ratio": 2.9229717093596856,
+        "raw_blank_argmax_ratio": 0.4797748062408061,
+        "raw_nonblank_argmax_ratio": 0.520225193759194,
+        "raw_unique_token_ratio": 0.15006349676641753,
+        "raw_dominant_token_ratio": 0.4797748062408061,
+        "raw_adjacent_repeat_ratio": 0.5252419111479881,
+        "raw_token_switch_ratio": 0.4747580888520118,
+        "avg_target_length": 50.705882352941174,
+        "avg_length_margin": 45.56561085972851,
+        "invalid_length_ratio": 0.0,
+        "frame_blank_prob_mean": 0.39978071450514774,
+        "frame_blank_prob_std": 0.38488080414594056,
+        "frame_nonblank_prob_mean": 0.6002192876464018,
+        "frame_nonblank_prob_std": 0.38488079799552655,
+        "frame_entropy_mean": 1.4216106376784214,
+        "frame_entropy_std": 0.8310387598427923,
+        "frame_top1_confidence_mean": 0.5777539265606273,
+        "frame_top1_confidence_std": 0.27854797043971385,
+        "frame_top1_margin_mean": 0.4445695355324441,
+        "frame_top1_margin_std": 0.36134476117242326,
+        "raw_top1_token_histogram": [
+          {
+            "token_id": 0,
+            "token": "<blank>",
+            "count": 10012.0,
+            "ratio": 0.47057717616093253
+          },
+          {
+            "token_id": 1,
+            "token": " ",
+            "count": 2416.0,
+            "ratio": 0.11355517954502727
+          },
+          {
+            "token_id": 20,
+            "token": "s",
+            "count": 1485.0,
+            "ratio": 0.06979695431472081
+          },
+          {
+            "token_id": 6,
+            "token": "e",
+            "count": 1337.0,
+            "ratio": 0.06284075954126715
+          },
+          {
+            "token_id": 19,
+            "token": "r",
+            "count": 1018.0,
+            "ratio": 0.04784733972551231
+          },
+          {
+            "token_id": 21,
+            "token": "t",
+            "count": 741.0,
+            "ratio": 0.03482797518330513
+          },
+          {
+            "token_id": 15,
+            "token": "n",
+            "count": 679.0,
+            "ratio": 0.03191389358902049
+          },
+          {
+            "token_id": 10,
+            "token": "i",
+            "count": 608.0,
+            "ratio": 0.028576800150404213
+          },
+          {
+            "token_id": 16,
+            "token": "o",
+            "count": 554.0,
+            "ratio": 0.026038729084414364
+          },
+          {
+            "token_id": 2,
+            "token": "a",
+            "count": 495.0,
+            "ratio": 0.023265651438240272
+          },
+          {
+            "token_id": 13,
+            "token": "l",
+            "count": 416.0,
+            "ratio": 0.019552547471329198
+          },
+          {
+            "token_id": 9,
+            "token": "h",
+            "count": 400.0,
+            "ratio": 0.018800526414739612
+          },
+          {
+            "token_id": 7,
+            "token": "f",
+            "count": 249.0,
+            "ratio": 0.011703327693175409
+          },
+          {
+            "token_id": 5,
+            "token": "d",
+            "count": 197.0,
+            "ratio": 0.009259259259259259
+          },
+          {
+            "token_id": 14,
+            "token": "m",
+            "count": 167.0,
+            "ratio": 0.007849219778153789
+          },
+          {
+            "token_id": 17,
+            "token": "p",
+            "count": 131.0,
+            "ratio": 0.006157172400827223
+          },
+          {
+            "token_id": 24,
+            "token": "w",
+            "count": 98.0,
+            "ratio": 0.004606128971611205
+          },
+          {
+            "token_id": 3,
+            "token": "b",
+            "count": 85.0,
+            "ratio": 0.003995111863132167
+          },
+          {
+            "token_id": 26,
+            "token": "y",
+            "count": 80.0,
+            "ratio": 0.0037601052829479226
+          },
+          {
+            "token_id": 4,
+            "token": "c",
+            "count": 67.0,
+            "ratio": 0.003149088174468885
+          },
+          {
+            "token_id": 22,
+            "token": "u",
+            "count": 29.0,
+            "ratio": 0.001363038165068622
+          },
+          {
+            "token_id": 23,
+            "token": "v",
+            "count": 8.0,
+            "ratio": 0.00037601052829479227
+          },
+          {
+            "token_id": 8,
+            "token": "g",
+            "count": 4.0,
+            "ratio": 0.00018800526414739614
+          }
+        ],
+        "collapsed_token_histogram": [
+          {
+            "token_id": 1,
+            "token": " ",
+            "count": 1658.0,
+            "ratio": 0.20871097683786505
+          },
+          {
+            "token_id": 6,
+            "token": "e",
+            "count": 1004.0,
+            "ratio": 0.12638469284994966
+          },
+          {
+            "token_id": 20,
+            "token": "s",
+            "count": 692.0,
+            "ratio": 0.08710976837865056
+          },
+          {
+            "token_id": 21,
+            "token": "t",
+            "count": 662.0,
+            "ratio": 0.08333333333333333
+          },
+          {
+            "token_id": 15,
+            "token": "n",
+            "count": 517.0,
+            "ratio": 0.06508056394763344
+          },
+          {
+            "token_id": 19,
+            "token": "r",
+            "count": 513.0,
+            "ratio": 0.06457703927492447
+          },
+          {
+            "token_id": 10,
+            "token": "i",
+            "count": 469.0,
+            "ratio": 0.05903826787512588
+          },
+          {
+            "token_id": 16,
+            "token": "o",
+            "count": 409.0,
+            "ratio": 0.05148539778449144
+          },
+          {
+            "token_id": 9,
+            "token": "h",
+            "count": 393.0,
+            "ratio": 0.04947129909365559
+          },
+          {
+            "token_id": 2,
+            "token": "a",
+            "count": 371.0,
+            "ratio": 0.046701913393756296
+          },
+          {
+            "token_id": 13,
+            "token": "l",
+            "count": 275.0,
+            "ratio": 0.03461732124874119
+          },
+          {
+            "token_id": 7,
+            "token": "f",
+            "count": 203.0,
+            "ratio": 0.02555387713997986
+          },
+          {
+            "token_id": 5,
+            "token": "d",
+            "count": 185.0,
+            "ratio": 0.023288016112789526
+          },
+          {
+            "token_id": 14,
+            "token": "m",
+            "count": 134.0,
+            "ratio": 0.016868076535750252
+          },
+          {
+            "token_id": 17,
+            "token": "p",
+            "count": 118.0,
+            "ratio": 0.014853977844914401
+          },
+          {
+            "token_id": 24,
+            "token": "w",
+            "count": 91.0,
+            "ratio": 0.011455186304128902
+          },
+          {
+            "token_id": 3,
+            "token": "b",
+            "count": 85.0,
+            "ratio": 0.010699899295065459
+          },
+          {
+            "token_id": 26,
+            "token": "y",
+            "count": 65.0,
+            "ratio": 0.008182275931520645
+          },
+          {
+            "token_id": 4,
+            "token": "c",
+            "count": 59.0,
+            "ratio": 0.007426988922457201
+          },
+          {
+            "token_id": 22,
+            "token": "u",
+            "count": 29.0,
+            "ratio": 0.00365055387713998
+          },
+          {
+            "token_id": 23,
+            "token": "v",
+            "count": 8.0,
+            "ratio": 0.0010070493454179255
+          },
+          {
+            "token_id": 8,
+            "token": "g",
+            "count": 4.0,
+            "ratio": 0.0005035246727089627
+          }
+        ],
+        "unique_sample_ids_seen": 221.0,
+        "sample_coverage_ratio": 1.0,
+        "sample_revisit_ratio": 0.0,
+        "student_time_steps_mean": 0.0,
+        "teacher_time_steps_mean": 0.0,
+        "teacher_to_student_time_ratio_mean": 0.0,
+        "alignment_interpolation_ratio_mean": 0.0,
+        "student_frames_per_second_estimate": 0.0,
+        "teacher_frames_per_second_estimate": 0.0,
+        "teacher_student_valid_frame_overlap_ratio": 0.0,
+        "teacher_student_alignment_stretch_mean": 0.0,
+        "teacher_entropy_mean": 0.0,
+        "teacher_entropy_std": 0.0,
+        "teacher_top1_confidence_mean": 0.0,
+        "teacher_top1_confidence_std": 0.0,
+        "teacher_top1_margin_mean": 0.0,
+        "teacher_top1_margin_std": 0.0,
+        "teacher_blank_prob_mean": 0.0,
+        "teacher_blank_prob_std": 0.0,
+        "teacher_nonblank_prob_mean": 0.0,
+        "teacher_nonblank_prob_std": 0.0,
+        "teacher_student_argmax_agreement": 0.0,
+        "teacher_student_topk_overlap_at1": 0.0,
+        "teacher_student_topk_overlap_at3": 0.0,
+        "teacher_student_feature_cosine_mean": 0.0,
+        "teacher_student_feature_cosine_std": 0.0,
+        "teacher_student_feature_mse_mean": 0.0,
+        "teacher_student_feature_norm_ratio_mean": 0.0,
+        "seed": 456.0,
+        "dataset": "openslr/librispeech_asr:test.clean",
+        "eval_batch_size": 8.0,
+        "inference_runtime_sec": 9.934282064437866,
+        "inference_samples_per_sec": 22.246197416834203,
+        "inference_peak_gpu_mem_mb": 51.34375,
+        "model_total_params": 1551581.0,
+        "model_trainable_params": 1551581.0,
+        "diagnostics_artifact": "results/experiments/R0_LIBRI/diagnostics/test_seed_456_best_openslr_librispeech_asr_test.clean.json"
+      },
+      "789": {
+        "wer": 1.038948893547058,
+        "accuracy": 0.3222380867392468,
+        "eval_runtime_sec": 10.08211064338684,
+        "eval_samples_per_sec": 21.920013359996258,
+        "eval_peak_gpu_mem_mb": 51.34375,
+        "blank_ratio": 0.5254747132919722,
+        "empty_pred_ratio": 0.0,
+        "nonempty_pred_ratio": 1.0,
+        "exact_match_ratio": 0.0,
+        "avg_pred_chars": 21.466063348416288,
+        "avg_ref_chars": 42.06334841628959,
+        "avg_out_length": 96.27149321266968,
+        "pred_to_ref_char_ratio": 0.5103270223752151,
+        "short_pred_ratio": 0.4896729776247849,
+        "long_pred_ratio": 0.0,
+        "length_deviation_ratio": 0.4896729776247849,
+        "adjacent_repeat_ratio": 0.0747070759267532,
+        "dominant_char_ratio": 0.2477193175415978,
+        "unique_char_ratio": 0.4616854003762504,
+        "collapsed_repeat_ratio": 0.0747070759267532,
+        "collapsed_dominant_char_ratio": 0.2477193175415978,
+        "collapsed_unique_char_ratio": 0.4616854003762504,
+        "collapse_compression_ratio": 3.648459641460626,
+        "raw_blank_argmax_ratio": 0.530358970214239,
+        "raw_nonblank_argmax_ratio": 0.4696410297857611,
+        "raw_unique_token_ratio": 0.11857045028444636,
+        "raw_dominant_token_ratio": 0.530358970214239,
+        "raw_adjacent_repeat_ratio": 0.5763314026308851,
+        "raw_token_switch_ratio": 0.4236685973691148,
+        "avg_target_length": 50.705882352941174,
+        "avg_length_margin": 45.56561085972851,
+        "invalid_length_ratio": 0.0,
+        "frame_blank_prob_mean": 0.37383959118103843,
+        "frame_blank_prob_std": 0.33932559471795887,
+        "frame_nonblank_prob_mean": 0.6261603966268477,
+        "frame_nonblank_prob_std": 0.3393256066483969,
+        "frame_entropy_mean": 1.7875142449789376,
+        "frame_entropy_std": 0.8146393455789587,
+        "frame_top1_confidence_mean": 0.48018204742276727,
+        "frame_top1_confidence_std": 0.27878611692704325,
+        "frame_top1_margin_mean": 0.3512925558418321,
+        "frame_top1_margin_std": 0.3430276113838726,
+        "raw_top1_token_histogram": [
+          {
+            "token_id": 0,
+            "token": "<blank>",
+            "count": 11180.0,
+            "ratio": 0.5254747132919722
+          },
+          {
+            "token_id": 1,
+            "token": " ",
+            "count": 2977.0,
+            "ratio": 0.13992291784169958
+          },
+          {
+            "token_id": 20,
+            "token": "s",
+            "count": 1372.0,
+            "ratio": 0.06448580560255687
+          },
+          {
+            "token_id": 19,
+            "token": "r",
+            "count": 1027.0,
+            "ratio": 0.04827035156984395
+          },
+          {
+            "token_id": 15,
+            "token": "n",
+            "count": 1024.0,
+            "ratio": 0.04812934762173341
+          },
+          {
+            "token_id": 6,
+            "token": "e",
+            "count": 1009.0,
+            "ratio": 0.04742432788118067
+          },
+          {
+            "token_id": 16,
+            "token": "o",
+            "count": 553.0,
+            "ratio": 0.025991727768377514
+          },
+          {
+            "token_id": 13,
+            "token": "l",
+            "count": 474.0,
+            "ratio": 0.022278623801466443
+          },
+          {
+            "token_id": 2,
+            "token": "a",
+            "count": 412.0,
+            "ratio": 0.0193645422071818
+          },
+          {
+            "token_id": 9,
+            "token": "h",
+            "count": 364.0,
+            "ratio": 0.017108479037413048
+          },
+          {
+            "token_id": 21,
+            "token": "t",
+            "count": 292.0,
+            "ratio": 0.013724384282759917
+          },
+          {
+            "token_id": 10,
+            "token": "i",
+            "count": 251.0,
+            "ratio": 0.011797330325249107
+          },
+          {
+            "token_id": 14,
+            "token": "m",
+            "count": 171.0,
+            "ratio": 0.008037225042301184
+          },
+          {
+            "token_id": 7,
+            "token": "f",
+            "count": 41.0,
+            "ratio": 0.0019270539575108104
+          },
+          {
+            "token_id": 17,
+            "token": "p",
+            "count": 37.0,
+            "ratio": 0.0017390486933634142
+          },
+          {
+            "token_id": 24,
+            "token": "w",
+            "count": 33.0,
+            "ratio": 0.001551043429216018
+          },
+          {
+            "token_id": 3,
+            "token": "b",
+            "count": 23.0,
+            "ratio": 0.0010810302688475278
+          },
+          {
+            "token_id": 4,
+            "token": "c",
+            "count": 19.0,
+            "ratio": 0.0008930250047001317
+          },
+          {
+            "token_id": 26,
+            "token": "y",
+            "count": 17.0,
+            "ratio": 0.0007990223726264335
+          }
+        ],
+        "collapsed_token_histogram": [
+          {
+            "token_id": 1,
+            "token": " ",
+            "count": 1928.0,
+            "ratio": 0.28896882494004794
+          },
+          {
+            "token_id": 6,
+            "token": "e",
+            "count": 777.0,
+            "ratio": 0.1164568345323741
+          },
+          {
+            "token_id": 15,
+            "token": "n",
+            "count": 698.0,
+            "ratio": 0.10461630695443645
+          },
+          {
+            "token_id": 20,
+            "token": "s",
+            "count": 672.0,
+            "ratio": 0.10071942446043165
+          },
+          {
+            "token_id": 19,
+            "token": "r",
+            "count": 481.0,
+            "ratio": 0.07209232613908872
+          },
+          {
+            "token_id": 16,
+            "token": "o",
+            "count": 399.0,
+            "ratio": 0.0598021582733813
+          },
+          {
+            "token_id": 9,
+            "token": "h",
+            "count": 360.0,
+            "ratio": 0.0539568345323741
+          },
+          {
+            "token_id": 2,
+            "token": "a",
+            "count": 303.0,
+            "ratio": 0.045413669064748204
+          },
+          {
+            "token_id": 21,
+            "token": "t",
+            "count": 273.0,
+            "ratio": 0.04091726618705036
+          },
+          {
+            "token_id": 13,
+            "token": "l",
+            "count": 261.0,
+            "ratio": 0.03911870503597122
+          },
+          {
+            "token_id": 10,
+            "token": "i",
+            "count": 220.0,
+            "ratio": 0.03297362110311751
+          },
+          {
+            "token_id": 14,
+            "token": "m",
+            "count": 140.0,
+            "ratio": 0.020983213429256596
+          },
+          {
+            "token_id": 7,
+            "token": "f",
+            "count": 37.0,
+            "ratio": 0.005545563549160672
+          },
+          {
+            "token_id": 17,
+            "token": "p",
+            "count": 36.0,
+            "ratio": 0.00539568345323741
+          },
+          {
+            "token_id": 24,
+            "token": "w",
+            "count": 33.0,
+            "ratio": 0.0049460431654676255
+          },
+          {
+            "token_id": 3,
+            "token": "b",
+            "count": 23.0,
+            "ratio": 0.003447242206235012
+          },
+          {
+            "token_id": 4,
+            "token": "c",
+            "count": 16.0,
+            "ratio": 0.002398081534772182
+          },
+          {
+            "token_id": 26,
+            "token": "y",
+            "count": 15.0,
+            "ratio": 0.0022482014388489208
+          }
+        ],
+        "unique_sample_ids_seen": 221.0,
+        "sample_coverage_ratio": 1.0,
+        "sample_revisit_ratio": 0.0,
+        "student_time_steps_mean": 0.0,
+        "teacher_time_steps_mean": 0.0,
+        "teacher_to_student_time_ratio_mean": 0.0,
+        "alignment_interpolation_ratio_mean": 0.0,
+        "student_frames_per_second_estimate": 0.0,
+        "teacher_frames_per_second_estimate": 0.0,
+        "teacher_student_valid_frame_overlap_ratio": 0.0,
+        "teacher_student_alignment_stretch_mean": 0.0,
+        "teacher_entropy_mean": 0.0,
+        "teacher_entropy_std": 0.0,
+        "teacher_top1_confidence_mean": 0.0,
+        "teacher_top1_confidence_std": 0.0,
+        "teacher_top1_margin_mean": 0.0,
+        "teacher_top1_margin_std": 0.0,
+        "teacher_blank_prob_mean": 0.0,
+        "teacher_blank_prob_std": 0.0,
+        "teacher_nonblank_prob_mean": 0.0,
+        "teacher_nonblank_prob_std": 0.0,
+        "teacher_student_argmax_agreement": 0.0,
+        "teacher_student_topk_overlap_at1": 0.0,
+        "teacher_student_topk_overlap_at3": 0.0,
+        "teacher_student_feature_cosine_mean": 0.0,
+        "teacher_student_feature_cosine_std": 0.0,
+        "teacher_student_feature_mse_mean": 0.0,
+        "teacher_student_feature_norm_ratio_mean": 0.0,
+        "seed": 789.0,
+        "dataset": "openslr/librispeech_asr:test.clean",
+        "eval_batch_size": 8.0,
+        "inference_runtime_sec": 10.08211064338684,
+        "inference_samples_per_sec": 21.920013359996258,
+        "inference_peak_gpu_mem_mb": 51.34375,
+        "model_total_params": 1551581.0,
+        "model_trainable_params": 1551581.0,
+        "diagnostics_artifact": "results/experiments/R0_LIBRI/diagnostics/test_seed_789_best_openslr_librispeech_asr_test.clean.json"
+      },
+      "1024": {
+        "wer": 1.032379150390625,
+        "accuracy": 0.32759236123505264,
+        "eval_runtime_sec": 9.999243021011353,
+        "eval_samples_per_sec": 22.101673050211296,
+        "eval_peak_gpu_mem_mb": 51.34375,
+        "blank_ratio": 0.45798082346305696,
+        "empty_pred_ratio": 0.0,
+        "nonempty_pred_ratio": 1.0,
+        "exact_match_ratio": 0.0,
+        "avg_pred_chars": 29.660633484162897,
+        "avg_ref_chars": 42.06334841628959,
+        "avg_out_length": 96.27149321266968,
+        "pred_to_ref_char_ratio": 0.7051419965576592,
+        "short_pred_ratio": 0.2948580034423408,
+        "long_pred_ratio": 0.0,
+        "length_deviation_ratio": 0.2948580034423408,
+        "adjacent_repeat_ratio": 0.041828832047311144,
+        "dominant_char_ratio": 0.18648081877353234,
+        "unique_char_ratio": 0.46272653175212985,
+        "collapsed_repeat_ratio": 0.041828832047311144,
+        "collapsed_dominant_char_ratio": 0.18648081877353234,
+        "collapsed_unique_char_ratio": 0.46272653175212985,
+        "collapse_compression_ratio": 2.742016648858442,
+        "raw_blank_argmax_ratio": 0.4579985941612961,
+        "raw_nonblank_argmax_ratio": 0.542001405838704,
+        "raw_unique_token_ratio": 0.16093637930734458,
+        "raw_dominant_token_ratio": 0.45806612978633837,
+        "raw_adjacent_repeat_ratio": 0.5114024606164967,
+        "raw_token_switch_ratio": 0.4885975393835032,
+        "avg_target_length": 50.705882352941174,
+        "avg_length_margin": 45.56561085972851,
+        "invalid_length_ratio": 0.0,
+        "frame_blank_prob_mean": 0.4023272633933555,
+        "frame_blank_prob_std": 0.39966772282642454,
+        "frame_nonblank_prob_mean": 0.5976727337379119,
+        "frame_nonblank_prob_std": 0.3996677298080693,
+        "frame_entropy_mean": 1.27362537903991,
+        "frame_entropy_std": 0.800403647186022,
+        "frame_top1_confidence_mean": 0.6228849852436982,
+        "frame_top1_confidence_std": 0.2688395439260773,
+        "frame_top1_margin_mean": 0.4916847459936886,
+        "frame_top1_margin_std": 0.35746637564865835,
+        "raw_top1_token_histogram": [
+          {
+            "token_id": 0,
+            "token": "<blank>",
+            "count": 9744.0,
+            "ratio": 0.45798082346305696
+          },
+          {
+            "token_id": 1,
+            "token": " ",
+            "count": 2452.0,
+            "ratio": 0.11524722692235383
+          },
+          {
+            "token_id": 20,
+            "token": "s",
+            "count": 1232.0,
+            "ratio": 0.057905621357398004
+          },
+          {
+            "token_id": 19,
+            "token": "r",
+            "count": 1220.0,
+            "ratio": 0.05734160556495582
+          },
+          {
+            "token_id": 6,
+            "token": "e",
+            "count": 1091.0,
+            "ratio": 0.051278435796202296
+          },
+          {
+            "token_id": 15,
+            "token": "n",
+            "count": 767.0,
+            "ratio": 0.036050009400263205
+          },
+          {
+            "token_id": 16,
+            "token": "o",
+            "count": 673.0,
+            "ratio": 0.0316318856927994
+          },
+          {
+            "token_id": 10,
+            "token": "i",
+            "count": 621.0,
+            "ratio": 0.02918781725888325
+          },
+          {
+            "token_id": 2,
+            "token": "a",
+            "count": 538.0,
+            "ratio": 0.02528670802782478
+          },
+          {
+            "token_id": 21,
+            "token": "t",
+            "count": 521.0,
+            "ratio": 0.024487685655198346
+          },
+          {
+            "token_id": 13,
+            "token": "l",
+            "count": 461.0,
+            "ratio": 0.021667606692987403
+          },
+          {
+            "token_id": 5,
+            "token": "d",
+            "count": 341.0,
+            "ratio": 0.01602744876856552
+          },
+          {
+            "token_id": 9,
+            "token": "h",
+            "count": 286.0,
+            "ratio": 0.013442376386538822
+          },
+          {
+            "token_id": 14,
+            "token": "m",
+            "count": 260.0,
+            "ratio": 0.012220342169580749
+          },
+          {
+            "token_id": 7,
+            "token": "f",
+            "count": 249.0,
+            "ratio": 0.011703327693175409
+          },
+          {
+            "token_id": 24,
+            "token": "w",
+            "count": 174.0,
+            "ratio": 0.008178228990411731
+          },
+          {
+            "token_id": 26,
+            "token": "y",
+            "count": 173.0,
+            "ratio": 0.008131227674374882
+          },
+          {
+            "token_id": 4,
+            "token": "c",
+            "count": 134.0,
+            "ratio": 0.00629817634893777
+          },
+          {
+            "token_id": 17,
+            "token": "p",
+            "count": 131.0,
+            "ratio": 0.006157172400827223
+          },
+          {
+            "token_id": 3,
+            "token": "b",
+            "count": 122.0,
+            "ratio": 0.005734160556495582
+          },
+          {
+            "token_id": 22,
+            "token": "u",
+            "count": 50.0,
+            "ratio": 0.0023500658018424515
+          },
+          {
+            "token_id": 8,
+            "token": "g",
+            "count": 21.0,
+            "ratio": 0.0009870276367738298
+          },
+          {
+            "token_id": 23,
+            "token": "v",
+            "count": 11.0,
+            "ratio": 0.0005170144764053393
+          },
+          {
+            "token_id": 12,
+            "token": "k",
+            "count": 4.0,
+            "ratio": 0.00018800526414739614
+          }
+        ],
+        "collapsed_token_histogram": [
+          {
+            "token_id": 1,
+            "token": " ",
+            "count": 1672.0,
+            "ratio": 0.20323325635103925
+          },
+          {
+            "token_id": 6,
+            "token": "e",
+            "count": 818.0,
+            "ratio": 0.0994287103439893
+          },
+          {
+            "token_id": 19,
+            "token": "r",
+            "count": 614.0,
+            "ratio": 0.07463230825331227
+          },
+          {
+            "token_id": 20,
+            "token": "s",
+            "count": 606.0,
+            "ratio": 0.07365990032818767
+          },
+          {
+            "token_id": 15,
+            "token": "n",
+            "count": 573.0,
+            "ratio": 0.06964871763704875
+          },
+          {
+            "token_id": 10,
+            "token": "i",
+            "count": 519.0,
+            "ratio": 0.06308496414245776
+          },
+          {
+            "token_id": 16,
+            "token": "o",
+            "count": 505.0,
+            "ratio": 0.06138325027348973
+          },
+          {
+            "token_id": 21,
+            "token": "t",
+            "count": 471.0,
+            "ratio": 0.057250516591710224
+          },
+          {
+            "token_id": 2,
+            "token": "a",
+            "count": 425.0,
+            "ratio": 0.05165917102224383
+          },
+          {
+            "token_id": 5,
+            "token": "d",
+            "count": 309.0,
+            "ratio": 0.037559256107937276
+          },
+          {
+            "token_id": 13,
+            "token": "l",
+            "count": 298.0,
+            "ratio": 0.03622219521089097
+          },
+          {
+            "token_id": 9,
+            "token": "h",
+            "count": 265.0,
+            "ratio": 0.03221101251975204
+          },
+          {
+            "token_id": 14,
+            "token": "m",
+            "count": 209.0,
+            "ratio": 0.025404157043879907
+          },
+          {
+            "token_id": 7,
+            "token": "f",
+            "count": 203.0,
+            "ratio": 0.024674851100036466
+          },
+          {
+            "token_id": 24,
+            "token": "w",
+            "count": 147.0,
+            "ratio": 0.017867995624164336
+          },
+          {
+            "token_id": 26,
+            "token": "y",
+            "count": 144.0,
+            "ratio": 0.017503342652242616
+          },
+          {
+            "token_id": 4,
+            "token": "c",
+            "count": 124.0,
+            "ratio": 0.015072322839431142
+          },
+          {
+            "token_id": 3,
+            "token": "b",
+            "count": 121.0,
+            "ratio": 0.01470766986750942
+          },
+          {
+            "token_id": 17,
+            "token": "p",
+            "count": 120.0,
+            "ratio": 0.014586118876868847
+          },
+          {
+            "token_id": 22,
+            "token": "u",
+            "count": 48.0,
+            "ratio": 0.005834447550747538
+          },
+          {
+            "token_id": 8,
+            "token": "g",
+            "count": 21.0,
+            "ratio": 0.002552570803452048
+          },
+          {
+            "token_id": 23,
+            "token": "v",
+            "count": 11.0,
+            "ratio": 0.0013370608970463109
+          },
+          {
+            "token_id": 12,
+            "token": "k",
+            "count": 4.0,
+            "ratio": 0.0004862039625622949
+          }
+        ],
+        "unique_sample_ids_seen": 221.0,
+        "sample_coverage_ratio": 1.0,
+        "sample_revisit_ratio": 0.0,
+        "student_time_steps_mean": 0.0,
+        "teacher_time_steps_mean": 0.0,
+        "teacher_to_student_time_ratio_mean": 0.0,
+        "alignment_interpolation_ratio_mean": 0.0,
+        "student_frames_per_second_estimate": 0.0,
+        "teacher_frames_per_second_estimate": 0.0,
+        "teacher_student_valid_frame_overlap_ratio": 0.0,
+        "teacher_student_alignment_stretch_mean": 0.0,
+        "teacher_entropy_mean": 0.0,
+        "teacher_entropy_std": 0.0,
+        "teacher_top1_confidence_mean": 0.0,
+        "teacher_top1_confidence_std": 0.0,
+        "teacher_top1_margin_mean": 0.0,
+        "teacher_top1_margin_std": 0.0,
+        "teacher_blank_prob_mean": 0.0,
+        "teacher_blank_prob_std": 0.0,
+        "teacher_nonblank_prob_mean": 0.0,
+        "teacher_nonblank_prob_std": 0.0,
+        "teacher_student_argmax_agreement": 0.0,
+        "teacher_student_topk_overlap_at1": 0.0,
+        "teacher_student_topk_overlap_at3": 0.0,
+        "teacher_student_feature_cosine_mean": 0.0,
+        "teacher_student_feature_cosine_std": 0.0,
+        "teacher_student_feature_mse_mean": 0.0,
+        "teacher_student_feature_norm_ratio_mean": 0.0,
+        "seed": 1024.0,
+        "dataset": "openslr/librispeech_asr:test.clean",
+        "eval_batch_size": 8.0,
+        "inference_runtime_sec": 9.999243021011353,
+        "inference_samples_per_sec": 22.101673050211296,
+        "inference_peak_gpu_mem_mb": 51.34375,
+        "model_total_params": 1551581.0,
+        "model_trainable_params": 1551581.0,
+        "diagnostics_artifact": "results/experiments/R0_LIBRI/diagnostics/test_seed_1024_best_openslr_librispeech_asr_test.clean.json"
+      }
+    }
+  }
+}

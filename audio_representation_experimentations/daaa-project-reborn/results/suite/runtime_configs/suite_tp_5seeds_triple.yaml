@@ -1,0 +1,333 @@
+suite:
+  name: tp_5seeds_relaunch_triple
+  language: fr
+  report_output: results/suite/tp5/tp_5seeds_report.md
+  leaderboard_output: results/suite/tp5/tp_5seeds_leaderboard.csv
+  summary_output: results/suite/tp5/tp_5seeds_summary.csv
+  report:
+    title: Relance expérimentale 5 seeds
+    subtitle: Compliance Gate TP + mécaniques demandées
+    authors:
+    - CLAIR Mael
+    - SABINE Hugo
+    - CHANTELOUP William
+    program: Master 2 Algorithmiques et Systèmes Intelligents
+    course: Projet DAAA
+  notes:
+  - Le cœur R0-R4 couvre MAE, augmentations, type d'entrée et patch embedding.
+  - A1 garde un statut annexe et sert uniquement à documenter la distillation.
+  - Les runs LibriSpeech portent aussi la tâche FSC linear probe.
+  - Les runs VoxPopuli couvrent le second benchmark ASR du sujet.
+experiments:
+- id: R0_LIBRI
+  enabled: true
+  phase: final_tp
+  base_config: configs/final_tp/core_librispeech.yaml
+  seeds:
+  - 456
+  - 789
+  - 1024
+  title: R0 LibriSpeech CTC Log-Mel
+  benchmark: librispeech
+  task: asr
+  comparison_label: R0
+  input_type: logmel
+  pretraining: none
+  augmentation: false
+  patch_time: 4
+  distillation: none
+  probe_enabled: true
+  overrides:
+    pretrain:
+      mode: none
+    training:
+      pretrain:
+        enabled: false
+    probe:
+      encoder_source: finetune
+- id: R1_LIBRI
+  enabled: true
+  phase: final_tp
+  base_config: configs/final_tp/core_librispeech.yaml
+  seeds:
+  - 456
+  - 789
+  - 1024
+  title: R1 LibriSpeech MAE Log-Mel
+  benchmark: librispeech
+  task: asr
+  comparison_label: R1
+  input_type: logmel
+  pretraining: mae
+  augmentation: false
+  patch_time: 4
+  distillation: none
+  probe_enabled: true
+  overrides: {}
+- id: R2_LIBRI
+  enabled: true
+  phase: final_tp
+  base_config: configs/final_tp/core_librispeech.yaml
+  seeds:
+  - 456
+  - 789
+  - 1024
+  title: R2 LibriSpeech MAE Log-Mel + Aug
+  benchmark: librispeech
+  task: asr
+  comparison_label: R2
+  input_type: logmel
+  pretraining: mae
+  augmentation: true
+  patch_time: 4
+  distillation: none
+  probe_enabled: true
+  overrides:
+    datasets:
+      asr_train:
+        augmentations:
+          enabled: true
+          gain_prob: 0.5
+          gain_db_max: 6.0
+          noise_prob: 0.35
+          noise_snr_db_min: 20.0
+          noise_snr_db_max: 35.0
+          specaugment_prob: 0.35
+          num_time_masks: 2
+          max_time_mask_frames: 16
+          num_freq_masks: 1
+          max_freq_mask_bins: 8
+- id: R3_LIBRI
+  enabled: true
+  phase: final_tp
+  base_config: configs/final_tp/core_librispeech.yaml
+  seeds:
+  - 456
+  - 789
+  - 1024
+  title: R3 LibriSpeech MAE Spectrogram
+  benchmark: librispeech
+  task: asr
+  comparison_label: R3
+  input_type: spectrogram
+  pretraining: mae
+  augmentation: false
+  patch_time: 4
+  distillation: none
+  probe_enabled: true
+  overrides:
+    audio:
+      feature_type: spectrogram
+- id: R4_LIBRI
+  enabled: true
+  phase: final_tp
+  base_config: configs/final_tp/core_librispeech.yaml
+  seeds:
+  - 456
+  - 789
+  - 1024
+  title: R4 LibriSpeech MAE Log-Mel Patch-2
+  benchmark: librispeech
+  task: asr
+  comparison_label: R4
+  input_type: logmel
+  pretraining: mae
+  augmentation: false
+  patch_time: 2
+  distillation: none
+  probe_enabled: true
+  overrides:
+    model:
+      patch_time: 2
+- id: A1_LIBRI
+  enabled: true
+  phase: final_tp
+  base_config: configs/final_tp/core_librispeech.yaml
+  seeds:
+  - 456
+  - 789
+  - 1024
+  title: A1 LibriSpeech Distillation Appendix
+  benchmark: librispeech
+  task: asr
+  comparison_label: A1
+  input_type: logmel
+  pretraining: none
+  augmentation: false
+  patch_time: 2
+  distillation: hidden_states
+  probe_enabled: true
+  overrides:
+    pretrain:
+      mode: none
+    training:
+      pretrain:
+        enabled: false
+    model:
+      patch_time: 2
+    probe:
+      encoder_source: finetune
+    distillation:
+      enabled: true
+      temperature: 2.0
+      lambda_ctc: 1.0
+      lambda_kd: 0.1
+      warmup_steps: 800
+      warmup_start_factor: 0.0
+      informative_only: false
+      min_nonblank_prob: 0.0
+      require_nonblank_argmax: false
+- id: R0_VOX
+  enabled: true
+  phase: final_tp
+  base_config: configs/final_tp/core_voxpopuli.yaml
+  seeds:
+  - 456
+  - 789
+  - 1024
+  title: R0 VoxPopuli CTC Log-Mel
+  benchmark: voxpopuli
+  task: asr
+  comparison_label: R0
+  input_type: logmel
+  pretraining: none
+  augmentation: false
+  patch_time: 4
+  distillation: none
+  probe_enabled: false
+  overrides:
+    pretrain:
+      mode: none
+    training:
+      pretrain:
+        enabled: false
+- id: R1_VOX
+  enabled: true
+  phase: final_tp
+  base_config: configs/final_tp/core_voxpopuli.yaml
+  seeds:
+  - 456
+  - 789
+  - 1024
+  title: R1 VoxPopuli MAE Log-Mel
+  benchmark: voxpopuli
+  task: asr
+  comparison_label: R1
+  input_type: logmel
+  pretraining: mae
+  augmentation: false
+  patch_time: 4
+  distillation: none
+  probe_enabled: false
+  overrides: {}
+- id: R2_VOX
+  enabled: true
+  phase: final_tp
+  base_config: configs/final_tp/core_voxpopuli.yaml
+  seeds:
+  - 456
+  - 789
+  - 1024
+  title: R2 VoxPopuli MAE Log-Mel + Aug
+  benchmark: voxpopuli
+  task: asr
+  comparison_label: R2
+  input_type: logmel
+  pretraining: mae
+  augmentation: true
+  patch_time: 4
+  distillation: none
+  probe_enabled: false
+  overrides:
+    datasets:
+      asr_train:
+        augmentations:
+          enabled: true
+          gain_prob: 0.5
+          gain_db_max: 6.0
+          noise_prob: 0.35
+          noise_snr_db_min: 20.0
+          noise_snr_db_max: 35.0
+          specaugment_prob: 0.35
+          num_time_masks: 2
+          max_time_mask_frames: 16
+          num_freq_masks: 1
+          max_freq_mask_bins: 8
+- id: R3_VOX
+  enabled: true
+  phase: final_tp
+  base_config: configs/final_tp/core_voxpopuli.yaml
+  seeds:
+  - 456
+  - 789
+  - 1024
+  title: R3 VoxPopuli MAE Spectrogram
+  benchmark: voxpopuli
+  task: asr
+  comparison_label: R3
+  input_type: spectrogram
+  pretraining: mae
+  augmentation: false
+  patch_time: 4
+  distillation: none
+  probe_enabled: false
+  overrides:
+    audio:
+      feature_type: spectrogram
+- id: R4_VOX
+  enabled: true
+  phase: final_tp
+  base_config: configs/final_tp/core_voxpopuli.yaml
+  seeds:
+  - 456
+  - 789
+  - 1024
+  title: R4 VoxPopuli MAE Log-Mel Patch-2
+  benchmark: voxpopuli
+  task: asr
+  comparison_label: R4
+  input_type: logmel
+  pretraining: mae
+  augmentation: false
+  patch_time: 2
+  distillation: none
+  probe_enabled: false
+  overrides:
+    model:
+      patch_time: 2
+- id: A1_VOX
+  enabled: true
+  phase: final_tp
+  base_config: configs/final_tp/core_voxpopuli.yaml
+  seeds:
+  - 456
+  - 789
+  - 1024
+  title: A1 VoxPopuli Distillation Appendix
+  benchmark: voxpopuli
+  task: asr
+  comparison_label: A1
+  input_type: logmel
+  pretraining: none
+  augmentation: false
+  patch_time: 2
+  distillation: hidden_states
+  probe_enabled: false
+  overrides:
+    pretrain:
+      mode: none
+    training:
+      pretrain:
+        enabled: false
+    model:
+      patch_time: 2
+    distillation:
+      enabled: true
+      temperature: 2.0
+      lambda_ctc: 1.0
+      lambda_kd: 0.1
+      warmup_steps: 800
+      warmup_start_factor: 0.0
+      informative_only: false
+      min_nonblank_prob: 0.0
+      require_nonblank_argmax: false
