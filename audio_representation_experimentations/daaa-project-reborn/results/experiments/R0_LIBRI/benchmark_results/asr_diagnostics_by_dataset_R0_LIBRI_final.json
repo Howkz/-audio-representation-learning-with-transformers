@@ -1,0 +1,473 @@
+{
+  "experiment_id": "R0_LIBRI",
+  "checkpoint_variant": "best",
+  "datasets": {
+    "openslr/librispeech_asr:test.clean": {
+      "456": {
+        "wer": 1.0,
+        "accuracy": 0.09410511363636365,
+        "eval_runtime_sec": 3.026756763458252,
+        "eval_samples_per_sec": 19.162425174109963,
+        "eval_peak_gpu_mem_mb": 26.9189453125,
+        "blank_ratio": 0.8708381171067738,
+        "empty_pred_ratio": 0.0,
+        "nonempty_pred_ratio": 1.0,
+        "exact_match_ratio": 0.0,
+        "avg_pred_chars": 6.206896551724138,
+        "avg_ref_chars": 40.310344827586206,
+        "avg_out_length": 90.10344827586206,
+        "pred_to_ref_char_ratio": 0.15397775876817793,
+        "short_pred_ratio": 0.8460222412318221,
+        "long_pred_ratio": 0.0,
+        "length_deviation_ratio": 0.8460222412318221,
+        "adjacent_repeat_ratio": 0.5132625516246205,
+        "dominant_char_ratio": 0.6862037866348211,
+        "unique_char_ratio": 0.3850867044832563,
+        "collapsed_repeat_ratio": 0.5132625516246205,
+        "collapsed_dominant_char_ratio": 0.6862037866348211,
+        "collapsed_unique_char_ratio": 0.3850867044832563,
+        "collapse_compression_ratio": 15.592499502413299,
+        "raw_blank_argmax_ratio": 0.8677821347804036,
+        "raw_nonblank_argmax_ratio": 0.1322178652195964,
+        "raw_unique_token_ratio": 0.038263597297421084,
+        "raw_dominant_token_ratio": 0.8677821347804036,
+        "raw_adjacent_repeat_ratio": 0.8710151129198891,
+        "raw_token_switch_ratio": 0.12898488708011074,
+        "avg_target_length": 48.55172413793103,
+        "avg_length_margin": 41.55172413793103,
+        "invalid_length_ratio": 0.0,
+        "frame_blank_prob_mean": 0.18502722906965977,
+        "frame_blank_prob_std": 0.06960280783450835,
+        "frame_nonblank_prob_mean": 0.8149727720252591,
+        "frame_nonblank_prob_std": 0.06960277666141415,
+        "frame_entropy_mean": 3.0434876247424985,
+        "frame_entropy_std": 0.11265468627511946,
+        "frame_top1_confidence_mean": 0.1881510197682897,
+        "frame_top1_confidence_std": 0.06556158523778322,
+        "frame_top1_margin_mean": 0.10402753605862664,
+        "frame_top1_margin_std": 0.07534234849700926,
+        "raw_top1_token_histogram": [
+          {
+            "token_id": 0,
+            "token": "<blank>",
+            "count": 4551.0,
+            "ratio": 0.8708381171067738
+          },
+          {
+            "token_id": 6,
+            "token": "e",
+            "count": 485.0,
+            "ratio": 0.09280520474550326
+          },
+          {
+            "token_id": 2,
+            "token": "a",
+            "count": 156.0,
+            "ratio": 0.029850746268656716
+          },
+          {
+            "token_id": 9,
+            "token": "h",
+            "count": 18.0,
+            "ratio": 0.003444316877152698
+          },
+          {
+            "token_id": 22,
+            "token": "u",
+            "count": 11.0,
+            "ratio": 0.002104860313815538
+          },
+          {
+            "token_id": 21,
+            "token": "t",
+            "count": 4.0,
+            "ratio": 0.0007654037504783774
+          },
+          {
+            "token_id": 14,
+            "token": "m",
+            "count": 1.0,
+            "ratio": 0.00019135093761959434
+          }
+        ],
+        "collapsed_token_histogram": [
+          {
+            "token_id": 6,
+            "token": "e",
+            "count": 237.0,
+            "ratio": 0.6583333333333333
+          },
+          {
+            "token_id": 2,
+            "token": "a",
+            "count": 96.0,
+            "ratio": 0.26666666666666666
+          },
+          {
+            "token_id": 9,
+            "token": "h",
+            "count": 13.0,
+            "ratio": 0.03611111111111111
+          },
+          {
+            "token_id": 22,
+            "token": "u",
+            "count": 9.0,
+            "ratio": 0.025
+          },
+          {
+            "token_id": 21,
+            "token": "t",
+            "count": 4.0,
+            "ratio": 0.011111111111111112
+          },
+          {
+            "token_id": 14,
+            "token": "m",
+            "count": 1.0,
+            "ratio": 0.002777777777777778
+          }
+        ],
+        "unique_sample_ids_seen": 58.0,
+        "sample_coverage_ratio": 1.0,
+        "sample_revisit_ratio": 0.0,
+        "student_time_steps_mean": 0.0,
+        "teacher_time_steps_mean": 0.0,
+        "teacher_to_student_time_ratio_mean": 0.0,
+        "alignment_interpolation_ratio_mean": 0.0,
+        "student_frames_per_second_estimate": 0.0,
+        "teacher_frames_per_second_estimate": 0.0,
+        "teacher_student_valid_frame_overlap_ratio": 0.0,
+        "teacher_student_alignment_stretch_mean": 0.0,
+        "teacher_entropy_mean": 0.0,
+        "teacher_entropy_std": 0.0,
+        "teacher_top1_confidence_mean": 0.0,
+        "teacher_top1_confidence_std": 0.0,
+        "teacher_top1_margin_mean": 0.0,
+        "teacher_top1_margin_std": 0.0,
+        "teacher_blank_prob_mean": 0.0,
+        "teacher_blank_prob_std": 0.0,
+        "teacher_nonblank_prob_mean": 0.0,
+        "teacher_nonblank_prob_std": 0.0,
+        "teacher_student_argmax_agreement": 0.0,
+        "teacher_student_topk_overlap_at1": 0.0,
+        "teacher_student_topk_overlap_at3": 0.0,
+        "teacher_student_feature_cosine_mean": 0.0,
+        "teacher_student_feature_cosine_std": 0.0,
+        "teacher_student_feature_mse_mean": 0.0,
+        "teacher_student_feature_norm_ratio_mean": 0.0,
+        "seed": 456.0,
+        "dataset": "openslr/librispeech_asr:test.clean",
+        "eval_batch_size": 2.0,
+        "inference_runtime_sec": 3.026756763458252,
+        "inference_samples_per_sec": 19.162425174109963,
+        "inference_peak_gpu_mem_mb": 26.9189453125,
+        "model_total_params": 1551581.0,
+        "model_trainable_params": 1551581.0,
+        "diagnostics_artifact": "results/experiments/R0_LIBRI/diagnostics/test_seed_456_best_openslr_librispeech_asr_test.clean.json"
+      },
+      "789": {
+        "wer": 1.0,
+        "accuracy": 0.0021306818181817677,
+        "eval_runtime_sec": 2.897916078567505,
+        "eval_samples_per_sec": 20.014382206910046,
+        "eval_peak_gpu_mem_mb": 26.9189453125,
+        "blank_ratio": 0.9988518943742825,
+        "empty_pred_ratio": 0.896551724137931,
+        "nonempty_pred_ratio": 0.10344827586206895,
+        "exact_match_ratio": 0.0,
+        "avg_pred_chars": 0.10344827586206896,
+        "avg_ref_chars": 40.310344827586206,
+        "avg_out_length": 90.10344827586206,
+        "pred_to_ref_char_ratio": 0.0025662959794696323,
+        "short_pred_ratio": 0.9974337040205303,
+        "long_pred_ratio": 0.0,
+        "length_deviation_ratio": 0.9974337040205303,
+        "adjacent_repeat_ratio": 0.0,
+        "dominant_char_ratio": 0.10344827586206896,
+        "unique_char_ratio": 0.10344827586206896,
+        "collapsed_repeat_ratio": 0.0,
+        "collapsed_dominant_char_ratio": 0.10344827586206896,
+        "collapsed_unique_char_ratio": 0.10344827586206896,
+        "collapse_compression_ratio": 90.10344827586206,
+        "raw_blank_argmax_ratio": 0.9989385456666109,
+        "raw_nonblank_argmax_ratio": 0.0010614543333892416,
+        "raw_unique_token_ratio": 0.013099676301874258,
+        "raw_dominant_token_ratio": 0.9989385456666109,
+        "raw_adjacent_repeat_ratio": 0.9978547062532812,
+        "raw_token_switch_ratio": 0.0021452937467187705,
+        "avg_target_length": 48.55172413793103,
+        "avg_length_margin": 41.55172413793103,
+        "invalid_length_ratio": 0.0,
+        "frame_blank_prob_mean": 0.2454704240141269,
+        "frame_blank_prob_std": 0.05722612318527248,
+        "frame_nonblank_prob_mean": 0.7545295785406837,
+        "frame_nonblank_prob_std": 0.05722613254965319,
+        "frame_entropy_mean": 2.9537716561517082,
+        "frame_entropy_std": 0.1157675845164931,
+        "frame_top1_confidence_mean": 0.24548565725508295,
+        "frame_top1_confidence_std": 0.05719408037514974,
+        "frame_top1_margin_mean": 0.17639936599702247,
+        "frame_top1_margin_std": 0.06610924570631636,
+        "raw_top1_token_histogram": [
+          {
+            "token_id": 0,
+            "token": "<blank>",
+            "count": 5220.0,
+            "ratio": 0.9988518943742825
+          },
+          {
+            "token_id": 16,
+            "token": "o",
+            "count": 5.0,
+            "ratio": 0.0009567546880979717
+          },
+          {
+            "token_id": 19,
+            "token": "r",
+            "count": 1.0,
+            "ratio": 0.00019135093761959434
+          }
+        ],
+        "collapsed_token_histogram": [
+          {
+            "token_id": 16,
+            "token": "o",
+            "count": 5.0,
+            "ratio": 0.8333333333333334
+          },
+          {
+            "token_id": 19,
+            "token": "r",
+            "count": 1.0,
+            "ratio": 0.16666666666666666
+          }
+        ],
+        "unique_sample_ids_seen": 58.0,
+        "sample_coverage_ratio": 1.0,
+        "sample_revisit_ratio": 0.0,
+        "student_time_steps_mean": 0.0,
+        "teacher_time_steps_mean": 0.0,
+        "teacher_to_student_time_ratio_mean": 0.0,
+        "alignment_interpolation_ratio_mean": 0.0,
+        "student_frames_per_second_estimate": 0.0,
+        "teacher_frames_per_second_estimate": 0.0,
+        "teacher_student_valid_frame_overlap_ratio": 0.0,
+        "teacher_student_alignment_stretch_mean": 0.0,
+        "teacher_entropy_mean": 0.0,
+        "teacher_entropy_std": 0.0,
+        "teacher_top1_confidence_mean": 0.0,
+        "teacher_top1_confidence_std": 0.0,
+        "teacher_top1_margin_mean": 0.0,
+        "teacher_top1_margin_std": 0.0,
+        "teacher_blank_prob_mean": 0.0,
+        "teacher_blank_prob_std": 0.0,
+        "teacher_nonblank_prob_mean": 0.0,
+        "teacher_nonblank_prob_std": 0.0,
+        "teacher_student_argmax_agreement": 0.0,
+        "teacher_student_topk_overlap_at1": 0.0,
+        "teacher_student_topk_overlap_at3": 0.0,
+        "teacher_student_feature_cosine_mean": 0.0,
+        "teacher_student_feature_cosine_std": 0.0,
+        "teacher_student_feature_mse_mean": 0.0,
+        "teacher_student_feature_norm_ratio_mean": 0.0,
+        "seed": 789.0,
+        "dataset": "openslr/librispeech_asr:test.clean",
+        "eval_batch_size": 2.0,
+        "inference_runtime_sec": 2.897916078567505,
+        "inference_samples_per_sec": 20.014382206910046,
+        "inference_peak_gpu_mem_mb": 26.9189453125,
+        "model_total_params": 1551581.0,
+        "model_trainable_params": 1551581.0,
+        "diagnostics_artifact": "results/experiments/R0_LIBRI/diagnostics/test_seed_789_best_openslr_librispeech_asr_test.clean.json"
+      },
+      "1024": {
+        "wer": 1.0,
+        "accuracy": 0.17400568181818177,
+        "eval_runtime_sec": 2.965627908706665,
+        "eval_samples_per_sec": 19.557409690447066,
+        "eval_peak_gpu_mem_mb": 26.9189453125,
+        "blank_ratio": 0.6257175660160735,
+        "empty_pred_ratio": 0.0,
+        "nonempty_pred_ratio": 1.0,
+        "exact_match_ratio": 0.0,
+        "avg_pred_chars": 8.46551724137931,
+        "avg_ref_chars": 40.310344827586206,
+        "avg_out_length": 90.10344827586206,
+        "pred_to_ref_char_ratio": 0.21000855431993154,
+        "short_pred_ratio": 0.7899914456800685,
+        "long_pred_ratio": 0.0,
+        "length_deviation_ratio": 0.7899914456800685,
+        "adjacent_repeat_ratio": 0.3303770463253222,
+        "dominant_char_ratio": 0.5679436300239386,
+        "unique_char_ratio": 0.43101809966601257,
+        "collapsed_repeat_ratio": 0.3303770463253222,
+        "collapsed_dominant_char_ratio": 0.5679436300239386,
+        "collapsed_unique_char_ratio": 0.43101809966601257,
+        "collapse_compression_ratio": 5.495782322107842,
+        "raw_blank_argmax_ratio": 0.6320756003339709,
+        "raw_nonblank_argmax_ratio": 0.36792439966602886,
+        "raw_unique_token_ratio": 0.06312126423911929,
+        "raw_dominant_token_ratio": 0.6320756003339709,
+        "raw_adjacent_repeat_ratio": 0.6923049373256241,
+        "raw_token_switch_ratio": 0.3076950626743759,
+        "avg_target_length": 48.55172413793103,
+        "avg_length_margin": 41.55172413793103,
+        "invalid_length_ratio": 0.0,
+        "frame_blank_prob_mean": 0.14345675704582322,
+        "frame_blank_prob_std": 0.07467313789715957,
+        "frame_nonblank_prob_mean": 0.8565432493412034,
+        "frame_nonblank_prob_std": 0.07467309548734828,
+        "frame_entropy_mean": 3.0853591667843925,
+        "frame_entropy_std": 0.1242561784223256,
+        "frame_top1_confidence_mean": 0.15617521959750807,
+        "frame_top1_confidence_std": 0.06513416167473383,
+        "frame_top1_margin_mean": 0.06290090398865096,
+        "frame_top1_margin_std": 0.06530186124543247,
+        "raw_top1_token_histogram": [
+          {
+            "token_id": 0,
+            "token": "<blank>",
+            "count": 3270.0,
+            "ratio": 0.6257175660160735
+          },
+          {
+            "token_id": 1,
+            "token": " ",
+            "count": 1181.0,
+            "ratio": 0.22598545732874092
+          },
+          {
+            "token_id": 15,
+            "token": "n",
+            "count": 425.0,
+            "ratio": 0.0813241484883276
+          },
+          {
+            "token_id": 6,
+            "token": "e",
+            "count": 132.0,
+            "ratio": 0.02525832376578645
+          },
+          {
+            "token_id": 2,
+            "token": "a",
+            "count": 123.0,
+            "ratio": 0.023536165327210104
+          },
+          {
+            "token_id": 21,
+            "token": "t",
+            "count": 70.0,
+            "ratio": 0.013394565633371604
+          },
+          {
+            "token_id": 10,
+            "token": "i",
+            "count": 18.0,
+            "ratio": 0.003444316877152698
+          },
+          {
+            "token_id": 5,
+            "token": "d",
+            "count": 5.0,
+            "ratio": 0.0009567546880979717
+          },
+          {
+            "token_id": 16,
+            "token": "o",
+            "count": 2.0,
+            "ratio": 0.0003827018752391887
+          }
+        ],
+        "collapsed_token_histogram": [
+          {
+            "token_id": 1,
+            "token": " ",
+            "count": 509.0,
+            "ratio": 0.509
+          },
+          {
+            "token_id": 15,
+            "token": "n",
+            "count": 256.0,
+            "ratio": 0.256
+          },
+          {
+            "token_id": 2,
+            "token": "a",
+            "count": 85.0,
+            "ratio": 0.085
+          },
+          {
+            "token_id": 6,
+            "token": "e",
+            "count": 80.0,
+            "ratio": 0.08
+          },
+          {
+            "token_id": 21,
+            "token": "t",
+            "count": 47.0,
+            "ratio": 0.047
+          },
+          {
+            "token_id": 10,
+            "token": "i",
+            "count": 16.0,
+            "ratio": 0.016
+          },
+          {
+            "token_id": 5,
+            "token": "d",
+            "count": 5.0,
+            "ratio": 0.005
+          },
+          {
+            "token_id": 16,
+            "token": "o",
+            "count": 2.0,
+            "ratio": 0.002
+          }
+        ],
+        "unique_sample_ids_seen": 58.0,
+        "sample_coverage_ratio": 1.0,
+        "sample_revisit_ratio": 0.0,
+        "student_time_steps_mean": 0.0,
+        "teacher_time_steps_mean": 0.0,
+        "teacher_to_student_time_ratio_mean": 0.0,
+        "alignment_interpolation_ratio_mean": 0.0,
+        "student_frames_per_second_estimate": 0.0,
+        "teacher_frames_per_second_estimate": 0.0,
+        "teacher_student_valid_frame_overlap_ratio": 0.0,
+        "teacher_student_alignment_stretch_mean": 0.0,
+        "teacher_entropy_mean": 0.0,
+        "teacher_entropy_std": 0.0,
+        "teacher_top1_confidence_mean": 0.0,
+        "teacher_top1_confidence_std": 0.0,
+        "teacher_top1_margin_mean": 0.0,
+        "teacher_top1_margin_std": 0.0,
+        "teacher_blank_prob_mean": 0.0,
+        "teacher_blank_prob_std": 0.0,
+        "teacher_nonblank_prob_mean": 0.0,
+        "teacher_nonblank_prob_std": 0.0,
+        "teacher_student_argmax_agreement": 0.0,
+        "teacher_student_topk_overlap_at1": 0.0,
+        "teacher_student_topk_overlap_at3": 0.0,
+        "teacher_student_feature_cosine_mean": 0.0,
+        "teacher_student_feature_cosine_std": 0.0,
+        "teacher_student_feature_mse_mean": 0.0,
+        "teacher_student_feature_norm_ratio_mean": 0.0,
+        "seed": 1024.0,
+        "dataset": "openslr/librispeech_asr:test.clean",
+        "eval_batch_size": 2.0,
+        "inference_runtime_sec": 2.965627908706665,
+        "inference_samples_per_sec": 19.557409690447066,
+        "inference_peak_gpu_mem_mb": 26.9189453125,
+        "model_total_params": 1551581.0,
+        "model_trainable_params": 1551581.0,
+        "diagnostics_artifact": "results/experiments/R0_LIBRI/diagnostics/test_seed_1024_best_openslr_librispeech_asr_test.clean.json"
+      }
+    }
+  }
+}

@@ -1,1 +1,2 @@
 id,phase,title,wer,inference_runtime_sec,inference_peak_gpu_mem_mb,source_id
+R4_VOX,final_tp_fast,R4 VoxPopuli Patch-2 rapide,1.021072785059611,1.1438518365224202,302.2099609375,

@@ -1,0 +1,314 @@
+{
+  "metrics": {
+    "openslr/librispeech_asr:test.clean": {
+      "wer": {
+        "mean": 1.0,
+        "std": 0.0
+      },
+      "accuracy": {
+        "mean": 0.012784090909090903,
+        "std": 0.01659562705333514
+      },
+      "eval_runtime_sec": {
+        "mean": 2.9061684608459473,
+        "std": 0.05007607367444481
+      },
+      "eval_samples_per_sec": {
+        "mean": 19.96354379806256,
+        "std": 0.347901624448076
+      },
+      "eval_peak_gpu_mem_mb": {
+        "mean": 26.9189453125,
+        "std": 0.0
+      },
+      "blank_ratio": {
+        "mean": 0.5421609899221839,
+        "std": 0.41257940424735656
+      },
+      "empty_pred_ratio": {
+        "mean": 0.632183908045977,
+        "std": 0.44901206861206
+      },
+      "nonempty_pred_ratio": {
+        "mean": 0.367816091954023,
+        "std": 0.44901206861206
+      },
+      "exact_match_ratio": {
+        "mean": 0.0,
+        "std": 0.0
+      },
+      "avg_pred_chars": {
+        "mean": 0.5057471264367815,
+        "std": 0.6434728736679727
+      },
+      "avg_ref_chars": {
+        "mean": 40.310344827586206,
+        "std": 0.0
+      },
+      "avg_out_length": {
+        "mean": 90.10344827586205,
+        "std": 1.4210854715202004e-14
+      },
+      "pred_to_ref_char_ratio": {
+        "mean": 0.012546335899629312,
+        "std": 0.015962971203054923
+      },
+      "short_pred_ratio": {
+        "mean": 0.9874536641003706,
+        "std": 0.015962971203054906
+      },
+      "long_pred_ratio": {
+        "mean": 0.0,
+        "std": 0.0
+      },
+      "length_deviation_ratio": {
+        "mean": 0.9874536641003706,
+        "std": 0.015962971203054906
+      },
+      "adjacent_repeat_ratio": {
+        "mean": 0.1149425287356322,
+        "std": 0.16255328303139024
+      },
+      "dominant_char_ratio": {
+        "mean": 0.367816091954023,
+        "std": 0.44901206861206
+      },
+      "unique_char_ratio": {
+        "mean": 0.3065134099616858,
+        "std": 0.36279296747174916
+      },
+      "collapsed_repeat_ratio": {
+        "mean": 0.1149425287356322,
+        "std": 0.16255328303139024
+      },
+      "collapsed_dominant_char_ratio": {
+        "mean": 0.367816091954023,
+        "std": 0.44901206861206
+      },
+      "collapsed_unique_char_ratio": {
+        "mean": 0.3065134099616858,
+        "std": 0.36279296747174916
+      },
+      "collapse_compression_ratio": {
+        "mean": 56.103960742791884,
+        "std": 33.53861893891214
+      },
+      "raw_blank_argmax_ratio": {
+        "mean": 0.5415679862292673,
+        "std": 0.4124590423605473
+      },
+      "raw_nonblank_argmax_ratio": {
+        "mean": 0.4584320137707327,
+        "std": 0.4124590423605473
+      },
+      "raw_unique_token_ratio": {
+        "mean": 0.017699909191517278,
+        "std": 0.005405657029664683
+      },
+      "raw_dominant_token_ratio": {
+        "mean": 0.8720019110844551,
+        "std": 0.17490211114813167
+      },
+      "raw_adjacent_repeat_ratio": {
+        "mean": 0.9357180112396962,
+        "std": 0.08420042994040591
+      },
+      "raw_token_switch_ratio": {
+        "mean": 0.06428198876030373,
+        "std": 0.08420042994040593
+      },
+      "avg_target_length": {
+        "mean": 48.551724137931025,
+        "std": 7.105427357601002e-15
+      },
+      "avg_length_margin": {
+        "mean": 41.55172413793103,
+        "std": 0.0
+      },
+      "invalid_length_ratio": {
+        "mean": 0.0,
+        "std": 0.0
+      },
+      "frame_blank_prob_mean": {
+        "mean": 0.377398852776441,
+        "std": 0.2323334292946875
+      },
+      "frame_blank_prob_std": {
+        "mean": 0.1595110280887123,
+        "std": 0.1592126957171828
+      },
+      "frame_nonblank_prob_mean": {
+        "mean": 0.6226011498391986,
+        "std": 0.23233343083919816
+      },
+      "frame_nonblank_prob_std": {
+        "mean": 0.1595109607593119,
+        "std": 0.159212736864618
+      },
+      "frame_entropy_mean": {
+        "mean": 1.982541472255796,
+        "std": 0.15137813488869653
+      },
+      "frame_entropy_std": {
+        "mean": 0.5342956387372488,
+        "std": 0.29547455122645705
+      },
+      "frame_top1_confidence_mean": {
+        "mean": 0.5555813048837561,
+        "std": 0.031984313006370384
+      },
+      "frame_top1_confidence_std": {
+        "mean": 0.1737648686760729,
+        "std": 0.09128976951358662
+      },
+      "frame_top1_margin_mean": {
+        "mean": 0.4936412746070797,
+        "std": 0.032633227891696426
+      },
+      "frame_top1_margin_std": {
+        "mean": 0.20670706692518492,
+        "std": 0.1083004811046173
+      },
+      "unique_sample_ids_seen": {
+        "mean": 58.0,
+        "std": 0.0
+      },
+      "sample_coverage_ratio": {
+        "mean": 1.0,
+        "std": 0.0
+      },
+      "sample_revisit_ratio": {
+        "mean": 0.0,
+        "std": 0.0
+      },
+      "student_time_steps_mean": {
+        "mean": 0.0,
+        "std": 0.0
+      },
+      "teacher_time_steps_mean": {
+        "mean": 0.0,
+        "std": 0.0
+      },
+      "teacher_to_student_time_ratio_mean": {
+        "mean": 0.0,
+        "std": 0.0
+      },
+      "alignment_interpolation_ratio_mean": {
+        "mean": 0.0,
+        "std": 0.0
+      },
+      "student_frames_per_second_estimate": {
+        "mean": 0.0,
+        "std": 0.0
+      },
+      "teacher_frames_per_second_estimate": {
+        "mean": 0.0,
+        "std": 0.0
+      },
+      "teacher_student_valid_frame_overlap_ratio": {
+        "mean": 0.0,
+        "std": 0.0
+      },
+      "teacher_student_alignment_stretch_mean": {
+        "mean": 0.0,
+        "std": 0.0
+      },
+      "teacher_entropy_mean": {
+        "mean": 0.0,
+        "std": 0.0
+      },
+      "teacher_entropy_std": {
+        "mean": 0.0,
+        "std": 0.0
+      },
+      "teacher_top1_confidence_mean": {
+        "mean": 0.0,
+        "std": 0.0
+      },
+      "teacher_top1_confidence_std": {
+        "mean": 0.0,
+        "std": 0.0
+      },
+      "teacher_top1_margin_mean": {
+        "mean": 0.0,
+        "std": 0.0
+      },
+      "teacher_top1_margin_std": {
+        "mean": 0.0,
+        "std": 0.0
+      },
+      "teacher_blank_prob_mean": {
+        "mean": 0.0,
+        "std": 0.0
+      },
+      "teacher_blank_prob_std": {
+        "mean": 0.0,
+        "std": 0.0
+      },
+      "teacher_nonblank_prob_mean": {
+        "mean": 0.0,
+        "std": 0.0
+      },
+      "teacher_nonblank_prob_std": {
+        "mean": 0.0,
+        "std": 0.0
+      },
+      "teacher_student_argmax_agreement": {
+        "mean": 0.0,
+        "std": 0.0
+      },
+      "teacher_student_topk_overlap_at1": {
+        "mean": 0.0,
+        "std": 0.0
+      },
+      "teacher_student_topk_overlap_at3": {
+        "mean": 0.0,
+        "std": 0.0
+      },
+      "teacher_student_feature_cosine_mean": {
+        "mean": 0.0,
+        "std": 0.0
+      },
+      "teacher_student_feature_cosine_std": {
+        "mean": 0.0,
+        "std": 0.0
+      },
+      "teacher_student_feature_mse_mean": {
+        "mean": 0.0,
+        "std": 0.0
+      },
+      "teacher_student_feature_norm_ratio_mean": {
+        "mean": 0.0,
+        "std": 0.0
+      },
+      "seed": {
+        "mean": 756.3333333333334,
+        "std": 233.0326634234399
+      },
+      "eval_batch_size": {
+        "mean": 2.0,
+        "std": 0.0
+      },
+      "inference_runtime_sec": {
+        "mean": 2.9061684608459473,
+        "std": 0.05007607367444481
+      },
+      "inference_samples_per_sec": {
+        "mean": 19.96354379806256,
+        "std": 0.347901624448076
+      },
+      "inference_peak_gpu_mem_mb": {
+        "mean": 26.9189453125,
+        "std": 0.0
+      },
+      "model_total_params": {
+        "mean": 1551581.0,
+        "std": 0.0
+      },
+      "model_trainable_params": {
+        "mean": 1551581.0,
+        "std": 0.0
+      }
+    }
+  }
+}

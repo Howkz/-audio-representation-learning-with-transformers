@@ -207,4 +207,14 @@ experiments:
       asr_valid:
         max_duration_sec: 4.0
       asr_tests:
-      - max_duration_sec: 4.0
+      - name: facebook/voxpopuli
+        config: en
+        split: validation
+        max_samples: 100
+        transcript_key: raw_text
+        max_duration_sec: 4.0
+        length_policy: none
+        feature_norm: utterance
+        max_transcript_chars: 80
+        max_transcript_words: 14
+        strict_asr_consistency: true
