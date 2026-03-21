@@ -133,6 +133,7 @@ datasets:
     name: "Codec-SUPERB/fluent_speech_commands_synth"
     config: null
     split: "train"
+    streaming: false
     max_samples: 4000
     transcript_key: null
     max_duration_sec: 4.0
@@ -178,6 +179,7 @@ datasets:
     name: "Codec-SUPERB/fluent_speech_commands_synth"
     config: null
     split: "train"
+    streaming: false
     max_samples: 2000
     max_duration_sec: 4.0
     length_policy: "crop_or_pad"
@@ -186,6 +188,7 @@ datasets:
     name: "Codec-SUPERB/fluent_speech_commands_synth"
     config: null
     split: "validation"
+    streaming: false
     max_samples: 500
     max_duration_sec: 4.0
     length_policy: "crop_or_pad"
@@ -194,6 +197,7 @@ datasets:
     - name: "Codec-SUPERB/fluent_speech_commands_synth"
       config: null
       split: "test"
+      streaming: false
       max_samples: 500
       max_duration_sec: 4.0
       length_policy: "crop_or_pad"
