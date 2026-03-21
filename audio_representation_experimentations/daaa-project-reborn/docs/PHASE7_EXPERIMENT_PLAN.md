@@ -97,6 +97,8 @@ un pipeline ASR plus conforme au sujet et plus defensable pour le rendu :
   - repart strictement de `P7R01`
   - garde `patch_time=2` et le dataset relache
   - ajoute un warmup lineaire de la KD au debut du fine-tune
+  - budget volontairement plus large pour laisser la KD warmup s'exprimer :
+    `epochs=10`, `max_steps=3000`, `early_stopping_min_epochs=5`
   - objectif : eviter le blank collapse immediat observe dans `P7R01`
 
 ## Choix techniques
