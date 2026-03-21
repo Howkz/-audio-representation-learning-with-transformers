@@ -26,17 +26,25 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+EXCLUDE_PREFIXES = (
+    "data/cache/",
+    "data/processed/",
+    "outputs/",
+)
+
 EXCLUDE_PATTERNS = [
-    "data/cache/*",
-    "data/processed/*",
-    "outputs/checkpoints/*",
     "__pycache__/*",
     "*.pyc",
+    "*.pyo",
+    ".pytest_cache/*",
 ]
 
 
 def _is_excluded(relative_path: str) -> bool:
-    return any(fnmatch.fnmatch(relative_path, pattern) for pattern in EXCLUDE_PATTERNS)
+    normalized = relative_path.replace("\\", "/")
+    if any(normalized.startswith(prefix) for prefix in EXCLUDE_PREFIXES):
+        return True
+    return any(fnmatch.fnmatch(normalized, pattern) for pattern in EXCLUDE_PATTERNS)
 
 
 def main() -> None:
@@ -70,7 +78,7 @@ def main() -> None:
                 archive.write(path, arcname=rel)
 
     print(f"[PACKAGE] Created archive: {zip_path}")
-    print(f"[PACKAGE] Excluded data/checkpoints according to TP policy.")
+    print(f"[PACKAGE] Excluded cache, processed data and all outputs according to TP policy.")
     print(f"[PACKAGE] Experiment: {cfg['experiment']['name']}")
 
 

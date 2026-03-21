@@ -42,6 +42,15 @@ def _adaptation_label(cfg):
     return "CTC fine-tune only (no MAE)"
 
 
+def _probe_cfg(cfg):
+    probe_cfg = cfg.get("probe", {})
+    return probe_cfg if isinstance(probe_cfg, dict) else {}
+
+
+def _probe_enabled(cfg) -> bool:
+    return bool(_probe_cfg(cfg).get("enabled", False))
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Evaluate ASR checkpoints and aggregate 5-seed results.")
     parser.add_argument("--config", type=str, required=True)
@@ -94,6 +103,24 @@ def _find_seed_checkpoints(cfg: Dict[str, Any], seed: int) -> Dict[str, Path]:
     if checkpoints:
         return checkpoints
     raise FileNotFoundError(f"No fine-tuned checkpoint found for seed {seed}: {root}")
+
+
+def _find_probe_checkpoints(cfg: Dict[str, Any], seed: int) -> Dict[str, Path]:
+    root = Path(cfg["experiment"]["output_dir"]) / "checkpoints"
+    exp_id = cfg["experiment"].get("id")
+    if exp_id:
+        root = root / str(exp_id)
+    root = root / "probe" / f"seed_{seed}"
+    best = root / "linear_probe_best.pt"
+    final = root / "linear_probe_final.pt"
+    checkpoints: Dict[str, Path] = {}
+    if best.exists():
+        checkpoints["best"] = best
+    if final.exists():
+        checkpoints["final"] = final
+    if checkpoints:
+        return checkpoints
+    raise FileNotFoundError(f"No probe checkpoint found for seed {seed}: {root}")
 
 
 def _evaluation_cfg(cfg: Dict[str, Any]) -> Dict[str, Any]:
@@ -150,6 +177,24 @@ def _artifact_paths(
         "diagnostics": benchmark_dir / f"asr_diagnostics_by_dataset{variant_suffix}{filename_suffix}_final.json",
         "overall_table": tables_dir / f"asr_overall_table{variant_suffix}{filename_suffix}.md",
         "dataset_table": tables_dir / f"asr_dataset_breakdown{variant_suffix}{filename_suffix}.md",
+    }
+
+
+def _probe_artifact_paths(
+    benchmark_dir: Path,
+    tables_dir: Path,
+    filename_suffix: str,
+    variant: str,
+    primary_variant: str,
+) -> Dict[str, Path]:
+    variant_suffix = "" if variant == primary_variant else f"_{variant}"
+    return {
+        "partial": benchmark_dir / f"probe_benchmark{variant_suffix}{filename_suffix}_partial.json",
+        "final": benchmark_dir / f"probe_benchmark{variant_suffix}{filename_suffix}_final.json",
+        "dataset": benchmark_dir / f"probe_benchmark_by_dataset{variant_suffix}{filename_suffix}_final.json",
+        "compare": benchmark_dir / f"probe_checkpoint_variants{filename_suffix}_final.json",
+        "overall_table": tables_dir / f"probe_overall_table{variant_suffix}{filename_suffix}.md",
+        "dataset_table": tables_dir / f"probe_dataset_breakdown{variant_suffix}{filename_suffix}.md",
     }
 
 
@@ -213,6 +258,12 @@ def main() -> None:
         print(f"[TEST] Checkpoint variant mode: {args.checkpoint_variant}")
         print(f"[TEST] Pretraining mode: {_pretrain_mode(cfg)}")
         print(f"[TEST] Distillation enabled: {bool(cfg.get('distillation', {}).get('enabled', False))}")
+        if _probe_enabled(cfg):
+            probe_cfg = _probe_cfg(cfg)
+            print(
+                f"[TEST] Probe enabled source={probe_cfg.get('encoder_source', 'pretrain_if_available_else_finetune')} "
+                f"tests={len(cfg['datasets'].get('probe_tests', []))}"
+            )
         diagnostics_cfg = cfg.get("diagnostics", {})
         if bool(diagnostics_cfg.get("forensics_enabled", False)):
             print(
@@ -221,9 +272,13 @@ def main() -> None:
             )
         for spec in cfg["datasets"]["asr_tests"]:
             print(f"[TEST] Planned dataset: {spec['name']}:{spec['split']} max={spec.get('max_samples')}")
+        if _probe_enabled(cfg):
+            for spec in cfg["datasets"].get("probe_tests", []):
+                print(f"[TEST] Planned probe dataset: {spec['name']}:{spec['split']} max={spec.get('max_samples')}")
         return
 
     from src.data.dataset import (
+        AudioClassificationDataset,
         AudioFeatureDataset,
         apply_dataset_filters,
         build_audio_preprocess_config,
@@ -237,8 +292,11 @@ def main() -> None:
         write_forensics_alignment_table,
         write_forensics_overview_table,
         write_forensics_teacher_student_table,
+        write_probe_dataset_breakdown_table,
+        write_probe_final_table,
     )
     from src.training.loops import evaluate_seed_on_dataset
+    from src.training.probe import evaluate_linear_probe
     from src.training.results import aggregate_partial_to_final, write_json_artifact, write_run_partial
 
     def _load_audio_dataset(local_cfg: Dict[str, Any], spec: Dict[str, Any], local_audio_cfg):
@@ -266,6 +324,46 @@ def main() -> None:
             source_split=spec.get("split"),
         )
 
+    def _load_probe_label_to_id(checkpoint_path: Path) -> Dict[str, int]:
+        import torch
+
+        payload = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+        label_to_id = payload.get("label_to_id", {})
+        if not isinstance(label_to_id, dict) or not label_to_id:
+            raise ValueError(f"Missing label_to_id in probe checkpoint: {checkpoint_path}")
+        return {str(key): int(value) for key, value in label_to_id.items()}
+
+    def _load_probe_dataset(local_cfg: Dict[str, Any], spec: Dict[str, Any], label_to_id: Dict[str, int]):
+        default_streaming = bool(local_cfg.get("data", {}).get("streaming", False))
+        ds = load_hf_audio_dataset(
+            dataset_name=spec["name"],
+            dataset_config=spec.get("config"),
+            split=spec["split"],
+            cache_dir=local_cfg["experiment"]["cache_dir"],
+            max_samples=spec.get("max_samples"),
+            streaming=bool(spec.get("streaming", default_streaming)),
+        )
+        ds = apply_dataset_filters(ds, transcript_key=None, spec=spec)
+        if len(ds) == 0:
+            raise ValueError(
+                f"Probe dataset vide après filtrage: {spec['name']}:{spec['split']}. "
+                "Assouplis les filtres de durée ou de taille."
+            )
+        probe_cfg = _probe_cfg(local_cfg)
+        label_fields = probe_cfg.get("label_fields")
+        if isinstance(label_fields, str):
+            label_fields = [label_fields]
+        return AudioClassificationDataset(
+            ds,
+            audio_cfg=build_audio_preprocess_config(local_cfg, spec),
+            label_to_id=label_to_id,
+            label_key=probe_cfg.get("label_key"),
+            label_fields=label_fields if isinstance(label_fields, list) else None,
+            enable_augmentations=False,
+            source_dataset=spec.get("name"),
+            source_split=spec.get("split"),
+        )
+
     tokenizer = CharCTCTokenizer()
 
     tests = cfg["datasets"]["asr_tests"]
@@ -278,6 +376,7 @@ def main() -> None:
             build_audio_preprocess_config(cfg, spec),
         )
         print(f"[TEST] Loaded {dataset_label} with {len(test_datasets[dataset_label])} samples.")
+    probe_test_datasets = {}
 
     exp_id = cfg["experiment"].get("id")
     filename_suffix = f"_{exp_id}" if exp_id else ""
@@ -297,6 +396,17 @@ def main() -> None:
         raise FileNotFoundError("No checkpoint variant selected for evaluation.")
     primary_variant = _primary_checkpoint_variant(cfg, selected_variants)
     print(f"[TEST] Checkpoint variants: {selected_variants} (primary={primary_variant})")
+    probe_selected_variants: list[str] = []
+    if _probe_enabled(cfg):
+        available_probe_variants = _find_probe_checkpoints(cfg, first_seed)
+        probe_selected_variants = [variant for variant in selected_variants if variant in available_probe_variants]
+        if not probe_selected_variants:
+            raise FileNotFoundError("Probe enabled but no matching probe checkpoint variants were found.")
+        probe_label_to_id = _load_probe_label_to_id(available_probe_variants[probe_selected_variants[0]])
+        for spec in cfg["datasets"].get("probe_tests", []):
+            dataset_label = f"{spec['name']}:{spec['split']}"
+            probe_test_datasets[dataset_label] = _load_probe_dataset(cfg, spec, probe_label_to_id)
+            print(f"[TEST] Loaded probe {dataset_label} with {len(probe_test_datasets[dataset_label])} samples.")
 
     variant_payloads: Dict[str, Any] = {}
     for variant in selected_variants:
@@ -435,6 +545,78 @@ def main() -> None:
             f"and {paths['diagnostics']}"
         )
 
+    probe_variant_payloads: Dict[str, Any] = {}
+    if _probe_enabled(cfg) and probe_test_datasets:
+        for variant in probe_selected_variants:
+            paths = _probe_artifact_paths(
+                benchmark_dir=benchmark_dir,
+                tables_dir=tables_dir,
+                filename_suffix=filename_suffix,
+                variant=variant,
+                primary_variant=primary_variant,
+            )
+            dataset_runs: Dict[str, Dict[str, Dict[str, Any]]] = {k: {} for k in probe_test_datasets.keys()}
+
+            for seed in cfg["experiment"]["seeds"]:
+                checkpoint_path = _find_probe_checkpoints(cfg, int(seed))[variant]
+                per_dataset_metrics = []
+                for dataset_label, dataset in probe_test_datasets.items():
+                    metrics = evaluate_linear_probe(
+                        cfg=cfg,
+                        dataset=dataset,
+                        checkpoint_path=checkpoint_path,
+                        dataset_label=dataset_label,
+                    )
+                    dataset_runs[dataset_label][str(seed)] = metrics
+                    per_dataset_metrics.append(metrics)
+                    print(
+                        f"[TEST] probe variant={variant} seed={seed} dataset={dataset_label} "
+                        f"accuracy={metrics['accuracy']:.4f} macro_f1={metrics['macro_f1']:.4f} "
+                        f"runtime={metrics['inference_runtime_sec']:.2f}s"
+                    )
+
+                overall = {
+                    "seed": float(seed),
+                    "accuracy": float(np.mean([m["accuracy"] for m in per_dataset_metrics])),
+                    "macro_f1": float(np.mean([m["macro_f1"] for m in per_dataset_metrics])),
+                    "eval_batch_size": float(np.mean([m["eval_batch_size"] for m in per_dataset_metrics])),
+                    "inference_runtime_sec": float(np.mean([m["inference_runtime_sec"] for m in per_dataset_metrics])),
+                    "inference_samples_per_sec": float(np.mean([m["inference_samples_per_sec"] for m in per_dataset_metrics])),
+                    "inference_peak_gpu_mem_mb": float(np.max([m["inference_peak_gpu_mem_mb"] for m in per_dataset_metrics])),
+                    "model_total_params": float(np.mean([m["model_total_params"] for m in per_dataset_metrics])),
+                    "model_trainable_params": float(np.mean([m["model_trainable_params"] for m in per_dataset_metrics])),
+                    "num_classes": float(np.mean([m["num_classes"] for m in per_dataset_metrics])),
+                    "checkpoint_variant": variant,
+                }
+                write_run_partial(
+                    partial_path=paths["partial"],
+                    run_id=str(seed),
+                    payload=overall,
+                    model_name=f"{cfg['experiment']['name']}_probe",
+                    architecture="Audio Transformer Encoder + Linear Probe",
+                    adaptation=adaptation_label,
+                )
+
+            final_payload = aggregate_partial_to_final(partial_path=paths["partial"], final_path=paths["final"])
+            dataset_breakdown = _aggregate_by_dataset(dataset_runs)
+            write_json_artifact(paths["dataset"], dataset_breakdown)
+            write_probe_final_table(
+                final_json_path=paths["final"],
+                table_md_path=paths["overall_table"],
+                title=f"Probe Overall Benchmark ({variant})",
+            )
+            write_probe_dataset_breakdown_table(
+                dataset_final_json_path=paths["dataset"],
+                table_md_path=paths["dataset_table"],
+                title=f"Probe Dataset Breakdown ({variant})",
+            )
+            probe_variant_payloads[variant] = {
+                "paths": {key: str(value) for key, value in paths.items() if key != "compare"},
+                "overall": final_payload,
+                "by_dataset": dataset_breakdown,
+            }
+            print(f"[TEST] Probe variant '{variant}' aggregated files: {paths['final']} and {paths['dataset']}")
+
     write_json_artifact(
         compare_path,
         {
@@ -444,6 +626,23 @@ def main() -> None:
         },
     )
     print(f"[TEST] Checkpoint comparison file: {compare_path}")
+    if probe_variant_payloads:
+        probe_compare_path = _probe_artifact_paths(
+            benchmark_dir=benchmark_dir,
+            tables_dir=tables_dir,
+            filename_suffix=filename_suffix,
+            variant=primary_variant,
+            primary_variant=primary_variant,
+        )["compare"]
+        write_json_artifact(
+            probe_compare_path,
+            {
+                "experiment_id": exp_id,
+                "primary_checkpoint_variant": primary_variant,
+                "variants": probe_variant_payloads,
+            },
+        )
+        print(f"[TEST] Probe checkpoint comparison file: {probe_compare_path}")
 
     if forensics_enabled:
         train_probe_records: Dict[str, Dict[str, Any]] = {}

@@ -1,0 +1,25 @@
+from __future__ import annotations
+
+import subprocess
+import sys
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
+def main() -> None:
+    command = [
+        sys.executable,
+        "scripts/run_tp5_seed_shard.py",
+        "--label",
+        "pair",
+        "--seeds",
+        "42",
+        "123",
+        *sys.argv[1:],
+    ]
+    raise SystemExit(subprocess.run(command, cwd=str(PROJECT_ROOT), check=False).returncode)
+
+
+if __name__ == "__main__":
+    main()

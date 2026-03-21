@@ -42,6 +42,26 @@ def _adaptation_label(cfg):
     return "CTC fine-tune only (no MAE)"
 
 
+def _probe_cfg(cfg):
+    probe_cfg = cfg.get("probe", {})
+    return probe_cfg if isinstance(probe_cfg, dict) else {}
+
+
+def _probe_enabled(cfg) -> bool:
+    return bool(_probe_cfg(cfg).get("enabled", False))
+
+
+def _resolve_probe_encoder_path(cfg, *, pretrain_ckpt, finetune_ckpt):
+    source = str(_probe_cfg(cfg).get("encoder_source", "pretrain_if_available_else_finetune")).lower()
+    if source == "pretrain":
+        return pretrain_ckpt
+    if source == "finetune":
+        return finetune_ckpt
+    if source == "random":
+        return None
+    return pretrain_ckpt if pretrain_ckpt is not None else finetune_ckpt
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run MAE pretraining and CTC fine-tuning.")
     parser.add_argument("--config", type=str, required=True)
@@ -96,6 +116,14 @@ def main() -> None:
         print(f"[TRAIN] Seeds: {cfg['experiment']['seeds']}")
         print(f"[TRAIN] Pretraining mode: {_pretrain_mode(cfg)}")
         print(f"[TRAIN] Distillation enabled: {bool(cfg.get('distillation', {}).get('enabled', False))}")
+        if _probe_enabled(cfg):
+            probe_cfg = _probe_cfg(cfg)
+            print(
+                f"[TRAIN] Probe enabled source={probe_cfg.get('encoder_source', 'pretrain_if_available_else_finetune')} "
+                f"freeze_encoder={probe_cfg.get('freeze_encoder', True)} "
+                f"epochs={probe_cfg.get('epochs')} batch_size={probe_cfg.get('batch_size')} "
+                f"grad_acc={probe_cfg.get('grad_accum_steps')}"
+            )
         diagnostics_cfg = cfg.get("diagnostics", {})
         if bool(diagnostics_cfg.get("forensics_enabled", False)):
             print(
@@ -139,21 +167,27 @@ def main() -> None:
         print(f"[TRAIN] Pretrain dataset: {cfg['datasets']['pretrain']['name']}:{cfg['datasets']['pretrain']['split']}")
         print(f"[TRAIN] ASR train dataset: {cfg['datasets']['asr_train']['name']}:{cfg['datasets']['asr_train']['split']}")
         print(f"[TRAIN] ASR valid dataset: {cfg['datasets']['asr_valid']['name']}:{cfg['datasets']['asr_valid']['split']}")
+        if _probe_enabled(cfg):
+            print(f"[TRAIN] Probe train dataset: {cfg['datasets']['probe_train']['name']}:{cfg['datasets']['probe_train']['split']}")
+            print(f"[TRAIN] Probe valid dataset: {cfg['datasets']['probe_valid']['name']}:{cfg['datasets']['probe_valid']['split']}")
         return
 
     from src.data.dataset import (
+        AudioClassificationDataset,
         AudioFeatureDataset,
         apply_dataset_filters,
         build_audio_preprocess_config,
+        build_label_vocab,
         load_hf_audio_dataset,
         resolve_transcript_key,
     )
     from src.data.text import CharCTCTokenizer
     from src.training.loops import run_finetune_seed, run_pretrain_seed
+    from src.training.probe import run_linear_probe_seed
     from src.training.results import aggregate_partial_to_final, write_run_partial
     from src.training.utils import set_seed
 
-    def _build_dataset(local_cfg, spec, local_audio_cfg):
+    def _load_filtered_dataset(local_cfg, spec):
         default_streaming = bool(local_cfg.get("data", {}).get("streaming", False))
         ds = load_hf_audio_dataset(
             dataset_name=spec["name"],
@@ -170,12 +204,33 @@ def main() -> None:
                 f"Dataset vide après filtrage: {spec['name']}:{spec['split']}. "
                 "Assouplis les filtres de transcript/durée ou désactive le streaming pour ce split."
             )
+        return ds, transcript_key
+
+    def _build_asr_dataset(local_cfg, spec, local_audio_cfg):
+        ds, transcript_key = _load_filtered_dataset(local_cfg, spec)
         is_training_split = spec is cfg["datasets"]["asr_train"]
         return AudioFeatureDataset(
             ds,
             audio_cfg=local_audio_cfg,
-            transcript_key=spec.get("transcript_key"),
+            transcript_key=transcript_key,
             enable_augmentations=is_training_split,
+            source_dataset=spec.get("name"),
+            source_split=spec.get("split"),
+        )
+
+    def _build_probe_dataset(local_cfg, spec, local_audio_cfg, label_to_id, *, is_training_split: bool):
+        ds, _ = _load_filtered_dataset(local_cfg, spec)
+        probe_cfg = _probe_cfg(local_cfg)
+        label_fields = probe_cfg.get("label_fields")
+        if isinstance(label_fields, str):
+            label_fields = [label_fields]
+        return AudioClassificationDataset(
+            ds,
+            audio_cfg=local_audio_cfg,
+            label_to_id=label_to_id,
+            label_key=probe_cfg.get("label_key"),
+            label_fields=label_fields if isinstance(label_fields, list) else None,
+            enable_augmentations=is_training_split and bool(probe_cfg.get("enable_augmentations", False)),
             source_dataset=spec.get("name"),
             source_split=spec.get("split"),
         )
@@ -183,13 +238,41 @@ def main() -> None:
     pretrain_enabled = _pretrain_enabled(cfg)
     pretrain_ds = None
     if pretrain_enabled:
-        pretrain_ds = _build_dataset(
+        pretrain_ds = _build_asr_dataset(
             cfg,
             cfg["datasets"]["pretrain"],
             build_audio_preprocess_config(cfg, cfg["datasets"]["pretrain"]),
         )
-    asr_train_ds = _build_dataset(cfg, cfg["datasets"]["asr_train"], build_audio_preprocess_config(cfg, cfg["datasets"]["asr_train"]))
-    asr_valid_ds = _build_dataset(cfg, cfg["datasets"]["asr_valid"], build_audio_preprocess_config(cfg, cfg["datasets"]["asr_valid"]))
+    asr_train_ds = _build_asr_dataset(cfg, cfg["datasets"]["asr_train"], build_audio_preprocess_config(cfg, cfg["datasets"]["asr_train"]))
+    asr_valid_ds = _build_asr_dataset(cfg, cfg["datasets"]["asr_valid"], build_audio_preprocess_config(cfg, cfg["datasets"]["asr_valid"]))
+    probe_train_ds = None
+    probe_valid_ds = None
+    label_to_id = None
+    if _probe_enabled(cfg):
+        probe_cfg = _probe_cfg(cfg)
+        probe_train_raw, _ = _load_filtered_dataset(cfg, cfg["datasets"]["probe_train"])
+        label_fields = probe_cfg.get("label_fields")
+        if isinstance(label_fields, str):
+            label_fields = [label_fields]
+        label_to_id = build_label_vocab(
+            probe_train_raw,
+            label_key=probe_cfg.get("label_key"),
+            label_fields=label_fields if isinstance(label_fields, list) else None,
+        )
+        probe_train_ds = _build_probe_dataset(
+            cfg,
+            cfg["datasets"]["probe_train"],
+            build_audio_preprocess_config(cfg, cfg["datasets"]["probe_train"]),
+            label_to_id,
+            is_training_split=True,
+        )
+        probe_valid_ds = _build_probe_dataset(
+            cfg,
+            cfg["datasets"]["probe_valid"],
+            build_audio_preprocess_config(cfg, cfg["datasets"]["probe_valid"]),
+            label_to_id,
+            is_training_split=False,
+        )
     tokenizer = CharCTCTokenizer()
 
     exp_id = cfg["experiment"].get("id")
@@ -267,9 +350,44 @@ def main() -> None:
                     f"[TRAIN][OOM] Seed={seed} finetune retry {attempt + 1}/2 "
                     f"with batch_size={stage_cfg['batch_size']} grad_acc={stage_cfg['grad_accum_steps']}"
                 )
+        probe_metrics = {}
+        if _probe_enabled(cfg) and probe_train_ds is not None and probe_valid_ds is not None and label_to_id is not None:
+            probe_cfg = copy.deepcopy(cfg)
+            probe_encoder_path = _resolve_probe_encoder_path(
+                cfg,
+                pretrain_ckpt=pretrain_ckpt,
+                finetune_ckpt=final_ckpt,
+            )
+            for attempt in range(3):
+                try:
+                    _, probe_metrics = run_linear_probe_seed(
+                        cfg=probe_cfg,
+                        seed=int(seed),
+                        train_dataset=probe_train_ds,
+                        valid_dataset=probe_valid_ds,
+                        label_to_id=label_to_id,
+                        encoder_checkpoint_path=probe_encoder_path,
+                        force_continue_completed=args.continue_completed,
+                    )
+                    break
+                except RuntimeError as exc:
+                    if not _is_oom_error(exc):
+                        raise
+                    probe_stage = probe_cfg.setdefault("probe", {})
+                    current_batch = int(probe_stage.get("batch_size", 1))
+                    if current_batch <= 1:
+                        raise
+                    probe_stage["batch_size"] = max(1, current_batch // 2)
+                    probe_stage["grad_accum_steps"] = int(probe_stage.get("grad_accum_steps", 1)) * 2
+                    _clear_cuda_cache()
+                    print(
+                        f"[TRAIN][OOM] Seed={seed} probe retry {attempt + 1}/2 "
+                        f"with batch_size={probe_stage['batch_size']} grad_acc={probe_stage['grad_accum_steps']}"
+                    )
         run_payload = {
             **pretrain_metrics,
             **finetune_metrics,
+            **probe_metrics,
             "seed": float(seed),
         }
         write_run_partial(

@@ -55,6 +55,45 @@ def write_dataset_breakdown_table(dataset_final_json_path: Path, table_md_path: 
             )
 
 
+def write_probe_final_table(final_json_path: Path, table_md_path: Path, title: str) -> None:
+    with open(final_json_path, "r", encoding="utf-8") as handle:
+        data = json.load(handle)
+    metrics = data.get("metrics", {})
+    rows = [
+        ("Accuracy", _fmt(metrics.get("accuracy", {}))),
+        ("Macro-F1", _fmt(metrics.get("macro_f1", {}))),
+        ("Inference runtime (sec)", _fmt(metrics.get("inference_runtime_sec", {}))),
+        ("Samples/sec", _fmt(metrics.get("inference_samples_per_sec", {}))),
+        ("Peak GPU mem (MB)", _fmt(metrics.get("inference_peak_gpu_mem_mb", {}))),
+        ("Eval batch size", _fmt(metrics.get("eval_batch_size", {}))),
+        ("Num classes", _fmt(metrics.get("num_classes", {}))),
+        ("Model trainable params", _fmt(metrics.get("model_trainable_params", {}))),
+    ]
+    table_md_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(table_md_path, "w", encoding="utf-8") as handle:
+        handle.write(f"# {title}\n\n")
+        handle.write("| Metric | Mean +- Std |\n")
+        handle.write("|---|---|\n")
+        for key, value in rows:
+            handle.write(f"| {key} | {value} |\n")
+
+
+def write_probe_dataset_breakdown_table(dataset_final_json_path: Path, table_md_path: Path, title: str) -> None:
+    with open(dataset_final_json_path, "r", encoding="utf-8") as handle:
+        data = json.load(handle)
+    metrics = data.get("metrics", {})
+    table_md_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(table_md_path, "w", encoding="utf-8") as handle:
+        handle.write(f"# {title}\n\n")
+        handle.write("| Dataset | Accuracy mean +- std | Macro-F1 mean +- std | Runtime mean +- std | Samples/sec |\n")
+        handle.write("|---|---|---|---|---|\n")
+        for dataset_name, payload in metrics.items():
+            handle.write(
+                f"| {dataset_name} | {_fmt(payload.get('accuracy', {}))} | {_fmt(payload.get('macro_f1', {}))} | "
+                f"{_fmt(payload.get('inference_runtime_sec', {}))} | {_fmt(payload.get('inference_samples_per_sec', {}))} |\n"
+            )
+
+
 def _fmt_scalar(metric: Dict[str, float], key: str) -> str:
     if not metric:
         return "n/a"

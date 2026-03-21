@@ -280,6 +280,65 @@ def extract_logmel(
     return log_mel.transpose(0, 1).contiguous()  # [T, M]
 
 
+def extract_spectrogram(
+    waveform: torch.Tensor,
+    sr: int,
+    win_length: int,
+    hop_length: int,
+    log_scale: bool = True,
+) -> torch.Tensor:
+    if waveform.ndim != 2 or waveform.shape[0] != 1:
+        raise ValueError("waveform must be [1, T].")
+    if win_length <= 0 or hop_length <= 0:
+        raise ValueError("win_length and hop_length must be > 0.")
+
+    signal = waveform.squeeze(0)
+    window = torch.hann_window(win_length, dtype=signal.dtype, device=signal.device)
+    spec = torch.stft(
+        signal,
+        n_fft=win_length,
+        hop_length=hop_length,
+        win_length=win_length,
+        window=window,
+        center=True,
+        normalized=False,
+        onesided=True,
+        return_complex=True,
+    )  # [F, T]
+    power = spec.abs().pow(2.0)
+    if log_scale:
+        power = torch.log(torch.clamp(power, min=1e-6))
+    return power.transpose(0, 1).contiguous()  # [T, F]
+
+
+def extract_audio_features(
+    waveform: torch.Tensor,
+    sr: int,
+    feature_type: str,
+    n_mels: int,
+    win_length: int,
+    hop_length: int,
+) -> torch.Tensor:
+    mode = str(feature_type).lower()
+    if mode == "logmel":
+        return extract_logmel(
+            waveform=waveform,
+            sr=sr,
+            n_mels=n_mels,
+            win_length=win_length,
+            hop_length=hop_length,
+        )
+    if mode == "spectrogram":
+        return extract_spectrogram(
+            waveform=waveform,
+            sr=sr,
+            win_length=win_length,
+            hop_length=hop_length,
+            log_scale=True,
+        )
+    raise ValueError(f"Unsupported feature_type='{feature_type}'.")
+
+
 def normalize_logmel(
     logmel: torch.Tensor,
     feature_norm: str = "none",
@@ -343,7 +402,7 @@ def apply_waveform_augmentations(
     return augmented.clamp(min=-1.0, max=1.0)
 
 
-def apply_logmel_augmentations(
+def apply_feature_augmentations(
     logmel: torch.Tensor,
     augment_cfg: Dict[str, Any] | None,
 ) -> torch.Tensor:
@@ -365,3 +424,11 @@ def apply_logmel_augmentations(
     for _ in range(max(0, num_freq_masks)):
         augmented = _mask_random_span(augmented, axis=1, max_width=max_freq_mask_bins)
     return augmented
+
+
+def apply_logmel_augmentations(
+    logmel: torch.Tensor,
+    augment_cfg: Dict[str, Any] | None,
+) -> torch.Tensor:
+    # Backward-compatible alias used by older training code paths.
+    return apply_feature_augmentations(logmel, augment_cfg)

@@ -472,8 +472,12 @@ def _archive_experiment_artifacts(exp_id: str, dry_run: bool) -> None:
         src_root / "benchmark_results" / f"train_audio_transformer_{exp_id}_final.json",
         src_root / "benchmark_results" / f"asr_benchmark_{exp_id}_final.json",
         src_root / "benchmark_results" / f"asr_benchmark_by_dataset_{exp_id}_final.json",
+        src_root / "benchmark_results" / f"probe_benchmark_{exp_id}_final.json",
+        src_root / "benchmark_results" / f"probe_benchmark_by_dataset_{exp_id}_final.json",
         src_root / "tables" / f"asr_overall_table_{exp_id}.md",
         src_root / "tables" / f"asr_dataset_breakdown_{exp_id}.md",
+        src_root / "tables" / f"probe_overall_table_{exp_id}.md",
+        src_root / "tables" / f"probe_dataset_breakdown_{exp_id}.md",
     ]
     existing_files = [path for path in files_to_copy if path.exists()]
     if not existing_files:

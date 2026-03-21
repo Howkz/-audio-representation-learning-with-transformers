@@ -1,23 +1,15 @@
-# Submission Checklist (Final Zip)
+# Submission Checklist
 
-## Naming
-- Archive name follows: `daaa_nomduprojet1_nom2.zip`
-
-## Must include
-- `src/`
-- `scripts/`
-- `configs/`
-- `results/` (lightweight summaries/tables)
-- `rapport.pdf`
-
-## Must exclude
-- Raw datasets / cached datasets
-- Model checkpoints
-- Temporary outputs / runtime caches
-
-## Verification steps
-1. Run `make data`, `make train`, `make test` on target env.
-2. Confirm 5 seeds completed and aggregated mean/std files exist.
-3. Confirm WER tables are generated.
-4. Confirm report includes ablation and frugality section.
-5. Build archive with `make package` (or manual zip with same exclusion rules).
+- [ ] `make compliance CONFIG=configs/final_tp/core_librispeech.yaml` passe.
+- [ ] `make suite-tp` a tourné jusqu'au bout.
+- [ ] `make report-tp` a généré les trois tableaux finaux.
+- [ ] Les résultats 5 seeds contiennent bien `mean +- std`.
+- [ ] Les tableaux couvrent FSC linear probe, LibriSpeech ASR et VoxPopuli ASR.
+- [ ] Le rapport PDF final est présent dans `docs/` ou à la racine avant zippage.
+- [ ] `data/processed/` est vide ou supprimé.
+- [ ] `outputs/` est vide ou supprimé.
+- [ ] Aucun cache lourd Hugging Face local n'est embarqué.
+- [ ] `results/` ne contient que les agrégats utiles à la remise.
+- [ ] Les fichiers temporaires et logs locaux ont été exclus.
+- [ ] `make package CONFIG=configs/final_tp/core_librispeech.yaml` a produit un zip propre.
+- [ ] Le zip final a été ouvert et vérifié manuellement avant dépôt.

@@ -9,7 +9,8 @@ from .text import CharCTCTokenizer
 
 def pad_collate(batch: List[Dict[str, Any]]) -> Dict[str, torch.Tensor]:
     max_len = max(item["length"] for item in batch)
-    n_mels = batch[0]["x_logmel"].shape[1]
+    sample_features = batch[0].get("x_features", batch[0]["x_logmel"])
+    n_mels = sample_features.shape[1]
     max_waveform_len = max(int(item.get("waveform_length", 0)) for item in batch)
     bsz = len(batch)
 
@@ -22,9 +23,11 @@ def pad_collate(batch: List[Dict[str, Any]]) -> Dict[str, torch.Tensor]:
     sample_ids = []
     source_datasets = []
     source_splits = []
+    feature_types = []
     for i, item in enumerate(batch):
-        t = item["x_logmel"].shape[0]
-        x[i, :t] = item["x_logmel"]
+        features = item.get("x_features", item["x_logmel"])
+        t = features.shape[0]
+        x[i, :t] = features
         lengths[i] = t
         waveform = item.get("waveform")
         if waveform is not None:
@@ -35,8 +38,10 @@ def pad_collate(batch: List[Dict[str, Any]]) -> Dict[str, torch.Tensor]:
         sample_ids.append(str(item.get("sample_id", f"sample_{i}")))
         source_datasets.append(item.get("source_dataset"))
         source_splits.append(item.get("source_split"))
+        feature_types.append(str(item.get("feature_type", "logmel")))
 
     return {
+        "x_features": x,
         "x_logmel": x,
         "lengths": lengths,
         "waveforms": waveforms,
@@ -45,6 +50,7 @@ def pad_collate(batch: List[Dict[str, Any]]) -> Dict[str, torch.Tensor]:
         "sample_ids": sample_ids,
         "source_datasets": source_datasets,
         "source_splits": source_splits,
+        "feature_types": feature_types,
     }
 
 
@@ -59,5 +65,12 @@ def ctc_collate(batch: List[Dict[str, Any]], tokenizer: CharCTCTokenizer) -> Dic
 
     padded["targets"] = torch.tensor(labels, dtype=torch.long)
     padded["target_lengths"] = torch.tensor(label_lengths, dtype=torch.long)
+    return padded
+
+
+def classification_collate(batch: List[Dict[str, Any]]) -> Dict[str, Any]:
+    padded = pad_collate(batch)
+    padded["labels"] = torch.tensor([int(item["label_id"]) for item in batch], dtype=torch.long)
+    padded["label_texts"] = [str(item.get("label_text", "")) for item in batch]
     return padded
 

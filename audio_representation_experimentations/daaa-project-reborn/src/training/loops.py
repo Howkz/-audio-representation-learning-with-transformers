@@ -16,6 +16,7 @@ from torch.utils.data import DataLoader, Subset
 from tqdm.auto import tqdm
 
 from src.data.collate import ctc_collate, pad_collate
+from src.data.dataset import audio_feature_dim_from_cfg
 from src.data.text import CharCTCTokenizer
 from src.models.audio_transformer import (
     AudioMAEPretrain,
@@ -613,9 +614,8 @@ def _seeded_loader(
 
 def build_encoder(cfg: Dict[str, Any]) -> AudioTransformerEncoder:
     m = cfg["model"]
-    audio = cfg["audio"]
     return AudioTransformerEncoder(
-        n_mels=int(audio["n_mels"]),
+        n_mels=audio_feature_dim_from_cfg(cfg),
         dim=int(m["dim"]),
         depth=int(m["depth"]),
         num_heads=int(m["num_heads"]),
@@ -627,6 +627,13 @@ def build_encoder(cfg: Dict[str, Any]) -> AudioTransformerEncoder:
         patch_strategy=str(m["patch_strategy"]),
         patch_freq=int(m["patch_freq"]),
     )
+
+
+def _batch_audio_features(batch: Dict[str, Any]) -> torch.Tensor:
+    features = batch.get("x_features")
+    if isinstance(features, torch.Tensor):
+        return features
+    return batch["x_logmel"]
 
 
 def _build_scheduler(
@@ -692,7 +699,7 @@ def run_pretrain_seed(
     encoder = build_encoder(cfg)
     mae = AudioMAEPretrain(
         encoder=encoder,
-        n_mels=int(cfg["audio"]["n_mels"]),
+        n_mels=audio_feature_dim_from_cfg(cfg),
         dec_dim=int(cfg["model"]["mae_decoder_dim"]),
         dec_depth=int(cfg["model"]["mae_decoder_depth"]),
         dec_heads=int(cfg["model"]["mae_decoder_heads"]),
@@ -779,7 +786,7 @@ def run_pretrain_seed(
         for batch_idx, batch in enumerate(loader):
             if epoch == start_epoch and batch_idx < start_step_in_epoch:
                 continue
-            x = batch["x_logmel"].to(device, non_blocking=True)
+                    x = _batch_audio_features(batch).to(device, non_blocking=True)
             lengths = batch["lengths"].to(device, non_blocking=True)
             with torch.no_grad():
                 patch_info = mae.encoder.patch_embedding.patchify(x, lengths=lengths)
@@ -933,7 +940,7 @@ def _run_ctc_diagnostic_pass(
     start_ts = time.time()
     reset_peak_memory()
     for batch in loader:
-        x = batch["x_logmel"].to(device, non_blocking=True)
+        x = _batch_audio_features(batch).to(device, non_blocking=True)
         lengths = batch["lengths"].to(device, non_blocking=True)
         waveforms = batch["waveforms"].to(device, non_blocking=True)
         waveform_lengths = batch["waveform_lengths"].to(device, non_blocking=True)
@@ -1229,7 +1236,7 @@ def run_finetune_seed(
             if epoch == start_epoch and batch_idx < start_step_in_epoch:
                 continue
 
-            x = batch["x_logmel"].to(device, non_blocking=True)
+                x = _batch_audio_features(batch).to(device, non_blocking=True)
             lengths = batch["lengths"].to(device, non_blocking=True)
             targets = batch["targets"].to(device, non_blocking=True)
             target_lengths = batch["target_lengths"].to(device, non_blocking=True)

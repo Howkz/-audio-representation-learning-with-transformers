@@ -31,6 +31,14 @@ TRANSCRIPT_CANDIDATES = [
     "transcript",
 ]
 
+LABEL_CANDIDATES = [
+    "intent_class",
+    "label",
+    "action",
+    "object",
+    "location",
+]
+
 
 @dataclass
 class AudioPreprocessConfig:
@@ -39,6 +47,7 @@ class AudioPreprocessConfig:
     n_mels: int
     win_length: int
     hop_length: int
+    feature_type: str = "logmel"
     length_policy: str = "crop_or_pad"
     feature_norm: str = "none"
     augmentations: Dict[str, Any] = field(default_factory=dict)
@@ -256,6 +265,65 @@ def resolve_transcript_key(sample: Dict[str, Any], preferred: Optional[str]) -> 
     return None
 
 
+def _feature_descriptor(dataset: Dataset, key: str) -> Any:
+    features = getattr(dataset, "features", {})
+    if hasattr(features, "get"):
+        try:
+            return features.get(key)
+        except Exception:
+            return None
+    return None
+
+
+def _decode_label_value(raw_value: Any, feature: Any) -> str:
+    if raw_value is None:
+        return ""
+    names = getattr(feature, "names", None)
+    if isinstance(raw_value, int) and isinstance(names, list) and 0 <= raw_value < len(names):
+        return str(names[int(raw_value)])
+    return str(raw_value)
+
+
+def resolve_label_text(
+    row: Dict[str, Any],
+    dataset: Dataset,
+    label_key: Optional[str] = None,
+    label_fields: Optional[List[str]] = None,
+) -> str:
+    if label_fields:
+        parts: List[str] = []
+        for field in label_fields:
+            if field not in row:
+                raise KeyError(f"Missing classification label field '{field}' in row.")
+            feature = _feature_descriptor(dataset, field)
+            parts.append(_decode_label_value(row.get(field), feature))
+        return "|".join(parts)
+
+    if label_key and label_key in row:
+        feature = _feature_descriptor(dataset, label_key)
+        return _decode_label_value(row.get(label_key), feature)
+
+    for key in LABEL_CANDIDATES:
+        if key in row:
+            feature = _feature_descriptor(dataset, key)
+            return _decode_label_value(row.get(key), feature)
+    raise KeyError("Unable to resolve a classification label from the dataset row.")
+
+
+def build_label_vocab(
+    dataset: Dataset,
+    label_key: Optional[str] = None,
+    label_fields: Optional[List[str]] = None,
+) -> Dict[str, int]:
+    labels = sorted(
+        {
+            resolve_label_text(dataset[idx], dataset=dataset, label_key=label_key, label_fields=label_fields)
+            for idx in range(len(dataset))
+        }
+    )
+    return {label: idx for idx, label in enumerate(labels)}
+
+
 def _audio_duration_seconds(audio_value: Any) -> Optional[float]:
     if not isinstance(audio_value, dict):
         return None
@@ -306,18 +374,17 @@ class AudioFeatureDataset(TorchDataset):
     def __len__(self) -> int:
         return len(self.ds)
 
-    def __getitem__(self, index: int) -> Dict[str, Any]:
+    def _extract_common_item(self, row: Dict[str, Any], index: int) -> Dict[str, Any]:
         # Lazy import to let dry-run execute even if audio deps are not installed yet.
         from .features import (
+            apply_feature_augmentations,
             apply_length_policy,
-            apply_logmel_augmentations,
             apply_waveform_augmentations,
             decode_audio,
-            extract_logmel,
+            extract_audio_features,
             normalize_logmel,
         )
 
-        row = self.ds[index]
         waveform, sr = decode_audio(row["audio"], self.audio_cfg.sample_rate)
         waveform = apply_length_policy(
             waveform,
@@ -327,27 +394,75 @@ class AudioFeatureDataset(TorchDataset):
         waveform = waveform.to(torch.float32).contiguous()
         if self.enable_augmentations:
             waveform = apply_waveform_augmentations(waveform, self.audio_cfg.augmentations)
-        logmel = extract_logmel(
+        features = extract_audio_features(
             waveform=waveform,
             sr=sr,
+            feature_type=self.audio_cfg.feature_type,
             n_mels=self.audio_cfg.n_mels,
             win_length=self.audio_cfg.win_length,
             hop_length=self.audio_cfg.hop_length,
         )
-        logmel = normalize_logmel(logmel, feature_norm=self.audio_cfg.feature_norm)
+        features = normalize_logmel(features, feature_norm=self.audio_cfg.feature_norm)
         if self.enable_augmentations:
-            logmel = apply_logmel_augmentations(logmel, self.audio_cfg.augmentations)
-        item = {
-            "x_logmel": logmel,
-            "length": int(logmel.shape[0]),
+            features = apply_feature_augmentations(features, self.audio_cfg.augmentations)
+        return {
+            "x_features": features,
+            "x_logmel": features,  # Backward-compatible alias used by older training/eval code paths.
+            "length": int(features.shape[0]),
             "waveform": waveform.squeeze(0),
             "waveform_length": int(waveform.shape[-1]),
             "sample_id": self._sample_id(row, index=index),
             "source_dataset": self.source_dataset,
             "source_split": self.source_split,
+            "feature_type": self.audio_cfg.feature_type,
         }
+
+    def __getitem__(self, index: int) -> Dict[str, Any]:
+        row = self.ds[index]
+        item = self._extract_common_item(row=row, index=index)
         if self.transcript_key is not None:
             item["transcript"] = normalize_transcript(str(row.get(self.transcript_key, "")))
+        return item
+
+
+class AudioClassificationDataset(AudioFeatureDataset):
+    def __init__(
+        self,
+        hf_dataset: Dataset,
+        audio_cfg: AudioPreprocessConfig,
+        *,
+        label_to_id: Dict[str, int],
+        label_key: Optional[str] = None,
+        label_fields: Optional[List[str]] = None,
+        enable_augmentations: bool = False,
+        source_dataset: Optional[str] = None,
+        source_split: Optional[str] = None,
+    ) -> None:
+        super().__init__(
+            hf_dataset=hf_dataset,
+            audio_cfg=audio_cfg,
+            transcript_key=None,
+            enable_augmentations=enable_augmentations,
+            source_dataset=source_dataset,
+            source_split=source_split,
+        )
+        self.label_to_id = dict(label_to_id)
+        self.label_key = None if label_key is None else str(label_key)
+        self.label_fields = list(label_fields) if label_fields is not None else None
+
+    def __getitem__(self, index: int) -> Dict[str, Any]:
+        row = self.ds[index]
+        item = self._extract_common_item(row=row, index=index)
+        label_text = resolve_label_text(
+            row,
+            dataset=self.ds,
+            label_key=self.label_key,
+            label_fields=self.label_fields,
+        )
+        if label_text not in self.label_to_id:
+            raise KeyError(f"Unknown classification label '{label_text}'.")
+        item["label_text"] = label_text
+        item["label_id"] = int(self.label_to_id[label_text])
         return item
 
 
@@ -398,10 +513,18 @@ def build_audio_preprocess_config(
         n_mels=int(audio["n_mels"]),
         win_length=int(audio["win_length"]),
         hop_length=int(audio["hop_length"]),
+        feature_type=str(spec.get("feature_type", audio.get("feature_type", "logmel"))),
         length_policy=str(length_policy),
         feature_norm=str(spec.get("feature_norm", audio.get("feature_norm", "none"))),
         augmentations=dict(spec.get("augmentations", {})),
     )
+
+
+def audio_feature_dim_from_cfg(cfg: Dict[str, Any], dataset_spec: Optional[Dict[str, Any]] = None) -> int:
+    local_audio_cfg = build_audio_preprocess_config(cfg, dataset_spec)
+    if str(local_audio_cfg.feature_type).lower() == "spectrogram":
+        return int(local_audio_cfg.win_length // 2 + 1)
+    return int(local_audio_cfg.n_mels)
 
 
 def dataset_specs_for_data_step(cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -410,4 +533,14 @@ def dataset_specs_for_data_step(cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
     specs.append(cfg["datasets"]["asr_train"])
     specs.append(cfg["datasets"]["asr_valid"])
     specs.extend(cfg["datasets"]["asr_tests"])
+    probe_cfg = cfg.get("probe", {})
+    if isinstance(probe_cfg, dict) and bool(probe_cfg.get("enabled", False)):
+        datasets_cfg = cfg.get("datasets", {})
+        if isinstance(datasets_cfg.get("probe_train"), dict):
+            specs.append(datasets_cfg["probe_train"])
+        if isinstance(datasets_cfg.get("probe_valid"), dict):
+            specs.append(datasets_cfg["probe_valid"])
+        probe_tests = datasets_cfg.get("probe_tests", [])
+        if isinstance(probe_tests, list):
+            specs.extend([spec for spec in probe_tests if isinstance(spec, dict)])
     return specs
