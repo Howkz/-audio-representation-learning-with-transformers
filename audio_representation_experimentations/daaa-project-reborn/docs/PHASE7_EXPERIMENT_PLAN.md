@@ -75,13 +75,32 @@ un pipeline ASR plus conforme au sujet et plus defensable pour le rendu :
   - ablation simple `depth=4` contre `depth=6`
   - meme teacher, meme loss, meme dataset
 
+- `configs/phase7/hidden_states_forensics_librispeech.yaml`
+  - `P7F01`
+  - reprend `P7C01` sans changer la loss ni le teacher
+  - ajoute une couche forensic riche pour mesurer :
+    - exposition train reelle
+    - alignement teacher/student
+    - collapse token-level avant et apres CTC
+    - similarite hidden-state teacher/student
+
+- `configs/phase7/hidden_states_patch2_relaxed_librispeech.yaml`
+  - `P7R01`
+  - repart du constat forensic de `P7F01`
+  - garde la hidden-state KD et la loss inchangees
+  - corrige la resolution temporelle student avec `patch_time=2`
+  - desserre les filtres ASR (`12s`, `120 chars`, `25 mots`) pour sortir du regime
+    artificiellement etroit qui ne gardait que `127` exemples train
+
 ## Choix techniques
 
 - Student :
   - log-Mel 80 bandes
-  - embedding lineaire par trame (`patch_time=1`)
+  - embedding lineaire par trame (`patch_time=1` sur la baseline `P7C01/P7F01`)
   - encodeur Transformer avec `src_key_padding_mask`
   - tete CTC simple
+  - une variante `patch_time=2` est maintenant preparee pour `P7R01` afin de
+    rapprocher le student du teacher Wav2Vec2 autour de `50 Hz`
 
 - Distillation externe :
   - teacher utilise uniquement pendant l'entrainement
@@ -211,9 +230,25 @@ make train CONFIG=configs/phase7/hidden_states_depth4_librispeech.yaml
 make test CONFIG=configs/phase7/hidden_states_depth4_librispeech.yaml
 ```
 
+```bash
+make data CONFIG=configs/phase7/hidden_states_forensics_librispeech.yaml
+make train CONFIG=configs/phase7/hidden_states_forensics_librispeech.yaml
+make test CONFIG=configs/phase7/hidden_states_forensics_librispeech.yaml
+```
+
+```bash
+make data CONFIG=configs/phase7/hidden_states_patch2_relaxed_librispeech.yaml
+make train CONFIG=configs/phase7/hidden_states_patch2_relaxed_librispeech.yaml
+make test CONFIG=configs/phase7/hidden_states_patch2_relaxed_librispeech.yaml
+```
+
 ## Criteres de validation
 
 - `make data` doit refuser toute configuration ASR incoherente qui croppe l'audio tout en gardant la transcription complete ;
 - les artefacts de test doivent rapporter `WER`, `accuracy`, `blank_ratio`,
   `empty_pred_ratio`, `pred_to_ref_char_ratio`, temps, memoire GPU et nombre de parametres ;
 - `best` et `final` doivent etre compares systematiquement pour eviter les faux meilleurs checkpoints degeneres.
+- `P7F01` a etabli deux contraintes structurelles a corriger :
+  - le student baseline est a environ `100 Hz` contre `50 Hz` pour le teacher ;
+  - le train reel apres filtres est tombe a `127` exemples ;
+  `P7R01` est la reponse experimentale minimale a ces deux constats.
