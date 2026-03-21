@@ -94,7 +94,7 @@ Le resultat principal est double :
 Autrement dit, cette campagne valide surtout des \textbf{effets de mecanique} et des \textbf{modes d'echec}, plus qu'une bonne transcription finale. C'est un resultat academiquement defendable, a condition de l'assumer clairement.
 
 \paragraph{Important sur les statistiques}
-Le protocole nominal du projet est bien un protocole a \textbf{5 seeds}. L'infrastructure pair/triple de la campagne finale est implementee pour cela. Cependant, les artefacts consolides disponibles au moment de cette version du rapport correspondent aux seeds \texttt{456}, \texttt{789} et \texttt{1024}. Les tableaux quantitatifs de ce document rapportent donc la moyenne et l'ecart-type sur \textbf{3 seeds effectivement disponibles}, et non encore la consolidation complete a 5 seeds.
+Le protocole nominal du projet est bien un protocole a \textbf{5 seeds}. L'infrastructure pair/triple de la campagne finale a permis d'executer les shards \texttt{42/123} et \texttt{456/789/1024} sur deux VDI distinctes. Dans cette version du rapport, les artefacts du shard pair fournis dans \texttt{results/suite\_from\_team} ont ete fusionnes avec les artefacts locaux du shard triple. Les tableaux quantitatifs de ce document rapportent donc bien la moyenne et l'ecart-type sur \textbf{5 seeds}.
 
 \section{Exigences du sujet et positionnement du projet}
 Le sujet demande :
@@ -279,21 +279,21 @@ Ces choix ont ete faits pour privilegier la couverture experimentale et la fruga
 
 \section{Resultats}
 \subsection{Resultats ASR sur LibriSpeech}
-Le Tableau~\ref{tab:librispeech-results} rapporte les resultats du \textbf{meilleur checkpoint} disponible sur les trois seeds consolidees de la campagne fast.
+Le Tableau~\ref{tab:librispeech-results} rapporte les resultats du \textbf{meilleur checkpoint} sur les cinq seeds consolidees de la campagne fast.
 
 \begin{table}[H]
 \centering
-\caption{Resultats LibriSpeech, meilleur checkpoint, seeds 456/789/1024}
+\caption{Resultats LibriSpeech, meilleur checkpoint, seeds 42/123/456/789/1024}
 \label{tab:librispeech-results}
 \resizebox{\textwidth}{!}{
 \begin{tabular}{lccccccc}
 \toprule
 Modele & WER & Accuracy & Blank ratio & Empty ratio & Pred/ref & Runtime test (s) & GPU test (MB) \\
 \midrule
-R0\_LIBRI & $1.000 \pm 0.000$ & $0.090 \pm 0.070$ & $0.832 \pm 0.155$ & $0.299 \pm 0.423$ & $0.122 \pm 0.088$ & $2.963 \pm 0.053$ & $26.9$ \\
-R1\_LIBRI & $1.000 \pm 0.000$ & $0.087 \pm 0.064$ & $0.576 \pm 0.311$ & $0.264 \pm 0.374$ & $0.134 \pm 0.094$ & $2.786 \pm 0.019$ & $26.9$ \\
-R2\_LIBRI & $1.000 \pm 0.000$ & $0.074 \pm 0.055$ & $0.486 \pm 0.408$ & $0.293 \pm 0.415$ & $0.098 \pm 0.068$ & $2.953 \pm 0.067$ & $26.9$ \\
-R4\_LIBRI & $1.000 \pm 0.000$ & $0.042 \pm 0.057$ & $0.409 \pm 0.425$ & $0.534 \pm 0.411$ & $0.313 \pm 0.434$ & $2.919 \pm 0.027$ & $34.3$ \\
+R0\_LIBRI & $1.0000 \pm 0.0000$ & $0.0750 \pm 0.0645$ & $0.862 \pm 0.137$ & $0.324 \pm 0.401$ & $0.110 \pm 0.088$ & $2.977 \pm 0.051$ & $26.9$ \\
+R1\_LIBRI & $1.0000 \pm 0.0000$ & $0.0592 \pm 0.0612$ & $0.721 \pm 0.302$ & $0.362 \pm 0.441$ & $0.104 \pm 0.089$ & $2.741 \pm 0.060$ & $26.9$ \\
+R2\_LIBRI & $1.0000 \pm 0.0000$ & $0.0504 \pm 0.0525$ & $0.669 \pm 0.389$ & $0.379 \pm 0.459$ & $0.081 \pm 0.067$ & $2.842 \pm 0.146$ & $26.9$ \\
+R4\_LIBRI & $1.0019 \pm 0.0037$ & $0.0734 \pm 0.0665$ & $0.448 \pm 0.341$ & $0.321 \pm 0.412$ & $0.379 \pm 0.372$ & $2.853 \pm 0.083$ & $34.3$ \\
 \bottomrule
 \end{tabular}}
 \end{table}
@@ -301,9 +301,9 @@ R4\_LIBRI & $1.000 \pm 0.000$ & $0.042 \pm 0.057$ & $0.409 \pm 0.425$ & $0.534 \
 \paragraph{Lecture}
 Trois constats ressortent :
 \begin{enumerate}[leftmargin=1.2cm]
-\item le \textbf{WER reste a 1.0} dans toutes les variantes ;
-\item les variantes \texttt{R1}, \texttt{R2} et surtout \texttt{R4} reduisent partiellement le \texttt{blank\_ratio}, ce qui signifie une sortie partielle du collapse total ;
-\item cette sortie partielle du collapse n'est pas suffisante pour obtenir une transcription correcte.
+\item le \textbf{WER reste bloque autour de 1.0} dans toutes les variantes ;
+\item les variantes \texttt{R1}, \texttt{R2} et surtout \texttt{R4} reduisent le \texttt{blank\_ratio} par rapport a \texttt{R0}, ce qui indique une sortie partielle du collapse total ;
+\item seule \texttt{R4} augmente nettement la quantite moyenne de texte emis (\texttt{pred/ref}), mais cet effet ne se convertit pas en transcription correcte.
 \end{enumerate}
 
 Il faut insister sur le point suivant : \textbf{avoir moins de blank n'est pas synonyme de bon modele}. En CTC, un blank modere est normal ; en revanche, un blank dominant ou un \texttt{empty\_pred\_ratio} eleve signale un regime pathologique. Dans nos runs, la baisse du blank signifie simplement ``moins pire'', pas ``bon''.
@@ -311,17 +311,17 @@ Il faut insister sur le point suivant : \textbf{avoir moins de blank n'est pas s
 \subsection{Resultats ASR sur VoxPopuli}
 \begin{table}[H]
 \centering
-\caption{Resultats VoxPopuli, meilleur checkpoint, seeds 456/789/1024}
+\caption{Resultats VoxPopuli, meilleur checkpoint, seeds 42/123/456/789/1024}
 \label{tab:vox-results}
 \resizebox{\textwidth}{!}{
 \begin{tabular}{lccccccc}
 \toprule
 Modele & WER & Accuracy & Blank ratio & Empty ratio & Pred/ref & Runtime test (s) & GPU test (MB) \\
 \midrule
-R0\_VOX & $1.000 \pm 0.000$ & $0.0085 \pm 0.0074$ & $0.663 \pm 0.413$ & $0.905 \pm 0.103$ & $0.0048 \pm 0.0061$ & $1.146 \pm 0.067$ & $64.7$ \\
-R1\_VOX & $1.000 \pm 0.000$ & $0.0028 \pm 0.0000$ & $0.668 \pm 0.470$ & $1.000 \pm 0.000$ & $0.0000 \pm 0.0000$ & $1.186 \pm 0.062$ & $64.7$ \\
-R2\_VOX & $1.000 \pm 0.000$ & $0.0028 \pm 0.0000$ & $0.668 \pm 0.470$ & $1.000 \pm 0.000$ & $0.0000 \pm 0.0000$ & $1.251 \pm 0.061$ & $64.7$ \\
-R4\_VOX & $1.021 \pm 0.030$ & $0.0019 \pm 0.0013$ & $0.336 \pm 0.470$ & $0.968 \pm 0.045$ & $0.0048 \pm 0.0068$ & $1.144 \pm 0.092$ & $302.2$ \\
+R0\_VOX & $0.9989 \pm 0.0023$ & $0.0072 \pm 0.0060$ & $0.758 \pm 0.341$ & $0.886 \pm 0.088$ & $0.0042 \pm 0.0048$ & $1.136 \pm 0.071$ & $64.7$ \\
+R1\_VOX & $1.0000 \pm 0.0000$ & $0.0028 \pm 0.0000$ & $0.801 \pm 0.399$ & $1.000 \pm 0.000$ & $0.0000 \pm 0.0000$ & $1.150 \pm 0.071$ & $64.7$ \\
+R2\_VOX & $1.0000 \pm 0.0000$ & $0.0028 \pm 0.0000$ & $0.801 \pm 0.399$ & $1.000 \pm 0.000$ & $0.0000 \pm 0.0000$ & $1.186 \pm 0.099$ & $64.7$ \\
+R4\_VOX & $1.0138 \pm 0.0248$ & $0.0019 \pm 0.0012$ & $0.552 \pm 0.457$ & $0.971 \pm 0.038$ & $0.0033 \pm 0.0056$ & $1.142 \pm 0.096$ & $302.2$ \\
 \bottomrule
 \end{tabular}}
 \end{table}
@@ -330,7 +330,7 @@ R4\_VOX & $1.021 \pm 0.030$ & $0.0019 \pm 0.0013$ & $0.336 \pm 0.470$ & $0.968 \
 Sur VoxPopuli, le constat est plus net encore :
 \begin{itemize}[leftmargin=1.2cm]
 \item la baseline \texttt{R0\_VOX} est deja tres mauvaise ;
-\item les variantes \texttt{R1\_VOX} et \texttt{R2\_VOX} tombent dans des sorties vides compliquees par \texttt{empty\_pred\_ratio=1.0} ;
+\item les variantes \texttt{R1\_VOX} et \texttt{R2\_VOX} tombent completement dans des sorties vides (\texttt{empty\_pred\_ratio=1.0}) ;
 \item \texttt{R4\_VOX} reduit le blank moyen, mais au prix d'un surcout memoire massif et sans gain ASR utile.
 \end{itemize}
 
@@ -346,14 +346,14 @@ Autrement dit, \textbf{aucune variante fast ne reussit VoxPopuli}. Le benchmark 
 \toprule
 Modele & Dataset train effectif & Runtime pretrain (s) & Runtime fine-tune (s) & Pic GPU train (MB) & Steps opt. & Epochs effectifs \\
 \midrule
-R0\_LIBRI & 85 & -- & $18.31 \pm 0.26$ & $57.8$ & $21.0$ & $2.00$ \\
-R1\_LIBRI & 85 & $78.66 \pm 0.12$ & $20.57 \pm 3.45$ & $57.8$ & $24.7$ & $2.33$ \\
-R2\_LIBRI & 85 & $77.65 \pm 2.15$ & $18.24 \pm 0.45$ & $57.8$ & $21.0$ & $2.00$ \\
-R4\_LIBRI & 85 & $79.69 \pm 0.70$ & $18.62 \pm 0.17$ & $68.7$ & $21.0$ & $2.00$ \\
-R0\_VOX & 197 & -- & $27.69 \pm 3.33$ & $111.9$ & $58.3$ & $2.35$ \\
-R1\_VOX & 197 & $79.25 \pm 0.92$ & $22.65 \pm 0.27$ & $111.9$ & $49.0$ & $2.00$ \\
-R2\_VOX & 197 & $78.73 \pm 0.49$ & $22.93 \pm 0.64$ & $111.9$ & $49.0$ & $2.00$ \\
-R4\_VOX & 197 & $0.04 \pm 0.00$ & $7.67 \pm 0.19$ & $148.9$ & $13.0$ & $0.53$ \\
+R0\_LIBRI & 85 & -- & $18.59 \pm 0.40$ & $57.4$ & $21.0$ & $2.00$ \\
+R1\_LIBRI & 85 & $77.75 \pm 1.13$ & $19.34 \pm 3.07$ & $57.4$ & $23.2$ & $2.20$ \\
+R2\_LIBRI & 85 & $76.72 \pm 2.05$ & $17.95 \pm 0.51$ & $57.4$ & $21.0$ & $2.00$ \\
+R4\_LIBRI & 85 & $78.23 \pm 1.86$ & $18.13 \pm 0.62$ & $67.8$ & $21.0$ & $2.00$ \\
+R0\_VOX & 197 & -- & $27.87 \pm 2.59$ & $110.8$ & $60.2$ & $2.42$ \\
+R1\_VOX & 197 & $77.56 \pm 2.19$ & $22.27 \pm 0.52$ & $110.8$ & $49.0$ & $2.00$ \\
+R2\_VOX & 197 & $77.16 \pm 1.97$ & $22.44 \pm 0.78$ & $110.8$ & $49.0$ & $2.00$ \\
+R4\_VOX & 197 & $15.21 \pm 30.34$ & $13.66 \pm 7.38$ & $218.3$ & $27.4$ & $1.12$ \\
 \bottomrule
 \end{tabular}}
 \end{table}
@@ -376,12 +376,12 @@ L'ablation \texttt{R1 -> R4} montre que le \texttt{patch\_time} a un effet fort.
 \paragraph{Sur LibriSpeech}
 Passer de \texttt{patch\_time=4} a \texttt{patch\_time=2} :
 \begin{itemize}[leftmargin=1.2cm]
-\item reduit le \texttt{blank\_ratio} moyen de \texttt{0.576} a \texttt{0.409} ;
-\item augmente le \texttt{pred/ref\_char\_ratio} de \texttt{0.134} a \texttt{0.313} ;
+\item reduit le \texttt{blank\_ratio} moyen de \texttt{0.721} a \texttt{0.448} ;
+\item augmente le \texttt{pred/ref\_char\_ratio} de \texttt{0.104} a \texttt{0.379} ;
 \item augmente aussi la memoire d'evaluation de \texttt{26.9 MB} a \texttt{34.3 MB}.
 \end{itemize}
 
-L'effet est donc bien reel : la resolution temporelle change le comportement du modele. En revanche, la baisse de l'accuracy montre que cette sortie du blank collapse n'est pas suffisante pour produire de bonnes transcriptions.
+L'effet est donc bien reel : la resolution temporelle change le comportement du modele. L'accuracy moyenne remonte legerement, mais le WER reste bloque autour de \texttt{1.0} et la variance reste elevee. Cela ne suffit donc pas a conclure a une transcription correcte.
 
 \paragraph{Sur VoxPopuli}
 Le passage a \texttt{patch\_time=2} est encore plus couteux :
@@ -408,13 +408,13 @@ Nous n'avons pas retenu l'onde brute comme entree finale, car elle augmentait la
 La comparaison \texttt{R0 -> R1} permet de discuter le MAE.
 
 \paragraph{Sur LibriSpeech}
-Le MAE reduit le \texttt{blank\_ratio} moyen (\texttt{0.832 -> 0.576}) et augmente legerement la quantite de texte emis (\texttt{pred/ref 0.122 -> 0.134}), mais sans gain net de WER ni d'accuracy.
+Le MAE reduit le \texttt{blank\_ratio} moyen (\texttt{0.862 -> 0.721}), mais sans gain net de WER ; l'accuracy moyenne baisse legerement (\texttt{0.075 -> 0.059}) et la quantite moyenne de texte emis reste du meme ordre (\texttt{pred/ref 0.110 -> 0.104}).
 
 \paragraph{Sur VoxPopuli}
 Le MAE ne produit pas d'amelioration visible dans le regime fast. Les variantes \texttt{R1\_VOX} et \texttt{R2\_VOX} restent dans des sorties vides.
 
 \paragraph{Interpretation}
-Le MAE semble donc \textbf{modifier utilement la representation} sur LibriSpeech, mais le budget fast ne lui laisse pas assez de temps pour convertir cet effet en veritable performance ASR. Il faut donc eviter deux erreurs d'interpretation :
+Le MAE semble donc \textbf{modifier le regime de sortie} sur LibriSpeech, principalement en desserrant la domination du blank, mais le budget fast ne lui laisse pas assez de temps pour convertir cet effet en veritable performance ASR. Il faut donc eviter deux erreurs d'interpretation :
 \begin{itemize}[leftmargin=1.2cm]
 \item dire que le MAE ``marche'' serait exagere ;
 \item dire que le MAE ``ne sert a rien'' serait faux.
@@ -427,9 +427,9 @@ La comparaison \texttt{R1 -> R2} montre un effet faible et ambigu.
 
 Sur LibriSpeech :
 \begin{itemize}[leftmargin=1.2cm]
-\item \texttt{blank\_ratio} baisse encore (\texttt{0.576 -> 0.486}) ;
-\item mais \texttt{accuracy} baisse aussi (\texttt{0.087 -> 0.074}) ;
-\item la quantite de texte emis baisse (\texttt{pred/ref 0.134 -> 0.098}).
+\item \texttt{blank\_ratio} baisse encore (\texttt{0.721 -> 0.669}) ;
+\item mais \texttt{accuracy} baisse aussi (\texttt{0.059 -> 0.050}) ;
+\item la quantite de texte emis baisse (\texttt{pred/ref 0.104 -> 0.081}).
 \end{itemize}
 
 Sur VoxPopuli, les augmentations ne changent pratiquement rien dans les artefacts consolides.
@@ -491,12 +491,7 @@ Les metriques diagnostiques montrent des comportements differents :
 Cette lecture est conforme a l'esprit du sujet : il ne s'agit pas seulement d'afficher un score, mais de \textbf{justifier les choix techniques par des observations empiriques}.
 
 \subsection{Best checkpoint vs final checkpoint}
-Un motif recurrent apparait dans les artefacts : le \textbf{meilleur checkpoint} est souvent moins degenerate que le \textbf{checkpoint final}. Par exemple :
-\begin{itemize}[leftmargin=1.2cm]
-\item \texttt{R0\_LIBRI} passe de \texttt{accuracy=0.090} a \texttt{0.000} entre \texttt{best} et \texttt{final} ;
-\item \texttt{R1\_LIBRI} passe de \texttt{0.087} a \texttt{0.0019} ;
-\item \texttt{R2\_LIBRI} passe de \texttt{0.074} a \texttt{0.0128}.
-\end{itemize}
+Un motif recurrent apparait dans les artefacts : le \textbf{meilleur checkpoint} est souvent moins degenerate que le \textbf{checkpoint final}. Les comparaisons \texttt{best/final} disponibles localement montrent typiquement une degradation du signal utile en fin d'entrainement, ce qui justifie le choix de \texttt{primary\_checkpoint=best} dans la suite fast.
 
 Cela renforce deux conclusions :
 \begin{itemize}[leftmargin=1.2cm]
@@ -507,7 +502,7 @@ Cela renforce deux conclusions :
 \section{Limites}
 Cette version du rapport doit expliciter ses limites :
 \begin{enumerate}[leftmargin=1.2cm]
-\item la consolidation complete a 5 seeds n'est pas encore integree dans les artefacts disponibles de la suite fast ;
+\item les tableaux principaux ASR et frugalite sont maintenant consolides a 5 seeds, mais certains artefacts secondaires (comparaison \texttt{best/final}, diagnostics fins) restent moins homogenes que les tableaux principaux ;
 \item l'ablation de type d'entree n'est pas completement finalisee au niveau des resultats ;
 \item les sous-ensembles apres filtrage sont extremement petits, surtout sur LibriSpeech ;
 \item \texttt{R4\_VOX} doit etre lu avec prudence, car cette variante a necessite une correction en cours de campagne sur \texttt{max\_len} et sur la specification du test set.
@@ -541,6 +536,62 @@ Scientifiquement, le resultat important n'est donc pas ``nous avons un bon ASR''
 Cette lecture est, selon nous, la maniere la plus honnete et la plus pedagogique de rendre compte du projet.
 
 \appendix
+\section{Retours synth\'etiques sur les campagnes ant\'erieures}
+Cette annexe ne reprend que les r\'esultats anciens qui \'eclairent directement les choix de la campagne finale. L'objectif n'est pas d'accumuler des exp\'eriences suppl\'ementaires, mais de montrer que le recentrage sur une suite fast compacte est le produit d'un tri raisonn\'e.
+
+\subsection{Ce que nous a appris le screening initial}
+Le premier screening large de la campagne (\texttt{E01} \`a \texttt{E08}) comparait plusieurs tailles de mod\`ele, variantes de patching, embeddings positionnels et ratios de masquage MAE. Le constat important est simple : \textbf{tous les candidats retenus dans le leaderboard de screening ont obtenu un WER de 1.0}. Les diff\'erences portaient surtout sur les co\^uts :
+\begin{itemize}[leftmargin=1.2cm]
+\item runtime d'inf\'erence compris entre \texttt{29.7 s} et \texttt{34.4 s} ;
+\item pic GPU compris entre \texttt{14.2 MB} et \texttt{50.9 MB}.
+\end{itemize}
+
+Ce screening n'a donc pas permis de d\'esigner un ``meilleur'' mod\`ele par performance ASR brute. En revanche, il a montr\'e tr\`es t\^ot que, dans notre budget machine, la premi\`ere fronti\`ere utile \'etait la \textbf{frugalit\'e}. Cette observation a motiv\'e le recentrage ult\'erieur sur un mod\`ele compact en log-Mel et sur des ablations cibl\'ees plut\^ot que sur une exploration plus large mais peu discriminante.
+
+\subsection{Ce qu'un budget plus long a effectivement apport\'e}
+L'exp\'erience \texttt{P6G01}, ex\'ecut\'ee avec un budget de fine-tuning plus long, est informative parce qu'elle am\'eliore partiellement le signal sans r\'esoudre le probl\`eme principal :
+\begin{itemize}[leftmargin=1.2cm]
+\item \texttt{WER = 1.0047 \pm 0.0000} ;
+\item \texttt{accuracy = 0.1478 \pm 0.0014} ;
+\item runtime d'inf\'erence \texttt{6.82 s} ;
+\item pic GPU \texttt{32.95 MB}.
+\end{itemize}
+
+Ce point est important pour le raisonnement du rapport : \textbf{augmenter le budget aide un peu}, mais ne suffit pas \`a sortir du r\'egime \texttt{WER \textasciitilde 1}. Le probl\`eme n'\'etait donc pas seulement ``pas assez d'\'epochs'', mais bien un probl\`eme plus structurel de dynamique d'apprentissage et de choix repr\'esentationnels.
+
+\subsection{Pourquoi la distillation n'a pas \'et\'e retenue dans le pipeline final}
+La phase 7 a \'et\'e utile, non pas parce qu'elle aurait fourni une meilleure colonne vert\'ebrale exp\'erimentale, mais parce qu'elle a montr\'e clairement que la distillation introduisait des r\'egimes d'\'echec suppl\'ementaires et un surco\^ut de complexit\'e. Le Tableau~\ref{tab:annexe-distill} r\'esume uniquement les cas utiles \`a cette d\'ecision.
+
+\begin{table}[H]
+\centering
+\caption{Exp\'eriences ant\'erieures utiles \`a la d\'ecision d'exclure la distillation}
+\label{tab:annexe-distill}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{lccccccc}
+\toprule
+Exp. & Variante & WER & Accuracy & Blank & Empty & Pred/ref & GPU (MB) \\
+\midrule
+\texttt{P7C01} & distillation hidden states & $1.0055 \pm 0.0055$ & $0.0713 \pm 0.0316$ & $0.0994 \pm 0.0993$ & $0.0000 \pm 0.0000$ & $0.1022 \pm 0.0116$ & $44.9$ \\
+\texttt{P7B01} & distillation logits & $1.0000 \pm 0.0000$ & $0.0317 \pm 0.0317$ & $0.0000 \pm 0.0000$ & $0.0000 \pm 0.0000$ & $1.5613 \pm 1.0879$ & $43.8$ \\
+\texttt{P7R01} & patch-2 + hidden states & $1.0000 \pm 0.0000$ & $0.0000 \pm 0.0000$ & $1.0000 \pm 0.0000$ & $1.0000 \pm 0.0000$ & $0.0000 \pm 0.0000$ & $553.1$ \\
+\texttt{P7R02} & patch-2 + warmup KD & $1.0000 \pm 0.0000$ & $0.0029 \pm 0.0019$ & $0.9983 \pm 0.0013$ & $0.8659 \pm 0.0778$ & $0.0036 \pm 0.0024$ & $553.1$ \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+Ces r\'esultats montrent trois choses utiles :
+\begin{enumerate}[leftmargin=1.2cm]
+\item la distillation ne produit pas de gain robuste de WER dans notre cadre ;
+\item elle ouvre au contraire deux modes d'\'echec oppos\'es :
+  \begin{itemize}
+  \item \textbf{sur-\'emission} avec \texttt{P7B01} (\texttt{blank=0}, \texttt{pred/ref \textasciitilde 1.56}) ;
+  \item \textbf{sous-\'emission / collapse total} avec \texttt{P7R01} et \texttt{P7R02} ;
+  \end{itemize}
+\item les variantes patch-2 distill\'ees ont un co\^ut m\'emoire tr\`es d\'efavorable, jusqu'\`a \texttt{553 MB} en \'evaluation.
+\end{enumerate}
+
+La conclusion pratique est nette : la distillation \'etait une piste int\'eressante pour comprendre nos modes d'\'echec, mais \textbf{pas une base suffisamment stable et frugale pour la campagne finale}. Cette annexe justifie donc le choix de la retirer du pipeline principal au profit d'une suite plus simple et plus lisible.
+
 \section{Reproductibilite}
 Les commandes minimales de reproduction sont :
 \begin{verbatim}
