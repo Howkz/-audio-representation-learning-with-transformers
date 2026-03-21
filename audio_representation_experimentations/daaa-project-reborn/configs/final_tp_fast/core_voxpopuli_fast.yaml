@@ -1,0 +1,159 @@
+experiment:
+  id: "TPFASTV"
+  name: "tpfast_core_voxpopuli"
+  output_dir: "outputs/final_tp_fast"
+  results_dir: "results/final_tp_fast/experiments/TPFASTV"
+  cache_dir: "data/cache"
+  processed_dir: "data/processed/final_tp_fast/TPFASTV"
+  checkpoint_every_steps: 200
+  keep_last_checkpoints: 2
+  cleanup_pretrain_checkpoints_after_finetune: false
+  seeds: [42, 123, 456, 789, 1024]
+
+pretrain:
+  mode: "mae"
+
+distillation:
+  enabled: false
+  temperature: 2.0
+  lambda_ctc: 1.0
+  lambda_kd: 0.10
+  warmup_steps: 800
+  warmup_start_factor: 0.0
+  informative_only: false
+  min_nonblank_prob: 0.0
+  require_nonblank_argmax: false
+
+teacher:
+  source: "external"
+  family: "wav2vec2_ctc"
+  model_name: "facebook/wav2vec2-base-960h"
+  target: "hidden_states"
+
+audio:
+  sample_rate: 16000
+  max_duration_sec: 6.0
+  length_policy: "none"
+  feature_type: "logmel"
+  feature_norm: "utterance"
+  n_mels: 80
+  win_length: 400
+  hop_length: 160
+
+model:
+  dim: 192
+  depth: 4
+  num_heads: 6
+  mlp_ratio: 3.0
+  dropout: 0.1
+  patch_strategy: "time"
+  patch_time: 4
+  patch_freq: 80
+  max_len: 1536
+  pos_embed: "sinusoidal"
+  mae_decoder_dim: 96
+  mae_decoder_depth: 1
+  mae_decoder_heads: 4
+  mae_mask_ratio: 0.6
+
+training:
+  amp: true
+  grad_clip_norm: 1.0
+  log_every_steps: 25
+  pretrain:
+    enabled: true
+    epochs: 2
+    batch_size: 8
+    grad_accum_steps: 2
+    learning_rate: 0.0002
+    weight_decay: 0.01
+    max_steps: 200
+  finetune:
+    epochs: 2
+    batch_size: 2
+    grad_accum_steps: 4
+    learning_rate: 0.0002
+    weight_decay: 0.01
+    max_steps: 250
+    warmup_steps: 50
+    warmup_start_factor: 0.1
+    min_lr_ratio: 0.1
+    early_stopping_patience: 1
+    early_stopping_min_epochs: 2
+    early_stopping_min_delta: 0.001
+
+checkpoint_selection:
+  empty_pred_penalty: 1.0
+  blank_ratio_penalty: 0.1
+  short_pred_penalty: 0.75
+  accuracy_bonus: 0.25
+
+evaluation:
+  primary_checkpoint: "best"
+  checkpoint_variants: ["best", "final"]
+
+probe:
+  enabled: false
+
+data:
+  num_workers: 2
+  precompute_feature_cache: false
+  streaming: true
+  strict_asr_consistency: true
+
+diagnostics:
+  enabled: true
+  forensics_enabled: false
+  train_probe_size: 64
+  train_probe_seed: 1337
+  max_saved_examples: 12
+  max_saved_frames: 64
+  topk_tokens: 5
+
+datasets:
+  pretrain:
+    name: "Codec-SUPERB/fluent_speech_commands_synth"
+    config: null
+    split: "original"
+    streaming: true
+    max_samples: 1000
+    transcript_key: null
+    max_duration_sec: 4.0
+    length_policy: "crop_or_pad"
+    feature_norm: "utterance"
+  asr_train:
+    name: "facebook/voxpopuli"
+    config: "en"
+    split: "train"
+    max_samples: 800
+    transcript_key: "raw_text"
+    max_duration_sec: 5.0
+    length_policy: "none"
+    feature_norm: "utterance"
+    max_transcript_chars: 80
+    max_transcript_words: 14
+    strict_asr_consistency: true
+  asr_valid:
+    name: "facebook/voxpopuli"
+    config: "en"
+    split: "validation"
+    max_samples: 100
+    transcript_key: "raw_text"
+    max_duration_sec: 5.0
+    length_policy: "none"
+    feature_norm: "utterance"
+    max_transcript_chars: 80
+    max_transcript_words: 14
+    strict_asr_consistency: true
+  asr_tests:
+    - name: "facebook/voxpopuli"
+      config: "en"
+      split: "validation"
+      max_samples: 100
+      transcript_key: "raw_text"
+      max_duration_sec: 5.0
+      length_policy: "none"
+      feature_norm: "utterance"
+      max_transcript_chars: 80
+      max_transcript_words: 14
+      strict_asr_consistency: true

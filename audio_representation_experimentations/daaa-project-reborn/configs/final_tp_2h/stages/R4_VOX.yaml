@@ -1,0 +1,36 @@
+suite:
+  name: tp2h_r4_vox
+  language: fr
+  report_output: results/suite/tp2h/R4_VOX/report.md
+  leaderboard_output: results/suite/tp2h/R4_VOX/leaderboard.csv
+  summary_output: results/suite/tp2h/R4_VOX/summary.csv
+  report:
+    title: TP 2h stage R4_VOX
+    subtitle: R4 VoxPopuli Patch-2 compacte 2h
+  notes:
+  - Suite compacte 2h orientee vdigpu.
+  - Un stage = une mecanique ou comparaison cle, executee sur 5 seeds via shard pair/triple.
+experiments:
+- id: R4_VOX
+  enabled: true
+  phase: final_tp_2h
+  base_config: configs/final_tp_2h/core_voxpopuli_2h.yaml
+  seeds:
+  - 42
+  - 123
+  - 456
+  - 789
+  - 1024
+  title: R4 VoxPopuli Patch-2 compacte 2h
+  benchmark: voxpopuli
+  task: asr
+  comparison_label: R4
+  input_type: logmel
+  pretraining: mae
+  augmentation: false
+  patch_time: 2
+  distillation: none
+  probe_enabled: false
+  overrides:
+    model:
+      patch_time: 2

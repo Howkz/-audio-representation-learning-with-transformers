@@ -1,0 +1,34 @@
+suite:
+  name: tp2h_r1_libri
+  language: fr
+  report_output: results/suite/tp2h/R1_LIBRI/report.md
+  leaderboard_output: results/suite/tp2h/R1_LIBRI/leaderboard.csv
+  summary_output: results/suite/tp2h/R1_LIBRI/summary.csv
+  report:
+    title: TP 2h stage R1_LIBRI
+    subtitle: R1 LibriSpeech MAE compacte 2h
+  notes:
+  - Suite compacte 2h orientee vdigpu.
+  - Un stage = une mecanique ou comparaison cle, executee sur 5 seeds via shard pair/triple.
+experiments:
+- id: R1_LIBRI
+  enabled: true
+  phase: final_tp_2h
+  base_config: configs/final_tp_2h/core_librispeech_2h.yaml
+  seeds:
+  - 42
+  - 123
+  - 456
+  - 789
+  - 1024
+  title: R1 LibriSpeech MAE compacte 2h
+  benchmark: librispeech
+  task: asr
+  comparison_label: R1
+  input_type: logmel
+  pretraining: mae
+  augmentation: false
+  patch_time: 4
+  distillation: none
+  probe_enabled: false
+  overrides: {}

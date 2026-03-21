@@ -1,0 +1,201 @@
+suite:
+  name: tp_5seeds_fast_triple
+  language: fr
+  report_output: results/suite/tpfast/tp_5seeds_fast_report.md
+  leaderboard_output: results/suite/tpfast/tp_5seeds_fast_leaderboard.csv
+  summary_output: results/suite/tpfast/tp_5seeds_fast_summary.csv
+  report:
+    title: Campagne TP 5 seeds ultra-compacte
+    subtitle: Suite unique rapide pour vdigpu
+    authors:
+    - CLAIR Mael
+    - SABINE Hugo
+    - CHANTELOUP William
+    program: Master 2 Algorithmiques et Syst?mes Intelligents
+    course: Projet DAAA
+  notes:
+  - Suite unique compacte con?ue pour rester exploitable sur vdigpu.
+  - 'Couvre les m?caniques obligatoires: MAE, augmentation, patch embedding, LibriSpeech,
+    VoxPopuli.'
+  - Le linear probe FSC et la distillation annexe sont exclus de cette suite rapide.
+experiments:
+- id: R0_LIBRI
+  enabled: true
+  phase: final_tp_fast
+  base_config: configs/final_tp_fast/core_librispeech_fast.yaml
+  seeds:
+  - 456
+  - 789
+  - 1024
+  title: R0 LibriSpeech CTC rapide
+  benchmark: librispeech
+  task: asr
+  comparison_label: R0
+  input_type: logmel
+  pretraining: none
+  augmentation: false
+  patch_time: 4
+  distillation: none
+  probe_enabled: false
+  overrides:
+    pretrain:
+      mode: none
+    training:
+      pretrain:
+        enabled: false
+- id: R1_LIBRI
+  enabled: true
+  phase: final_tp_fast
+  base_config: configs/final_tp_fast/core_librispeech_fast.yaml
+  seeds:
+  - 456
+  - 789
+  - 1024
+  title: R1 LibriSpeech MAE rapide
+  benchmark: librispeech
+  task: asr
+  comparison_label: R1
+  input_type: logmel
+  pretraining: mae
+  augmentation: false
+  patch_time: 4
+  distillation: none
+  probe_enabled: false
+  overrides: {}
+- id: R2_LIBRI
+  enabled: true
+  phase: final_tp_fast
+  base_config: configs/final_tp_fast/core_librispeech_fast.yaml
+  seeds:
+  - 456
+  - 789
+  - 1024
+  title: R2 LibriSpeech MAE+Aug rapide
+  benchmark: librispeech
+  task: asr
+  comparison_label: R2
+  input_type: logmel
+  pretraining: mae
+  augmentation: true
+  patch_time: 4
+  distillation: none
+  probe_enabled: false
+  overrides: &id001
+    datasets:
+      asr_train:
+        augmentations:
+          enabled: true
+          gain_prob: 0.5
+          gain_db_max: 6.0
+          noise_prob: 0.35
+          noise_snr_db_min: 20.0
+          noise_snr_db_max: 35.0
+          specaugment_prob: 0.35
+          num_time_masks: 2
+          max_time_mask_frames: 16
+          num_freq_masks: 1
+          max_freq_mask_bins: 8
+- id: R4_LIBRI
+  enabled: true
+  phase: final_tp_fast
+  base_config: configs/final_tp_fast/core_librispeech_fast.yaml
+  seeds:
+  - 456
+  - 789
+  - 1024
+  title: R4 LibriSpeech Patch-2 rapide
+  benchmark: librispeech
+  task: asr
+  comparison_label: R4
+  input_type: logmel
+  pretraining: mae
+  augmentation: false
+  patch_time: 2
+  distillation: none
+  probe_enabled: false
+  overrides:
+    model:
+      patch_time: 2
+- id: R0_VOX
+  enabled: true
+  phase: final_tp_fast
+  base_config: configs/final_tp_fast/core_voxpopuli_fast.yaml
+  seeds:
+  - 456
+  - 789
+  - 1024
+  title: R0 VoxPopuli CTC rapide
+  benchmark: voxpopuli
+  task: asr
+  comparison_label: R0
+  input_type: logmel
+  pretraining: none
+  augmentation: false
+  patch_time: 4
+  distillation: none
+  probe_enabled: false
+  overrides:
+    pretrain:
+      mode: none
+    training:
+      pretrain:
+        enabled: false
+- id: R1_VOX
+  enabled: true
+  phase: final_tp_fast
+  base_config: configs/final_tp_fast/core_voxpopuli_fast.yaml
+  seeds:
+  - 456
+  - 789
+  - 1024
+  title: R1 VoxPopuli MAE rapide
+  benchmark: voxpopuli
+  task: asr
+  comparison_label: R1
+  input_type: logmel
+  pretraining: mae
+  augmentation: false
+  patch_time: 4
+  distillation: none
+  probe_enabled: false
+  overrides: {}
+- id: R2_VOX
+  enabled: true
+  phase: final_tp_fast
+  base_config: configs/final_tp_fast/core_voxpopuli_fast.yaml
+  seeds:
+  - 456
+  - 789
+  - 1024
+  title: R2 VoxPopuli MAE+Aug rapide
+  benchmark: voxpopuli
+  task: asr
+  comparison_label: R2
+  input_type: logmel
+  pretraining: mae
+  augmentation: true
+  patch_time: 4
+  distillation: none
+  probe_enabled: false
+  overrides: *id001
+- id: R4_VOX
+  enabled: true
+  phase: final_tp_fast
+  base_config: configs/final_tp_fast/core_voxpopuli_fast.yaml
+  seeds:
+  - 456
+  - 789
+  - 1024
+  title: R4 VoxPopuli Patch-2 rapide
+  benchmark: voxpopuli
+  task: asr
+  comparison_label: R4
+  input_type: logmel
+  pretraining: mae
+  augmentation: false
+  patch_time: 2
+  distillation: none
+  probe_enabled: false
+  overrides:
+    model:
+      patch_time: 2
