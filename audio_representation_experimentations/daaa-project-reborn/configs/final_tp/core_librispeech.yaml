@@ -93,7 +93,7 @@ evaluation:
   checkpoint_variants: ["best", "final"]
 
 probe:
-  enabled: true
+  enabled: false
   encoder_source: "pretrain_if_available_else_finetune"
   freeze_encoder: true
   label_key: "intent_class"
@@ -132,8 +132,8 @@ datasets:
   pretrain:
     name: "Codec-SUPERB/fluent_speech_commands_synth"
     config: null
-    split: "train"
-    streaming: false
+    split: "original"
+    streaming: true
     max_samples: 4000
     transcript_key: null
     max_duration_sec: 4.0
