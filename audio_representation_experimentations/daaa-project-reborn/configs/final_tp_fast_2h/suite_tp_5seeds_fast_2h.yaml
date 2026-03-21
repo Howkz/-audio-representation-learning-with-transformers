@@ -1,0 +1,236 @@
+suite:
+  name: tp_5seeds_fast_2h
+  language: fr
+  report_output: results/suite/tpfast_2h/tp_5seeds_fast_2h_report.md
+  leaderboard_output: results/suite/tpfast_2h/tp_5seeds_fast_2h_leaderboard.csv
+  summary_output: results/suite/tpfast_2h/tp_5seeds_fast_2h_summary.csv
+  report:
+    title: Campagne TP 5 seeds compacte ~2h
+    subtitle: Suite unique budgettee pour vdigpu
+    authors:
+    - CLAIR Mael
+    - SABINE Hugo
+    - CHANTELOUP William
+    program: Master 2 Algorithmiques et Syst?mes Intelligents
+    course: Projet DAAA
+  notes:
+  - Suite unique budgettee pour viser environ 2h sur deux VDI.
+  - 'Couvre les mecaniques obligatoires: MAE, augmentation, patch embedding, LibriSpeech,
+    VoxPopuli.'
+  - Les budgets d'entrainement sont augmentes par rapport a la suite fast pour gagner un peu de signal.
+experiments:
+- id: R0_2H_LIBRI
+  enabled: true
+  phase: final_tp_fast_2h
+  base_config: configs/final_tp_fast_2h/core_librispeech_fast_2h.yaml
+  seeds:
+  - 42
+  - 123
+  - 456
+  - 789
+  - 1024
+  title: R0 LibriSpeech CTC budget 2h
+  benchmark: librispeech
+  task: asr
+  comparison_label: R0
+  input_type: logmel
+  pretraining: none
+  augmentation: false
+  patch_time: 4
+  distillation: none
+  probe_enabled: false
+  overrides:
+    pretrain:
+      mode: none
+    training:
+      pretrain:
+        enabled: false
+- id: R1_2H_LIBRI
+  enabled: true
+  phase: final_tp_fast_2h
+  base_config: configs/final_tp_fast_2h/core_librispeech_fast_2h.yaml
+  seeds:
+  - 42
+  - 123
+  - 456
+  - 789
+  - 1024
+  title: R1 LibriSpeech MAE budget 2h
+  benchmark: librispeech
+  task: asr
+  comparison_label: R1
+  input_type: logmel
+  pretraining: mae
+  augmentation: false
+  patch_time: 4
+  distillation: none
+  probe_enabled: false
+  overrides: {}
+- id: R2_2H_LIBRI
+  enabled: true
+  phase: final_tp_fast_2h
+  base_config: configs/final_tp_fast_2h/core_librispeech_fast_2h.yaml
+  seeds:
+  - 42
+  - 123
+  - 456
+  - 789
+  - 1024
+  title: R2 LibriSpeech MAE+Aug budget 2h
+  benchmark: librispeech
+  task: asr
+  comparison_label: R2
+  input_type: logmel
+  pretraining: mae
+  augmentation: true
+  patch_time: 4
+  distillation: none
+  probe_enabled: false
+  overrides: &id001
+    datasets:
+      asr_train:
+        augmentations:
+          enabled: true
+          gain_prob: 0.5
+          gain_db_max: 6.0
+          noise_prob: 0.35
+          noise_snr_db_min: 20.0
+          noise_snr_db_max: 35.0
+          specaugment_prob: 0.35
+          num_time_masks: 2
+          max_time_mask_frames: 16
+          num_freq_masks: 1
+          max_freq_mask_bins: 8
+- id: R4_2H_LIBRI
+  enabled: true
+  phase: final_tp_fast_2h
+  base_config: configs/final_tp_fast_2h/core_librispeech_fast_2h.yaml
+  seeds:
+  - 42
+  - 123
+  - 456
+  - 789
+  - 1024
+  title: R4 LibriSpeech Patch-2 budget 2h
+  benchmark: librispeech
+  task: asr
+  comparison_label: R4
+  input_type: logmel
+  pretraining: mae
+  augmentation: false
+  patch_time: 2
+  distillation: none
+  probe_enabled: false
+  overrides:
+    model:
+      patch_time: 2
+      max_len: 2048
+- id: R0_2H_VOX
+  enabled: true
+  phase: final_tp_fast_2h
+  base_config: configs/final_tp_fast_2h/core_voxpopuli_fast_2h.yaml
+  seeds:
+  - 42
+  - 123
+  - 456
+  - 789
+  - 1024
+  title: R0 VoxPopuli CTC budget 2h
+  benchmark: voxpopuli
+  task: asr
+  comparison_label: R0
+  input_type: logmel
+  pretraining: none
+  augmentation: false
+  patch_time: 4
+  distillation: none
+  probe_enabled: false
+  overrides:
+    pretrain:
+      mode: none
+    training:
+      pretrain:
+        enabled: false
+- id: R1_2H_VOX
+  enabled: true
+  phase: final_tp_fast_2h
+  base_config: configs/final_tp_fast_2h/core_voxpopuli_fast_2h.yaml
+  seeds:
+  - 42
+  - 123
+  - 456
+  - 789
+  - 1024
+  title: R1 VoxPopuli MAE budget 2h
+  benchmark: voxpopuli
+  task: asr
+  comparison_label: R1
+  input_type: logmel
+  pretraining: mae
+  augmentation: false
+  patch_time: 4
+  distillation: none
+  probe_enabled: false
+  overrides: {}
+- id: R2_2H_VOX
+  enabled: true
+  phase: final_tp_fast_2h
+  base_config: configs/final_tp_fast_2h/core_voxpopuli_fast_2h.yaml
+  seeds:
+  - 42
+  - 123
+  - 456
+  - 789
+  - 1024
+  title: R2 VoxPopuli MAE+Aug budget 2h
+  benchmark: voxpopuli
+  task: asr
+  comparison_label: R2
+  input_type: logmel
+  pretraining: mae
+  augmentation: true
+  patch_time: 4
+  distillation: none
+  probe_enabled: false
+  overrides: *id001
+- id: R4_2H_VOX
+  enabled: true
+  phase: final_tp_fast_2h
+  base_config: configs/final_tp_fast_2h/core_voxpopuli_fast_2h.yaml
+  seeds:
+  - 42
+  - 123
+  - 456
+  - 789
+  - 1024
+  title: R4 VoxPopuli Patch-2 budget 2h
+  benchmark: voxpopuli
+  task: asr
+  comparison_label: R4
+  input_type: logmel
+  pretraining: mae
+  augmentation: false
+  patch_time: 2
+  distillation: none
+  probe_enabled: false
+  overrides:
+    model:
+      patch_time: 2
+      max_len: 2048
+    datasets:
+      asr_train:
+        max_duration_sec: 4.0
+      asr_valid:
+        max_duration_sec: 4.0
+      asr_tests:
+      - name: "facebook/voxpopuli"
+        config: "en"
+        split: "validation"
+        max_samples: 100
+        transcript_key: "raw_text"
+        max_duration_sec: 4.0
+        length_policy: "none"
+        feature_norm: "utterance"
+        max_transcript_chars: 80
+        max_transcript_words: 14
+        strict_asr_consistency: true

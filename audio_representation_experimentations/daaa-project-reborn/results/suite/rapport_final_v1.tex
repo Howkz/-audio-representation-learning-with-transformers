@@ -1,0 +1,560 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{lmodern}
+\usepackage{geometry}
+\usepackage{setspace}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{enumitem}
+\usepackage{float}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\geometry{margin=2.3cm}
+\onehalfspacing
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.35em}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!40!black,
+  urlcolor=blue!40!black,
+  citecolor=blue!40!black
+}
+
+\title{Rapport final v1\\Apprentissage de representation audio avec un Transformer compact}
+\author{CLAIR Mael \and SABINE Hugo \and CHANTELOUP William}
+\date{21 mars 2026}
+
+\begin{document}
+
+\begin{titlepage}
+\centering
+{\Large Master 2 Algorithmiques et Systemes Intelligents\par}
+\vspace{0.3cm}
+{\large Projet DAAA\par}
+\vspace{1.2cm}
+{\LARGE\bfseries Rapport final v1\par}
+\vspace{0.35cm}
+{\Large\bfseries Apprentissage de representation audio avec un Transformer compact\par}
+\vspace{0.8cm}
+{\large
+Implementation d'un Transformer audio, pre-entrainement MAE, ablations de patch embedding et contraintes de frugalite sur \texttt{vdigpu}\par}
+\vfill
+\begin{tabular}{ll}
+\textbf{Etudiants} : & CLAIR Mael \\
+ & SABINE Hugo \\
+ & CHANTELOUP William \\
+\textbf{Version} : & v1 \\
+\textbf{Date} : & 21 mars 2026 \\
+\end{tabular}
+\vfill
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+\section{Resume executif}
+Le sujet evalue principalement cinq dimensions : l'implementation du Transformer audio, la strategie de patch embedding, le type d'entree, la strategie de pre-entrainement, et la frugalite en temps de calcul et en empreinte memoire. Notre projet a ete organise explicitement autour de ces cinq axes.
+
+Nous avons implemente un encodeur Transformer audio modulaire dans la structure \texttt{template-ml}, avec :
+\begin{itemize}[leftmargin=1.2cm]
+\item un \texttt{AudioPatchEmbedding} configurable en temps/frequence ;
+\item un encodeur Transformer avec embeddings positionnels sinusoidaux ou appris ;
+\item un mode de pre-entrainement \texttt{MAE} a decodeur leger ;
+\item un mode de fine-tuning \texttt{CTC} pour l'ASR ;
+\item des routines \texttt{make data}, \texttt{make train}, \texttt{make test} reproductibles ;
+\item des chargements de donnees exclusivement via Hugging Face \texttt{datasets} ;
+\item un protocole de frugalite adapte a \texttt{vdigpu} et a la contrainte de 6 Go de VRAM.
+\end{itemize}
+
+La campagne finale retenue dans cette version est une \textit{suite fast} concentree sur les mecanismes explicitement demandes par le sujet :
+\begin{itemize}[leftmargin=1.2cm]
+\item \textbf{R0} : baseline CTC sans pre-entrainement ;
+\item \textbf{R1} : pre-entrainement MAE puis CTC ;
+\item \textbf{R2} : MAE + augmentations de donnees ;
+\item \textbf{R4} : MAE + ablation de \texttt{patch\_time=2}.
+\end{itemize}
+
+Ces quatre variantes sont executees sur deux benchmarks ASR :
+\begin{itemize}[leftmargin=1.2cm]
+\item LibriSpeech (\texttt{train.clean.100} filtre) ;
+\item VoxPopuli anglais filtre.
+\end{itemize}
+
+Le resultat principal est double :
+\begin{itemize}[leftmargin=1.2cm]
+\item \textbf{sur le plan systeme}, le pipeline est operationnel, modulaire et frugal ;
+\item \textbf{sur le plan performance}, les runs fast restent dans un regime ASR degenerate, avec \texttt{WER \textasciitilde 1.0}.
+\end{itemize}
+
+Autrement dit, cette campagne valide surtout des \textbf{effets de mecanique} et des \textbf{modes d'echec}, plus qu'une bonne transcription finale. C'est un resultat academiquement defendable, a condition de l'assumer clairement.
+
+\paragraph{Important sur les statistiques}
+Le protocole nominal du projet est bien un protocole a \textbf{5 seeds}. L'infrastructure pair/triple de la campagne finale est implementee pour cela. Cependant, les artefacts consolides disponibles au moment de cette version du rapport correspondent aux seeds \texttt{456}, \texttt{789} et \texttt{1024}. Les tableaux quantitatifs de ce document rapportent donc la moyenne et l'ecart-type sur \textbf{3 seeds effectivement disponibles}, et non encore la consolidation complete a 5 seeds.
+
+\section{Exigences du sujet et positionnement du projet}
+Le sujet demande :
+\begin{itemize}[leftmargin=1.2cm]
+\item de respecter la structure du \texttt{template-ml} ;
+\item d'implementer un Transformer audio ;
+\item de justifier les choix de \textit{patch embedding}, d'entree et de pre-entrainement ;
+\item d'utiliser Hugging Face \texttt{datasets} pour les jeux de donnees ;
+\item de fournir des scripts \texttt{make data}, \texttt{make train}, \texttt{make test} ;
+\item d'assurer l'executabilite sur \texttt{vdigpu} ;
+\item de rapporter des resultats sur plusieurs modeles avec des metriques reconnues ;
+\item de presenter une petite etude d'ablation ;
+\item de discuter explicitement la frugalite.
+\end{itemize}
+
+Notre travail repond a cette logique de la facon suivante :
+\begin{itemize}[leftmargin=1.2cm]
+\item l'implementation est organisee dans \texttt{src/}, \texttt{scripts/}, \texttt{configs/}, \texttt{docs/} et \texttt{Makefile} ;
+\item toutes les donnees sont chargees via \texttt{load\_dataset(...)} ;
+\item le pipeline d'entrainement est separe en preparation, pre-entrainement, fine-tuning et test ;
+\item la campagne finale retient une ablation simple et lisible : \texttt{R0/R1/R2/R4} ;
+\item les resultats sont interpretes a la fois par les metriques ASR classiques et par des metriques de collapse utiles dans un regime CTC difficile.
+\end{itemize}
+
+Nous avons volontairement exclu de la campagne \textit{fast} deux axes non indispensables a la preuve minimale :
+\begin{itemize}[leftmargin=1.2cm]
+\item le \textit{linear probing}, cite par le sujet comme un exemple et non comme une obligation ;
+\item la distillation, qui etait une piste annexe exploree en phase 7 mais trop instable pour servir de colonne vertebrale a la remise finale.
+\end{itemize}
+
+\section{Implementation du Transformer audio}
+\subsection{Representation d'entree}
+Le pipeline convertit l'audio en representations temps-frequence a \textbf{16 kHz}, avec :
+\begin{itemize}[leftmargin=1.2cm]
+\item \texttt{feature\_type=logmel} ;
+\item \texttt{n\_mels=80} ;
+\item \texttt{win\_length=400} ;
+\item \texttt{hop\_length=160}.
+\end{itemize}
+
+Le \textbf{log-Mel} a ete retenu comme entree finale pour trois raisons :
+\begin{enumerate}[leftmargin=1.2cm]
+\item il compresse efficacement l'information spectrale ;
+\item il est plus frugal que l'onde brute ;
+\item il est plus stable dans un cadre CTC compact que des representations plus riches mais plus couteuses.
+\end{enumerate}
+
+Le code supporte egalement d'autres espaces d'entree, notamment le \texttt{spectrogram}, mais la campagne finale compacte n'a pas retenu cette ablation dans les artefacts actuellement consolides. Ce point constitue une limite assumeee de la version v1.
+
+\subsection{Strategie de patch embedding}
+Le composant central est un \texttt{AudioPatchEmbedding} configurable. Il :
+\begin{itemize}[leftmargin=1.2cm]
+\item decoupe le tenseur \texttt{[B, T, M]} en patches ;
+\item supporte un patching temporel simple, qui est celui retenu en pratique ;
+\item produit des tokens lineairement projetes avant l'encodeur Transformer ;
+\item calcule aussi les masques de padding associes aux longueurs reelles.
+\end{itemize}
+
+Le choix principal de cette campagne porte sur \texttt{patch\_time} :
+\begin{itemize}[leftmargin=1.2cm]
+\item \texttt{patch\_time=4} pour les variantes \texttt{R0/R1/R2} ;
+\item \texttt{patch\_time=2} pour l'ablation \texttt{R4}.
+\end{itemize}
+
+L'intuition est claire :
+\begin{itemize}[leftmargin=1.2cm]
+\item un patch temporel plus grand compresse davantage la sequence et reduit le cout ;
+\item un patch temporel plus petit preserve plus de resolution temporelle, mais augmente la longueur de sequence et donc le risque memoire.
+\end{itemize}
+
+Cette ablation est au coeur de l'evaluation du sujet, car elle relie directement choix architectural, comportement du modele et cout de calcul.
+
+\subsection{Encodeur Transformer}
+L'encodeur retenu dans la campagne finale fast est volontairement compact :
+\begin{itemize}[leftmargin=1.2cm]
+\item dimension cachee : \texttt{192} ;
+\item profondeur : \texttt{4} blocs ;
+\item nombre de tetes : \texttt{6} ;
+\item \texttt{mlp\_ratio=3.0} ;
+\item \texttt{dropout=0.1} ;
+\item embeddings positionnels \texttt{sinusoidal} ;
+\item \texttt{max\_len=1536} par defaut, monte a \texttt{2048} sur les variantes \texttt{R4}.
+\end{itemize}
+
+Ce choix n'a pas ete fait pour maximiser la performance brute. Il a ete fait pour maximiser la \textbf{faisabilite experimentale} sous contrainte \texttt{vdigpu}. Le modele reste suffisamment petit pour permettre plusieurs runs, plusieurs seeds et plusieurs benchmarks, tout en restant lisible sur le plan scientifique.
+
+\subsection{Pre-entrainement MAE}
+Le mode \texttt{MAE} utilise :
+\begin{itemize}[leftmargin=1.2cm]
+\item le meme encodeur que celui reutilise ensuite pour l'ASR ;
+\item un decodeur leger (\texttt{mae\_decoder\_dim=96}, profondeur 1, 4 tetes) ;
+\item un \texttt{mask\_ratio=0.6} ;
+\item une perte de reconstruction sur les patches masques.
+\end{itemize}
+
+Le decodeur de pre-entrainement n'est utilise que pour la phase MAE. Il est ensuite jete pour le fine-tuning CTC. Cette separation suit directement la logique du sujet.
+
+\subsection{Tete CTC et evaluation ASR}
+Pour l'ASR, l'encodeur est branche sur une tete CTC de prediction de caracteres. Les sorties sont evaluees avec :
+\begin{itemize}[leftmargin=1.2cm]
+\item le \textbf{WER} ;
+\item une \textbf{accuracy caractere} ;
+\item des metriques diagnostiques utiles dans les regimes degeneres :
+  \begin{itemize}
+  \item \texttt{blank\_ratio} ;
+  \item \texttt{empty\_pred\_ratio} ;
+  \item \texttt{pred\_to\_ref\_char\_ratio} ;
+  \item \texttt{adjacent\_repeat\_ratio} ;
+  \item \texttt{dominant\_char\_ratio}.
+  \end{itemize}
+\end{itemize}
+
+Cette instrumentation est importante. Dans nos runs fast, le WER seul est trop pauvre pour discriminer les modes d'echec.
+
+\section{Choix de donnees et protocole de preparation}
+\subsection{Jeux de donnees}
+Conformement au sujet, tous les jeux de donnees sont charges via Hugging Face :
+\begin{itemize}[leftmargin=1.2cm]
+\item \textbf{Fluent Speech Commands} synth (\texttt{Codec-SUPERB/fluent\_speech\_commands\_synth}) pour le pre-entrainement, split \texttt{original}, audio seulement ;
+\item \textbf{LibriSpeech ASR} (\texttt{openslr/librispeech\_asr}, config \texttt{clean}) comme premier benchmark ASR ;
+\item \textbf{VoxPopuli} (\texttt{facebook/voxpopuli}, config \texttt{en}) comme second benchmark ASR.
+\end{itemize}
+
+\subsection{Filtrage et frugalite}
+Pour respecter la contrainte de 6 Go de VRAM et rester executable sur \texttt{vdigpu}, nous avons applique des filtres de duree et de taille de transcript, ainsi que des sous-echantillonnages fixes :
+\begin{itemize}[leftmargin=1.2cm]
+\item FSC pretrain : \texttt{max\_samples=1000}, \texttt{max\_duration=4s} ;
+\item Libri train : \texttt{max\_samples=1200}, mais \textbf{85 exemples effectifs} apres filtrage ;
+\item Vox train : \texttt{max\_samples=800}, mais \textbf{197 exemples effectifs} apres filtrage.
+\end{itemize}
+
+Cette reduction severe est le coeur du compromis de la campagne fast : elle rend les runs possibles, mais elle limite fortement l'apprentissage effectif.
+
+\subsection{Execution reproductible}
+Le pipeline suit les conventions du sujet :
+\begin{itemize}[leftmargin=1.2cm]
+\item \texttt{make data} pour la preparation ;
+\item \texttt{make train} pour le pre-entrainement et le fine-tuning ;
+\item \texttt{make test} pour l'evaluation.
+\end{itemize}
+
+Les checkpoints sont sauves et les runs peuvent etre repris. Le cache Hugging Face est conserve, tandis que les checkpoints intermediaires inutiles peuvent etre nettoyes apres archivage des resultats.
+
+\section{Campagne experimentale retenue}
+\subsection{But de la campagne fast}
+Une campagne plus ambitieuse, avec davantage de steps et d'extensions, aurait ete plus proche d'une campagne de performance. Ce n'est pas ce que permettait le budget reel. Nous avons donc construit une campagne \textbf{fast} qui reste conforme a l'esprit du sujet :
+\begin{itemize}[leftmargin=1.2cm]
+\item plusieurs modeles ;
+\item deux benchmarks ASR ;
+\item une ablation simple ;
+\item une comparaison de pre-entrainement ;
+\item une comparaison d'augmentations ;
+\item une discussion de frugalite.
+\end{itemize}
+
+\subsection{Variantes comparees}
+\begin{table}[H]
+\centering
+\caption{Variantes de la campagne fast}
+\begin{tabular}{lllll}
+\toprule
+ID & Pre-entrainement & Augmentations & Patch time & Benchmark \\
+\midrule
+R0 & Non & Non & 4 & Libri / Vox \\
+R1 & MAE & Non & 4 & Libri / Vox \\
+R2 & MAE & Oui & 4 & Libri / Vox \\
+R4 & MAE & Non & 2 & Libri / Vox \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Hyperparametres fast}
+Les hyperparametres retenus sont volontairement compacts :
+\begin{itemize}[leftmargin=1.2cm]
+\item pre-entrainement : \texttt{epochs=2}, \texttt{batch\_size=8}, \texttt{grad\_accum=2}, \texttt{max\_steps=200} ;
+\item fine-tuning : \texttt{epochs=2}, \texttt{batch\_size=2}, \texttt{grad\_accum=4}, \texttt{max\_steps=250} ;
+\item \texttt{amp=true}, \texttt{streaming=true}, \texttt{num\_workers=2} ;
+\item \texttt{early\_stopping\_patience=1}.
+\end{itemize}
+
+Ces choix ont ete faits pour privilegier la couverture experimentale et la frugalite, pas la convergence maximale.
+
+\section{Resultats}
+\subsection{Resultats ASR sur LibriSpeech}
+Le Tableau~\ref{tab:librispeech-results} rapporte les resultats du \textbf{meilleur checkpoint} disponible sur les trois seeds consolidees de la campagne fast.
+
+\begin{table}[H]
+\centering
+\caption{Resultats LibriSpeech, meilleur checkpoint, seeds 456/789/1024}
+\label{tab:librispeech-results}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{lccccccc}
+\toprule
+Modele & WER & Accuracy & Blank ratio & Empty ratio & Pred/ref & Runtime test (s) & GPU test (MB) \\
+\midrule
+R0\_LIBRI & $1.000 \pm 0.000$ & $0.090 \pm 0.070$ & $0.832 \pm 0.155$ & $0.299 \pm 0.423$ & $0.122 \pm 0.088$ & $2.963 \pm 0.053$ & $26.9$ \\
+R1\_LIBRI & $1.000 \pm 0.000$ & $0.087 \pm 0.064$ & $0.576 \pm 0.311$ & $0.264 \pm 0.374$ & $0.134 \pm 0.094$ & $2.786 \pm 0.019$ & $26.9$ \\
+R2\_LIBRI & $1.000 \pm 0.000$ & $0.074 \pm 0.055$ & $0.486 \pm 0.408$ & $0.293 \pm 0.415$ & $0.098 \pm 0.068$ & $2.953 \pm 0.067$ & $26.9$ \\
+R4\_LIBRI & $1.000 \pm 0.000$ & $0.042 \pm 0.057$ & $0.409 \pm 0.425$ & $0.534 \pm 0.411$ & $0.313 \pm 0.434$ & $2.919 \pm 0.027$ & $34.3$ \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\paragraph{Lecture}
+Trois constats ressortent :
+\begin{enumerate}[leftmargin=1.2cm]
+\item le \textbf{WER reste a 1.0} dans toutes les variantes ;
+\item les variantes \texttt{R1}, \texttt{R2} et surtout \texttt{R4} reduisent partiellement le \texttt{blank\_ratio}, ce qui signifie une sortie partielle du collapse total ;
+\item cette sortie partielle du collapse n'est pas suffisante pour obtenir une transcription correcte.
+\end{enumerate}
+
+Il faut insister sur le point suivant : \textbf{avoir moins de blank n'est pas synonyme de bon modele}. En CTC, un blank modere est normal ; en revanche, un blank dominant ou un \texttt{empty\_pred\_ratio} eleve signale un regime pathologique. Dans nos runs, la baisse du blank signifie simplement ``moins pire'', pas ``bon''.
+
+\subsection{Resultats ASR sur VoxPopuli}
+\begin{table}[H]
+\centering
+\caption{Resultats VoxPopuli, meilleur checkpoint, seeds 456/789/1024}
+\label{tab:vox-results}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{lccccccc}
+\toprule
+Modele & WER & Accuracy & Blank ratio & Empty ratio & Pred/ref & Runtime test (s) & GPU test (MB) \\
+\midrule
+R0\_VOX & $1.000 \pm 0.000$ & $0.0085 \pm 0.0074$ & $0.663 \pm 0.413$ & $0.905 \pm 0.103$ & $0.0048 \pm 0.0061$ & $1.146 \pm 0.067$ & $64.7$ \\
+R1\_VOX & $1.000 \pm 0.000$ & $0.0028 \pm 0.0000$ & $0.668 \pm 0.470$ & $1.000 \pm 0.000$ & $0.0000 \pm 0.0000$ & $1.186 \pm 0.062$ & $64.7$ \\
+R2\_VOX & $1.000 \pm 0.000$ & $0.0028 \pm 0.0000$ & $0.668 \pm 0.470$ & $1.000 \pm 0.000$ & $0.0000 \pm 0.0000$ & $1.251 \pm 0.061$ & $64.7$ \\
+R4\_VOX & $1.021 \pm 0.030$ & $0.0019 \pm 0.0013$ & $0.336 \pm 0.470$ & $0.968 \pm 0.045$ & $0.0048 \pm 0.0068$ & $1.144 \pm 0.092$ & $302.2$ \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\paragraph{Lecture}
+Sur VoxPopuli, le constat est plus net encore :
+\begin{itemize}[leftmargin=1.2cm]
+\item la baseline \texttt{R0\_VOX} est deja tres mauvaise ;
+\item les variantes \texttt{R1\_VOX} et \texttt{R2\_VOX} tombent dans des sorties vides compliquees par \texttt{empty\_pred\_ratio=1.0} ;
+\item \texttt{R4\_VOX} reduit le blank moyen, mais au prix d'un surcout memoire massif et sans gain ASR utile.
+\end{itemize}
+
+Autrement dit, \textbf{aucune variante fast ne reussit VoxPopuli}. Le benchmark joue pleinement son role de test de robustesse plus difficile que LibriSpeech.
+
+\subsection{Resultats de frugalite}
+\begin{table}[H]
+\centering
+\caption{Cout d'entrainement et taille des sous-ensembles apres filtrage}
+\label{tab:frugality}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{lcccccc}
+\toprule
+Modele & Dataset train effectif & Runtime pretrain (s) & Runtime fine-tune (s) & Pic GPU train (MB) & Steps opt. & Epochs effectifs \\
+\midrule
+R0\_LIBRI & 85 & -- & $18.31 \pm 0.26$ & $57.8$ & $21.0$ & $2.00$ \\
+R1\_LIBRI & 85 & $78.66 \pm 0.12$ & $20.57 \pm 3.45$ & $57.8$ & $24.7$ & $2.33$ \\
+R2\_LIBRI & 85 & $77.65 \pm 2.15$ & $18.24 \pm 0.45$ & $57.8$ & $21.0$ & $2.00$ \\
+R4\_LIBRI & 85 & $79.69 \pm 0.70$ & $18.62 \pm 0.17$ & $68.7$ & $21.0$ & $2.00$ \\
+R0\_VOX & 197 & -- & $27.69 \pm 3.33$ & $111.9$ & $58.3$ & $2.35$ \\
+R1\_VOX & 197 & $79.25 \pm 0.92$ & $22.65 \pm 0.27$ & $111.9$ & $49.0$ & $2.00$ \\
+R2\_VOX & 197 & $78.73 \pm 0.49$ & $22.93 \pm 0.64$ & $111.9$ & $49.0$ & $2.00$ \\
+R4\_VOX & 197 & $0.04 \pm 0.00$ & $7.67 \pm 0.19$ & $148.9$ & $13.0$ & $0.53$ \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\paragraph{Lecture}
+La campagne est clairement \textbf{frugale}. Les temps d'entrainement sont faibles et les tailles de modele restent autour de \texttt{1.52M--1.55M} parametres. En contrepartie :
+\begin{itemize}[leftmargin=1.2cm]
+\item LibriSpeech ne contient plus que 85 exemples effectifs apres filtrage ;
+\item VoxPopuli ne contient plus que 197 exemples effectifs ;
+\item la plupart des runs s'arretent tres tot ;
+\item le meilleur checkpoint est souvent atteint des le debut.
+\end{itemize}
+
+Le resultat est donc coherent : \textbf{pipeline tres executable, mais modele tres sous-entraine}.
+
+\section{Interpretation par critere du sujet}
+\subsection{Strategie de patch embedding}
+L'ablation \texttt{R1 -> R4} montre que le \texttt{patch\_time} a un effet fort.
+
+\paragraph{Sur LibriSpeech}
+Passer de \texttt{patch\_time=4} a \texttt{patch\_time=2} :
+\begin{itemize}[leftmargin=1.2cm]
+\item reduit le \texttt{blank\_ratio} moyen de \texttt{0.576} a \texttt{0.409} ;
+\item augmente le \texttt{pred/ref\_char\_ratio} de \texttt{0.134} a \texttt{0.313} ;
+\item augmente aussi la memoire d'evaluation de \texttt{26.9 MB} a \texttt{34.3 MB}.
+\end{itemize}
+
+L'effet est donc bien reel : la resolution temporelle change le comportement du modele. En revanche, la baisse de l'accuracy montre que cette sortie du blank collapse n'est pas suffisante pour produire de bonnes transcriptions.
+
+\paragraph{Sur VoxPopuli}
+Le passage a \texttt{patch\_time=2} est encore plus couteux :
+\begin{itemize}[leftmargin=1.2cm]
+\item \texttt{GPU test} passe de \texttt{64.7 MB} a \texttt{302.2 MB} ;
+\item le modele ne transcrit toujours pas correctement ;
+\item le run \texttt{R4\_VOX} est le plus instable de la campagne.
+\end{itemize}
+
+Conclusion defendable : \textbf{le patch embedding est une vraie decision architecturale}, pas un detail mineur. Dans notre cadre, \texttt{patch\_time=2} change bien la dynamique, mais il n'apporte pas un gain final suffisant pour compenser son cout.
+
+\subsection{Type d'entree}
+Le type d'entree retenu dans la campagne finale est le \textbf{log-Mel}. Ce choix est defendu par :
+\begin{itemize}[leftmargin=1.2cm]
+\item sa compacite ;
+\item sa stabilite ;
+\item sa compatibilite avec le pre-entrainement MAE ;
+\item son rapport signal/cout favorable sous forte contrainte memoire.
+\end{itemize}
+
+Nous n'avons pas retenu l'onde brute comme entree finale, car elle augmentait la complexite du pipeline sans garantie de gain dans ce budget. Le support \texttt{spectrogram} existe dans le code, mais l'ablation complete \texttt{spectrogram vs log-Mel} n'est pas finalisee dans cette version v1. Il s'agit donc d'un axe \textbf{partiellement couvert} : choix technique motive et implementation presente, mais comparaison finale encore inachevee.
+
+\subsection{Strategie de pre-entrainement}
+La comparaison \texttt{R0 -> R1} permet de discuter le MAE.
+
+\paragraph{Sur LibriSpeech}
+Le MAE reduit le \texttt{blank\_ratio} moyen (\texttt{0.832 -> 0.576}) et augmente legerement la quantite de texte emis (\texttt{pred/ref 0.122 -> 0.134}), mais sans gain net de WER ni d'accuracy.
+
+\paragraph{Sur VoxPopuli}
+Le MAE ne produit pas d'amelioration visible dans le regime fast. Les variantes \texttt{R1\_VOX} et \texttt{R2\_VOX} restent dans des sorties vides.
+
+\paragraph{Interpretation}
+Le MAE semble donc \textbf{modifier utilement la representation} sur LibriSpeech, mais le budget fast ne lui laisse pas assez de temps pour convertir cet effet en veritable performance ASR. Il faut donc eviter deux erreurs d'interpretation :
+\begin{itemize}[leftmargin=1.2cm]
+\item dire que le MAE ``marche'' serait exagere ;
+\item dire que le MAE ``ne sert a rien'' serait faux.
+\end{itemize}
+
+La bonne lecture est : \textbf{le MAE change le regime du modele, sans suffire ici a valider une bonne transcription}.
+
+\subsection{Augmentations de donnees}
+La comparaison \texttt{R1 -> R2} montre un effet faible et ambigu.
+
+Sur LibriSpeech :
+\begin{itemize}[leftmargin=1.2cm]
+\item \texttt{blank\_ratio} baisse encore (\texttt{0.576 -> 0.486}) ;
+\item mais \texttt{accuracy} baisse aussi (\texttt{0.087 -> 0.074}) ;
+\item la quantite de texte emis baisse (\texttt{pred/ref 0.134 -> 0.098}).
+\end{itemize}
+
+Sur VoxPopuli, les augmentations ne changent pratiquement rien dans les artefacts consolides.
+
+Conclusion defendable : \textbf{les augmentations legeres desserrent un peu certains symptomes, mais elles ne produisent pas d'amelioration robuste dans ce budget}. Leur effet est inferieur a celui du choix de patch embedding.
+
+\subsection{Optimisations de temps de calcul et d'empreinte memoire}
+Sur ce critere, le projet est solide. Nous avons mis en place :
+\begin{itemize}[leftmargin=1.2cm]
+\item \texttt{amp=true} ;
+\item \texttt{grad\_accum\_steps} pour conserver un batch effectif sans OOM ;
+\item du streaming Hugging Face pour les gros jeux de donnees ;
+\item des filtres de duree et de longueur de transcript ;
+\item un modele compact (\texttt{dim=192}, \texttt{depth=4}) ;
+\item des checkpoints et une reprise d'entrainement ;
+\item des suites pair/triple pour paralleliser sur plusieurs VDI.
+\end{itemize}
+
+Le cout de cette frugalite est lisible dans les chiffres : les sous-ensembles deviennent si petits que le modele n'a pas assez d'exposition pour apprendre proprement l'ASR. Sur le plan scientifique, cela signifie que la campagne fast doit etre lue comme une \textbf{campagne de comparaison mecanique}, pas comme une campagne de performance finale.
+
+\subsection{Autres decisions architecturales}
+Deux choix complementaires sont importants :
+\begin{enumerate}[leftmargin=1.2cm]
+\item \textbf{embeddings positionnels sinusoidaux} : choix stable, simple et peu couteux ;
+\item \textbf{decodeur MAE leger} : choix frugal qui permet de tester le pre-entrainement sans transformer le cout du projet.
+\end{enumerate}
+
+Nous avons egalement choisi d'exclure la distillation de la campagne finale compacte. Ce n'est pas une absence de travail, mais un recentrage. Une phase exploratoire anterieure a montre que la distillation hidden-state etait plus difficile a stabiliser que les mecanismes explicitement demandes par le sujet. Pour le rendu principal, nous avons donc privilegie un coeur experimental plus defensible : \texttt{MAE + CTC + augmentations + patch embedding}.
+
+\section{Discussion critique}
+\subsection{Ce que la campagne fast permet reellement de conclure}
+Les resultats fast permettent de soutenir serieusement que :
+\begin{itemize}[leftmargin=1.2cm]
+\item le pipeline complet fonctionne ;
+\item les choix techniques ont des effets empiriques mesurables ;
+\item le patch embedding est un levier majeur ;
+\item le MAE modifie la dynamique du modele ;
+\item la frugalite sous \texttt{vdigpu} impose des compromis severes.
+\end{itemize}
+
+En revanche, ils ne permettent pas de soutenir que :
+\begin{itemize}[leftmargin=1.2cm]
+\item une bonne performance ASR a ete obtenue ;
+\item le MAE apporte deja un gain net de transcription ;
+\item \texttt{patch\_time=2} est globalement meilleur ;
+\item VoxPopuli est bien resolu.
+\end{itemize}
+
+\subsection{Pourquoi le WER seul ne suffit pas ici}
+Dans cette campagne, le \textbf{WER est presque toujours egal a 1.0}. Si l'on s'arretait la, on conclurait que toutes les variantes sont equivalentes. Ce serait faux.
+
+Les metriques diagnostiques montrent des comportements differents :
+\begin{itemize}[leftmargin=1.2cm]
+\item certains runs emettent encore quelques caracteres ;
+\item d'autres tombent dans des sorties vides ;
+\item d'autres encore reduisent le blank moyen mais restent trop courts.
+\end{itemize}
+
+Cette lecture est conforme a l'esprit du sujet : il ne s'agit pas seulement d'afficher un score, mais de \textbf{justifier les choix techniques par des observations empiriques}.
+
+\subsection{Best checkpoint vs final checkpoint}
+Un motif recurrent apparait dans les artefacts : le \textbf{meilleur checkpoint} est souvent moins degenerate que le \textbf{checkpoint final}. Par exemple :
+\begin{itemize}[leftmargin=1.2cm]
+\item \texttt{R0\_LIBRI} passe de \texttt{accuracy=0.090} a \texttt{0.000} entre \texttt{best} et \texttt{final} ;
+\item \texttt{R1\_LIBRI} passe de \texttt{0.087} a \texttt{0.0019} ;
+\item \texttt{R2\_LIBRI} passe de \texttt{0.074} a \texttt{0.0128}.
+\end{itemize}
+
+Cela renforce deux conclusions :
+\begin{itemize}[leftmargin=1.2cm]
+\item l'early stopping est necessaire dans ce regime ;
+\item le budget fast est surtout utile pour observer un signal precoce, pas pour converger proprement.
+\end{itemize}
+
+\section{Limites}
+Cette version du rapport doit expliciter ses limites :
+\begin{enumerate}[leftmargin=1.2cm]
+\item la consolidation complete a 5 seeds n'est pas encore integree dans les artefacts disponibles de la suite fast ;
+\item l'ablation de type d'entree n'est pas completement finalisee au niveau des resultats ;
+\item les sous-ensembles apres filtrage sont extremement petits, surtout sur LibriSpeech ;
+\item \texttt{R4\_VOX} doit etre lu avec prudence, car cette variante a necessite une correction en cours de campagne sur \texttt{max\_len} et sur la specification du test set.
+\end{enumerate}
+
+Ces limites ne rendent pas le projet invalide. Elles fixent simplement le niveau exact des conclusions qu'il est raisonnable de tirer.
+
+\section{Conclusion}
+Notre projet repond a l'essentiel des attentes du sujet :
+\begin{itemize}[leftmargin=1.2cm]
+\item nous avons implemente un Transformer audio modulaire dans le cadre du \texttt{template-ml} ;
+\item nous avons justifie notre strategie de patch embedding ;
+\item nous avons retenu un type d'entree motive ;
+\item nous avons implemente un pre-entrainement MAE et des augmentations ;
+\item nous avons discute explicitement la frugalite et ses consequences ;
+\item nous avons presente plusieurs modeles et une ablation lisible.
+\end{itemize}
+
+Le principal enseignement de la campagne fast est le suivant :
+\begin{quote}
+Sous forte contrainte \texttt{vdigpu}, il est possible de construire un pipeline audio Transformer propre, reproductible et informatif, mais pas encore d'obtenir un ASR convaincant avec un budget aussi compact.
+\end{quote}
+
+Scientifiquement, le resultat important n'est donc pas ``nous avons un bon ASR'', mais plutot :
+\begin{itemize}[leftmargin=1.2cm]
+\item quels choix techniques changent vraiment le comportement du modele ;
+\item quels compromis cout/performance ils induisent ;
+\item et pourquoi certains modes d'echec persistent malgre des choix raisonnables.
+\end{itemize}
+
+Cette lecture est, selon nous, la maniere la plus honnete et la plus pedagogique de rendre compte du projet.
+
+\appendix
+\section{Reproductibilite}
+Les commandes minimales de reproduction sont :
+\begin{verbatim}
+make data CONFIG=configs/final_tp_fast/core_librispeech_fast.yaml
+make train CONFIG=configs/final_tp_fast/core_librispeech_fast.yaml
+make test CONFIG=configs/final_tp_fast/core_librispeech_fast.yaml
+\end{verbatim}
+
+La campagne finale compacte peut etre lancee avec :
+\begin{verbatim}
+make suite-tp-fast-pair
+make suite-tp-fast-triple
+\end{verbatim}
+
+Les jeux de donnees sont charges exclusivement via Hugging Face \texttt{datasets}. Les checkpoints et les donnees preparees ne doivent pas etre inclus dans l'archive de rendu finale.
+
+\end{document}

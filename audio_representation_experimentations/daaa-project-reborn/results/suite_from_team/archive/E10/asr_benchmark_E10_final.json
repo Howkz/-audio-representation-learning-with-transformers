@@ -1,0 +1,64 @@
+{
+  "model_name": "audio_transformer_time_budget_E10",
+  "architecture": "Audio Transformer Encoder + CTC",
+  "adaptation_technique": "CTC fine-tune only (no MAE)",
+  "runs": {
+    "42": {
+      "seed": 42.0,
+      "wer": 1.0,
+      "inference_runtime_sec": 296.8787364959717,
+      "inference_samples_per_sec": 8.825152083721397,
+      "inference_peak_gpu_mem_mb": 24.646484375
+    },
+    "123": {
+      "seed": 123.0,
+      "wer": 1.0,
+      "inference_runtime_sec": 298.7214584350586,
+      "inference_samples_per_sec": 8.770712401196924,
+      "inference_peak_gpu_mem_mb": 24.646484375
+    },
+    "456": {
+      "seed": 456.0,
+      "wer": 1.0,
+      "inference_runtime_sec": 300.8152244091034,
+      "inference_samples_per_sec": 8.709665560134171,
+      "inference_peak_gpu_mem_mb": 24.646484375
+    },
+    "789": {
+      "seed": 789.0,
+      "wer": 0.9999809799147901,
+      "inference_runtime_sec": 298.8011326789856,
+      "inference_samples_per_sec": 8.768373722380678,
+      "inference_peak_gpu_mem_mb": 24.646484375
+    },
+    "1024": {
+      "seed": 1024.0,
+      "wer": 0.9999809799147901,
+      "inference_runtime_sec": 310.7006115913391,
+      "inference_samples_per_sec": 8.432555013589917,
+      "inference_peak_gpu_mem_mb": 24.646484375
+    }
+  },
+  "metrics": {
+    "seed": {
+      "mean": 486.8,
+      "std": 377.1086845990159
+    },
+    "wer": {
+      "mean": 0.999992391965916,
+      "std": 9.317900725717568e-06
+    },
+    "inference_runtime_sec": {
+      "mean": 301.18343272209165,
+      "std": 4.918929791643109
+    },
+    "inference_samples_per_sec": {
+      "mean": 8.701291756204618,
+      "std": 0.1392480910412549
+    },
+    "inference_peak_gpu_mem_mb": {
+      "mean": 24.646484375,
+      "std": 0.0
+    }
+  }
+}

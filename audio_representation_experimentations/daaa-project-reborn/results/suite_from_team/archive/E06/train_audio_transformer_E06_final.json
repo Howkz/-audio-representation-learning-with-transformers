@@ -1,0 +1,96 @@
+{
+  "model_name": "audio_transformer_time_budget_E06",
+  "architecture": "Audio Transformer Encoder + CTC",
+  "adaptation_technique": "MAE pretrain -> CTC fine-tune",
+  "runs": {
+    "42": {
+      "pretrain_loss": 50.30181187220982,
+      "pretrain_runtime_sec": 60.92315411567688,
+      "pretrain_peak_gpu_mem_mb": 140.7197265625,
+      "pretrain_total_params": 1638224.0,
+      "pretrain_trainable_params": 1638224.0,
+      "train_loss": 0.8307008844614029,
+      "train_runtime_sec": 111.20501494407654,
+      "train_peak_gpu_mem_mb": 83.65576171875,
+      "eval_peak_gpu_mem_mb": 44.54833984375,
+      "valid_peak_gpu_mem_mb": 44.54833984375,
+      "valid_wer": 1.0,
+      "valid_runtime_sec": 32.992196798324585,
+      "valid_samples_per_sec": 9.093059241669977,
+      "best_valid_wer": 1.0,
+      "finetune_total_params": 1505501.0,
+      "finetune_trainable_params": 1505501.0,
+      "seed": 42.0
+    }
+  },
+  "metrics": {
+    "pretrain_loss": {
+      "mean": 50.30181187220982,
+      "std": 0.0
+    },
+    "pretrain_runtime_sec": {
+      "mean": 60.92315411567688,
+      "std": 0.0
+    },
+    "pretrain_peak_gpu_mem_mb": {
+      "mean": 140.7197265625,
+      "std": 0.0
+    },
+    "pretrain_total_params": {
+      "mean": 1638224.0,
+      "std": 0.0
+    },
+    "pretrain_trainable_params": {
+      "mean": 1638224.0,
+      "std": 0.0
+    },
+    "train_loss": {
+      "mean": 0.8307008844614029,
+      "std": 0.0
+    },
+    "train_runtime_sec": {
+      "mean": 111.20501494407654,
+      "std": 0.0
+    },
+    "train_peak_gpu_mem_mb": {
+      "mean": 83.65576171875,
+      "std": 0.0
+    },
+    "eval_peak_gpu_mem_mb": {
+      "mean": 44.54833984375,
+      "std": 0.0
+    },
+    "valid_peak_gpu_mem_mb": {
+      "mean": 44.54833984375,
+      "std": 0.0
+    },
+    "valid_wer": {
+      "mean": 1.0,
+      "std": 0.0
+    },
+    "valid_runtime_sec": {
+      "mean": 32.992196798324585,
+      "std": 0.0
+    },
+    "valid_samples_per_sec": {
+      "mean": 9.093059241669977,
+      "std": 0.0
+    },
+    "best_valid_wer": {
+      "mean": 1.0,
+      "std": 0.0
+    },
+    "finetune_total_params": {
+      "mean": 1505501.0,
+      "std": 0.0
+    },
+    "finetune_trainable_params": {
+      "mean": 1505501.0,
+      "std": 0.0
+    },
+    "seed": {
+      "mean": 42.0,
+      "std": 0.0
+    }
+  }
+}

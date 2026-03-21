@@ -2,9 +2,10 @@ PYTHON ?= python3
 CONFIG ?= configs/baseline.yaml
 SUITE_CONFIG ?= configs/final_tp/suite_tp_5seeds.yaml
 SUITE_FAST_CONFIG ?= configs/final_tp_fast/suite_tp_5seeds_fast.yaml
+SUITE_FAST_2H_CONFIG ?= configs/final_tp_fast_2h/suite_tp_5seeds_fast_2h.yaml
 STAGE ?= R1_LIBRI
 
-.PHONY: data train test package lint suite suite-tp suite-tp-pair suite-tp-triple suite-tp-fast suite-tp-fast-pair suite-tp-fast-triple suite-tp-2h-pair suite-tp-2h-triple merge-tp-shards compliance report-tp
+.PHONY: data train test package lint suite suite-tp suite-tp-pair suite-tp-triple suite-tp-fast suite-tp-fast-pair suite-tp-fast-triple suite-tp-fast-2h suite-tp-fast-2h-pair suite-tp-fast-2h-triple suite-tp-2h-pair suite-tp-2h-triple merge-tp-shards compliance report-tp
 
 data:
 	PYTHONPATH=. $(PYTHON) scripts/run_data.py --config $(CONFIG)
@@ -35,6 +36,15 @@ suite-tp-fast-pair:
 
 suite-tp-fast-triple:
 	PYTHONPATH=. $(PYTHON) scripts/run_tp5_triple.py --suite-config $(SUITE_FAST_CONFIG) --verbose
+
+suite-tp-fast-2h:
+	PYTHONPATH=. $(PYTHON) scripts/run_experiment_suite.py --suite-config $(SUITE_FAST_2H_CONFIG) --verbose
+
+suite-tp-fast-2h-pair:
+	PYTHONPATH=. $(PYTHON) scripts/run_tp5_pair_2h.py --verbose
+
+suite-tp-fast-2h-triple:
+	PYTHONPATH=. $(PYTHON) scripts/run_tp5_triple_2h.py --verbose
 
 suite-tp-2h-pair:
 	PYTHONPATH=. $(PYTHON) scripts/run_tp2h_pair.py --stage $(STAGE) --verbose

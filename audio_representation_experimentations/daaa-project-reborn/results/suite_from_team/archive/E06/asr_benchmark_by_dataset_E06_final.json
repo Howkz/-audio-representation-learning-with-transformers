@@ -1,0 +1,34 @@
+{
+  "metrics": {
+    "openslr/librispeech_asr:test.clean": {
+      "seed": {
+        "mean": 42.0,
+        "std": 0.0
+      },
+      "wer": {
+        "mean": 1.0,
+        "std": 0.0
+      },
+      "inference_runtime_sec": {
+        "mean": 30.010159254074097,
+        "std": 0.0
+      },
+      "inference_samples_per_sec": {
+        "mean": 9.996614728369789,
+        "std": 0.0
+      },
+      "inference_peak_gpu_mem_mb": {
+        "mean": 29.603515625,
+        "std": 0.0
+      },
+      "model_total_params": {
+        "mean": 1505501.0,
+        "std": 0.0
+      },
+      "model_trainable_params": {
+        "mean": 1505501.0,
+        "std": 0.0
+      }
+    }
+  }
+}
