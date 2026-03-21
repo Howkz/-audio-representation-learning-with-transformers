@@ -116,6 +116,7 @@ experiments:
   overrides:
     model:
       patch_time: 2
+      max_len: 2048
 - id: R0_VOX
   enabled: true
   phase: final_tp_fast
@@ -199,3 +200,11 @@ experiments:
   overrides:
     model:
       patch_time: 2
+      max_len: 2048
+    datasets:
+      asr_train:
+        max_duration_sec: 4.0
+      asr_valid:
+        max_duration_sec: 4.0
+      asr_tests:
+      - max_duration_sec: 4.0
