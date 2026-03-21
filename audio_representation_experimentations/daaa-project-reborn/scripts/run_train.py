@@ -106,12 +106,19 @@ def main() -> None:
             )
         if bool(cfg.get("distillation", {}).get("enabled", False)):
             teacher_cfg = cfg.get("teacher", {})
+            distill_cfg = cfg.get("distillation", {})
             print(
                 f"[TRAIN] Teacher source={teacher_cfg.get('source')} "
                 f"family={teacher_cfg.get('family')} target={teacher_cfg.get('target')} "
                 f"model={teacher_cfg.get('model_name')} "
                 f"checkpoint={teacher_cfg.get('checkpoint_path')}"
             )
+            if int(distill_cfg.get("warmup_steps", 0)) > 0:
+                print(
+                    f"[TRAIN] KD warmup steps={distill_cfg.get('warmup_steps')} "
+                    f"start_factor={distill_cfg.get('warmup_start_factor', 0.0)} "
+                    f"target_lambda_kd={distill_cfg.get('lambda_kd')}"
+                )
         if bool(cfg.get("anti_overemit", {}).get("enabled", False)):
             overemit_cfg = cfg.get("anti_overemit", {})
             print(

@@ -92,6 +92,13 @@ un pipeline ASR plus conforme au sujet et plus defensable pour le rendu :
   - desserre les filtres ASR (`12s`, `120 chars`, `25 mots`) pour sortir du regime
     artificiellement etroit qui ne gardait que `127` exemples train
 
+- `configs/phase7/hidden_states_patch2_kd_warmup_librispeech.yaml`
+  - `P7R02`
+  - repart strictement de `P7R01`
+  - garde `patch_time=2` et le dataset relache
+  - ajoute un warmup lineaire de la KD au debut du fine-tune
+  - objectif : eviter le blank collapse immediat observe dans `P7R01`
+
 ## Choix techniques
 
 - Student :
@@ -125,6 +132,11 @@ un pipeline ASR plus conforme au sujet et plus defensable pour le rendu :
     - warmup explicite
     - LR fine-tune reduit
     - early stopping base sur le `selection_score`
+  - une rampe de KD est maintenant supportee :
+    - `distillation.warmup_steps`
+    - `distillation.warmup_start_factor`
+    - la KD peut donc commencer plus faible puis remonter progressivement vers
+      `lambda_kd`
 
 - Distillation interne :
   - meme interface teacher
@@ -242,6 +254,12 @@ make train CONFIG=configs/phase7/hidden_states_patch2_relaxed_librispeech.yaml
 make test CONFIG=configs/phase7/hidden_states_patch2_relaxed_librispeech.yaml
 ```
 
+```bash
+make data CONFIG=configs/phase7/hidden_states_patch2_kd_warmup_librispeech.yaml
+make train CONFIG=configs/phase7/hidden_states_patch2_kd_warmup_librispeech.yaml
+make test CONFIG=configs/phase7/hidden_states_patch2_kd_warmup_librispeech.yaml
+```
+
 ## Criteres de validation
 
 - `make data` doit refuser toute configuration ASR incoherente qui croppe l'audio tout en gardant la transcription complete ;
@@ -252,3 +270,7 @@ make test CONFIG=configs/phase7/hidden_states_patch2_relaxed_librispeech.yaml
   - le student baseline est a environ `100 Hz` contre `50 Hz` pour le teacher ;
   - le train reel apres filtres est tombe a `127` exemples ;
   `P7R01` est la reponse experimentale minimale a ces deux constats.
+- `P7R01` a ensuite montre que ces corrections structurelles, sans amortissement
+  de la KD, menent a un blank collapse integral et reproductible ;
+  `P7R02` teste donc une KD plus faible au debut, sans revenir en arriere sur
+  `patch_time=2` ni sur le dataset plus large.

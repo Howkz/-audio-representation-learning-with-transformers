@@ -172,6 +172,32 @@ def _distillation_enabled(cfg: Dict[str, Any]) -> bool:
     return bool(_distillation_cfg(cfg).get("enabled", False))
 
 
+def _distillation_warmup_steps(cfg: Dict[str, Any]) -> int:
+    return max(0, int(_distillation_cfg(cfg).get("warmup_steps", 0)))
+
+
+def _distillation_warmup_start_factor(cfg: Dict[str, Any]) -> float:
+    return float(max(0.0, min(1.0, float(_distillation_cfg(cfg).get("warmup_start_factor", 0.0)))))
+
+
+def _effective_lambda_kd(cfg: Dict[str, Any], base_lambda_kd: float, optimizer_steps_completed: int) -> float:
+    base_lambda_kd = float(base_lambda_kd)
+    if base_lambda_kd <= 0.0:
+        return 0.0
+    warmup_steps = _distillation_warmup_steps(cfg)
+    if warmup_steps <= 0:
+        return base_lambda_kd
+    start_factor = _distillation_warmup_start_factor(cfg)
+    step_idx = max(0, int(optimizer_steps_completed))
+    if step_idx >= warmup_steps:
+        return base_lambda_kd
+    if warmup_steps == 1:
+        return base_lambda_kd
+    progress = float(step_idx) / float(warmup_steps)
+    factor = start_factor + progress * (1.0 - start_factor)
+    return base_lambda_kd * float(max(0.0, min(1.0, factor)))
+
+
 def _overemit_cfg(cfg: Dict[str, Any]) -> Dict[str, Any]:
     overemit_cfg = cfg.get("anti_overemit", {})
     return overemit_cfg if isinstance(overemit_cfg, dict) else {}
@@ -1052,6 +1078,8 @@ def run_finetune_seed(
     distill_enabled = teacher is not None
     lambda_ctc = float(distill_cfg.get("lambda_ctc", 1.0))
     lambda_kd = float(distill_cfg.get("lambda_kd", 0.0))
+    kd_warmup_steps = _distillation_warmup_steps(cfg)
+    kd_warmup_start_factor = _distillation_warmup_start_factor(cfg)
     temperature = float(distill_cfg.get("temperature", 1.0))
     kd_informative_only = bool(distill_cfg.get("informative_only", False))
     kd_min_nonblank_prob = float(distill_cfg.get("min_nonblank_prob", 0.0))
@@ -1144,6 +1172,7 @@ def run_finetune_seed(
     running_count = 0
     running_ctc_loss = 0.0
     running_kd_loss = 0.0
+    running_kd_lambda_effective = 0.0
     running_kd_active_ratio = 0.0
     running_overemit_loss = 0.0
     running_underemit_loss = 0.0
@@ -1164,6 +1193,7 @@ def run_finetune_seed(
         f"effective_batch={effective_batch_size} "
         f"distillation={distill_enabled} "
         f"lambda_ctc={lambda_ctc:.3f} lambda_kd={lambda_kd:.3f} "
+        f"kd_warmup_steps={kd_warmup_steps} kd_warmup_start={kd_warmup_start_factor:.3f} "
         f"informative_only={kd_informative_only} min_nonblank_prob={kd_min_nonblank_prob:.3f} "
         f"overemit={overemit_enabled} lambda_overemit={lambda_overemit:.3f} "
         f"underemit={underemit_enabled} lambda_underemit={lambda_underemit:.3f} "
@@ -1216,7 +1246,8 @@ def run_finetune_seed(
                 underemit_loss = logits.new_zeros(())
                 mean_nonblank_density = 0.0
                 mean_target_density = 0.0
-                if distill_enabled and lambda_kd > 0.0:
+                effective_lambda_kd = _effective_lambda_kd(cfg, lambda_kd, optimizer_steps_completed) if distill_enabled else 0.0
+                if distill_enabled and effective_lambda_kd > 0.0:
                     teacher_output = teacher.forward_teacher(
                         x_logmel=x,
                         lengths=lengths,
@@ -1257,7 +1288,7 @@ def run_finetune_seed(
                     )
                 loss = (
                     lambda_ctc * ctc_loss
-                    + lambda_kd * kd_loss
+                    + effective_lambda_kd * kd_loss
                     + lambda_overemit * overemit_loss
                     + lambda_underemit * underemit_loss
                 )
@@ -1279,6 +1310,7 @@ def run_finetune_seed(
             running_loss += float(loss.item())
             running_ctc_loss += float(ctc_loss.item())
             running_kd_loss += float(kd_loss.item()) if isinstance(kd_loss, torch.Tensor) else float(kd_loss)
+            running_kd_lambda_effective += float(effective_lambda_kd)
             running_kd_active_ratio += float(kd_active_ratio)
             running_overemit_loss += float(overemit_loss.item()) if isinstance(overemit_loss, torch.Tensor) else float(overemit_loss)
             running_underemit_loss += float(underemit_loss.item()) if isinstance(underemit_loss, torch.Tensor) else float(underemit_loss)
@@ -1507,12 +1539,16 @@ def run_finetune_seed(
         "train_loss": float(running_loss / max(1, running_count)),
         "train_ctc_loss": float(running_ctc_loss / max(1, running_count)),
         "train_kd_loss": float(running_kd_loss / max(1, running_count)),
+        "train_kd_lambda_effective": float(running_kd_lambda_effective / max(1, running_count)),
         "train_kd_active_ratio": float(running_kd_active_ratio / max(1, running_count)),
         "train_overemit_loss": float(running_overemit_loss / max(1, running_count)),
         "train_underemit_loss": float(running_underemit_loss / max(1, running_count)),
         "train_nonblank_density": float(running_nonblank_density / max(1, running_count)),
         "train_target_density": float(running_target_density / max(1, running_count)),
         "distillation_enabled": 1.0 if distill_enabled else 0.0,
+        "distillation_lambda_kd_target": float(lambda_kd),
+        "distillation_kd_warmup_steps": float(kd_warmup_steps),
+        "distillation_kd_warmup_start_factor": float(kd_warmup_start_factor),
         "train_runtime_sec": float(time.time() - train_start_ts),
         "train_peak_gpu_mem_mb": float(train_peak_gpu_mem_mb),
         "train_invalid_length_ratio": float(train_invalid_length_count / max(1, train_sample_count)),
