@@ -786,7 +786,7 @@ def run_pretrain_seed(
         for batch_idx, batch in enumerate(loader):
             if epoch == start_epoch and batch_idx < start_step_in_epoch:
                 continue
-                    x = _batch_audio_features(batch).to(device, non_blocking=True)
+            x = _batch_audio_features(batch).to(device, non_blocking=True)
             lengths = batch["lengths"].to(device, non_blocking=True)
             with torch.no_grad():
                 patch_info = mae.encoder.patch_embedding.patchify(x, lengths=lengths)
@@ -1236,7 +1236,7 @@ def run_finetune_seed(
             if epoch == start_epoch and batch_idx < start_step_in_epoch:
                 continue
 
-                x = _batch_audio_features(batch).to(device, non_blocking=True)
+            x = _batch_audio_features(batch).to(device, non_blocking=True)
             lengths = batch["lengths"].to(device, non_blocking=True)
             targets = batch["targets"].to(device, non_blocking=True)
             target_lengths = batch["target_lengths"].to(device, non_blocking=True)
