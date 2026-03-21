@@ -113,7 +113,7 @@ diagnostics:
 datasets:
   pretrain:
     name: "Codec-SUPERB/fluent_speech_commands_synth"
-    config: "original"
+    config: null
     split: "train"
     max_samples: 4000
     transcript_key: null

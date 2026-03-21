@@ -131,7 +131,7 @@ diagnostics:
 datasets:
   pretrain:
     name: "Codec-SUPERB/fluent_speech_commands_synth"
-    config: "original"
+    config: null
     split: "train"
     max_samples: 4000
     transcript_key: null
@@ -176,7 +176,7 @@ datasets:
       strict_asr_consistency: true
   probe_train:
     name: "Codec-SUPERB/fluent_speech_commands_synth"
-    config: "original"
+    config: null
     split: "train"
     max_samples: 2000
     max_duration_sec: 4.0
@@ -184,7 +184,7 @@ datasets:
     feature_norm: "utterance"
   probe_valid:
     name: "Codec-SUPERB/fluent_speech_commands_synth"
-    config: "original"
+    config: null
     split: "validation"
     max_samples: 500
     max_duration_sec: 4.0
@@ -192,7 +192,7 @@ datasets:
     feature_norm: "utterance"
   probe_tests:
     - name: "Codec-SUPERB/fluent_speech_commands_synth"
-      config: "original"
+      config: null
       split: "test"
       max_samples: 500
       max_duration_sec: 4.0
